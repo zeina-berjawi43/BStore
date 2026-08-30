@@ -1,18 +1,63 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { useColorScheme } from 'react-native';
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
+import { Stack } from 'expo-router';
+import { useEffect } from 'react';
 
-SplashScreen.preventAutoHideAsync();
+import {
+  registerForPushNotificationsAsync,
+} from '../../utils/notifications';
 
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
+import {
+  saveExpoPushToken,
+  isLoggedIn,
+} from '../services/authService';
+
+export default function RootLayout() {
+  // ==========================================================
+  // REGISTER PUSH NOTIFICATIONS
+  // ==========================================================
+
+  useEffect(() => {
+    const registerNotifications = async () => {
+      try {
+        const loggedIn = await isLoggedIn();
+
+        if (!loggedIn) {
+          return;
+        }
+
+        const token =
+          await registerForPushNotificationsAsync();
+
+        if (!token) {
+          return;
+        }
+
+        await saveExpoPushToken(token);
+
+        console.log(
+          'PUSH TOKEN REGISTERED AND SAVED'
+        );
+      } catch (error) {
+        console.log(
+          'NOTIFICATION REGISTRATION ERROR:',
+          error
+        );
+      }
+    };
+
+    registerNotifications();
+  }, []);
+
+  // ==========================================================
+  // ROUTER
+  // ==========================================================
+
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-      <AppTabs />
-    </ThemeProvider>
+    <Stack
+      initialRouteName="loading"
+      screenOptions={{
+        headerShown: false,
+      }}
+    />
   );
 }
