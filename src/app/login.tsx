@@ -16,58 +16,38 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 
 import {
-  login,
-  saveExpoPushToken,
+  requestLoginOTP,
 } from '../services/authService';
-
-import {
-  registerForPushNotificationsAsync,
-} from '../../utils/notifications';
 
 export default function Login() {
 
   const [phone, setPhone] =
     useState('');
 
-  const [password, setPassword] =
-    useState('');
-
   const [phoneError, setPhoneError] =
-    useState('');
-
-  const [passwordError, setPasswordError] =
     useState('');
 
   const [generalError, setGeneralError] =
     useState('');
 
-  const [showPassword, setShowPassword] =
-    useState(false);
-
   const [loading, setLoading] =
     useState(false);
 
-
-  // =====================================================
+  // =========================================================
   // LOGIN
-  // =====================================================
+  // =========================================================
 
   const handleLogin = async () => {
 
     setPhoneError('');
-    setPasswordError('');
     setGeneralError('');
 
     const cleanPhone =
       phone.trim();
 
-    const cleanPassword =
-      password.trim();
-
-
-    // ===================================================
-    // PHONE EMPTY
-    // ===================================================
+    // =======================================================
+    // EMPTY
+    // =======================================================
 
     if (!cleanPhone) {
 
@@ -78,15 +58,18 @@ export default function Login() {
       return;
     }
 
-
-    // ===================================================
-    // PHONE FORMAT
-    // ===================================================
+    // =======================================================
+    // FORMAT
+    // =======================================================
 
     const phoneRegex =
       /^[0-9+\-\s()]{7,20}$/;
 
-    if (!phoneRegex.test(cleanPhone)) {
+    if (
+      !phoneRegex.test(
+        cleanPhone
+      )
+    ) {
 
       setPhoneError(
         'Please enter a valid phone number.'
@@ -95,124 +78,64 @@ export default function Login() {
       return;
     }
 
-
-    // ===================================================
-    // PASSWORD EMPTY
-    // ===================================================
-
-    if (!cleanPassword) {
-
-      setPasswordError(
-        'Please enter your password.'
-      );
-
-      return;
-    }
-
-
-    // ===================================================
-    // START LOGIN
-    // ===================================================
+    // =======================================================
+    // REQUEST OTP
+    // =======================================================
 
     try {
 
       setLoading(true);
 
-      const data =
-        await login(
-          cleanPhone,
-          cleanPassword
-        );
-
-
-      console.log(
-        'LOGIN USER:',
-        data.user
+      await requestLoginOTP(
+        cleanPhone
       );
 
-      console.log(
-        'LOGIN COMPLETED SUCCESSFULLY'
-      );
+      // Save phone temporarily
+      // for verify-otp page.
 
+      router.push({
+        pathname:
+          '/verify-otp',
 
-      // =================================================
-      // REGISTER PUSH NOTIFICATIONS
-      // =================================================
+        params: {
+          phone:
+            cleanPhone,
 
-      try {
-
-        const expoPushToken =
-          await registerForPushNotificationsAsync();
-
-        if (expoPushToken) {
-
-          await saveExpoPushToken(
-            expoPushToken
-          );
-
-        }
-
-      } catch (notificationError) {
-
-        console.log(
-          'NOTIFICATION SETUP ERROR:',
-          notificationError
-        );
-
-      }
-
-
-      // =================================================
-      // GO HOME
-      // =================================================
-
-      router.replace('/');
+          mode:
+            'login',
+        },
+      });
 
     } catch (error: any) {
 
       console.log(
-        'LOGIN ERROR:',
+        'REQUEST LOGIN OTP ERROR:',
         error
       );
 
-
-      if (
-        error?.message ===
-        'Invalid phone number or password'
-      ) {
-
-        setPasswordError(
-          'Incorrect phone number or password.'
-        );
-
-      } else {
-
-        setGeneralError(
-          error?.message ||
+      setGeneralError(
+        error?.message ||
           'Cannot connect to the server. Please try again.'
-        );
-
-      }
+      );
 
     } finally {
 
       setLoading(false);
-
     }
-
   };
 
-
-  // =====================================================
+  // =========================================================
   // UI
-  // =====================================================
+  // =========================================================
 
   return (
 
     <View style={styles.container}>
 
       <ScrollView
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={
+          false
+        }
         contentContainerStyle={
           styles.scrollContent
         }
@@ -223,7 +146,9 @@ export default function Login() {
         <View style={styles.header}>
 
           <Pressable
-            style={styles.backButton}
+            style={
+              styles.backButton
+            }
             onPress={() =>
               router.back()
             }
@@ -238,27 +163,31 @@ export default function Login() {
 
           </Pressable>
 
+          <View
+            style={
+              styles.headerText
+            }
+          >
 
-          <View style={styles.headerText}>
-
-            <Text style={styles.title}>
+            <Text
+              style={styles.title}
+            >
               Welcome Back
             </Text>
 
-            <Text style={styles.subtitle}>
-              Login to your account
+            <Text
+              style={styles.subtitle}
+            >
+              Login with your phone number
             </Text>
 
           </View>
 
         </View>
 
-
-        {/* LOGIN CARD */}
+        {/* CARD */}
 
         <View style={styles.card}>
-
-          {/* PHONE */}
 
           <Text style={styles.label}>
             Phone Number
@@ -295,128 +224,65 @@ export default function Login() {
 
           {phoneError ? (
 
-            <Text style={styles.errorText}>
+            <Text
+              style={
+                styles.errorText
+              }
+            >
               {phoneError}
             </Text>
 
           ) : null}
 
+          <View
+            style={
+              styles.infoBox
+            }
+          >
 
-          {/* PASSWORD */}
-
-          <Text style={styles.label}>
-            Password
-          </Text>
-
-
-          <View style={styles.passwordWrapper}>
-
-            <TextInput
-              placeholder="Password"
-              placeholderTextColor="#888888"
-              value={password}
-              onChangeText={(text) => {
-
-                setPassword(text);
-
-                if (passwordError) {
-                  setPasswordError('');
-                }
-
-                if (generalError) {
-                  setGeneralError('');
-                }
-
-              }}
-              secureTextEntry={
-                !showPassword
-              }
-              editable={!loading}
-              style={[
-                styles.input,
-                styles.passwordInput,
-                passwordError
-                  ? styles.inputError
-                  : null,
-              ]}
+            <Ionicons
+              name="chatbubble-ellipses-outline"
+              size={21}
+              color="#D4AF37"
             />
 
-
-            <Pressable
-              style={styles.eyeButton}
-              onPress={() =>
-                setShowPassword(
-                  !showPassword
-                )
+            <Text
+              style={
+                styles.infoText
               }
-              disabled={loading}
             >
-
-              <Ionicons
-                name={
-                  showPassword
-                    ? 'eye-outline'
-                    : 'eye-off-outline'
-                }
-                size={21}
-                color="#777777"
-              />
-
-            </Pressable>
+              A verification code will be
+              sent to your phone.
+            </Text>
 
           </View>
 
-
-          {passwordError ? (
-
-            <Text style={styles.errorText}>
-              {passwordError}
-            </Text>
-
-          ) : null}
-
-
-          {/* =================================================
-              FORGOT PASSWORD
-          ================================================= */}
-
-          <Pressable
-            style={styles.forgotButton}
-            onPress={() =>
-              router.push('/forgot-password')
-            }
-            disabled={loading}
-          >
-
-            <Text style={styles.forgotText}>
-              Forgot Password?
-            </Text>
-
-          </Pressable>
-
-
-          {/* GENERAL ERROR */}
-
           {generalError ? (
 
-            <Text style={styles.generalError}>
+            <Text
+              style={
+                styles.generalError
+              }
+            >
               {generalError}
             </Text>
 
           ) : null}
 
-
-          {/* LOGIN BUTTON */}
+          {/* LOGIN */}
 
           <Pressable
             style={[
               styles.loginButton,
-              loading
-                ? styles.loginButtonDisabled
-                : null,
+              loading &&
+                styles.disabledButton,
             ]}
-            onPress={handleLogin}
-            disabled={loading}
+            onPress={
+              handleLogin
+            }
+            disabled={
+              loading
+            }
           >
 
             {loading ? (
@@ -429,8 +295,12 @@ export default function Login() {
             ) : (
 
               <>
-                <Text style={styles.loginText}>
-                  Login
+                <Text
+                  style={
+                    styles.loginText
+                  }
+                >
+                  Continue
                 </Text>
 
                 <Ionicons
@@ -446,25 +316,39 @@ export default function Login() {
 
         </View>
 
+        {/* REGISTER */}
 
-        {/* CREATE ACCOUNT */}
+        <View
+          style={
+            styles.registerSection
+          }
+        >
 
-        <View style={styles.registerSection}>
-
-          <Text style={styles.registerQuestion}>
+          <Text
+            style={
+              styles.registerQuestion
+            }
+          >
             Don't have an account?
           </Text>
 
-
           <Pressable
-            style={styles.registerButton}
+            style={
+              styles.registerButton
+            }
             onPress={() =>
-              router.push('/register')
+              router.push(
+                '/register'
+              )
             }
             disabled={loading}
           >
 
-            <Text style={styles.registerText}>
+            <Text
+              style={
+                styles.registerText
+              }
+            >
               Create Account
             </Text>
 
@@ -481,11 +365,8 @@ export default function Login() {
       </ScrollView>
 
     </View>
-
   );
-
 }
-
 
 // =========================================================
 // STYLES
@@ -496,7 +377,8 @@ const styles =
 
     container: {
       flex: 1,
-      backgroundColor: '#F7F7F7',
+      backgroundColor:
+        '#F7F7F7',
       paddingTop: 20,
     },
 
@@ -516,11 +398,14 @@ const styles =
       width: 42,
       height: 42,
       borderRadius: 21,
-      backgroundColor: '#FFFFFF',
+      backgroundColor:
+        '#FFFFFF',
       borderWidth: 1,
-      borderColor: '#E0E0E0',
+      borderColor:
+        '#E0E0E0',
       alignItems: 'center',
-      justifyContent: 'center',
+      justifyContent:
+        'center',
       marginRight: 12,
     },
 
@@ -541,10 +426,12 @@ const styles =
     },
 
     card: {
-      backgroundColor: '#FFFFFF',
+      backgroundColor:
+        '#FFFFFF',
       borderRadius: 18,
       borderWidth: 1,
-      borderColor: '#E0E0E0',
+      borderColor:
+        '#E0E0E0',
       padding: 18,
     },
 
@@ -557,22 +444,26 @@ const styles =
 
     input: {
       height: 52,
-      backgroundColor: '#F7F7F7',
+      backgroundColor:
+        '#F7F7F7',
       borderRadius: 14,
       paddingHorizontal: 16,
       fontSize: 15,
       borderWidth: 1,
-      borderColor: '#E0E0E0',
+      borderColor:
+        '#E0E0E0',
       marginBottom: 7,
       color: '#000000',
     },
 
     inputError: {
-      borderColor: '#D93025',
+      borderColor:
+        '#D93025',
     },
 
     errorText: {
-      color: '#D93025',
+      color:
+        '#D93025',
       fontSize: 12,
       marginBottom: 14,
       marginLeft: 4,
@@ -580,96 +471,100 @@ const styles =
     },
 
     generalError: {
-      color: '#D93025',
+      color:
+        '#D93025',
       fontSize: 12,
-      marginTop: 4,
+      marginTop: 10,
       marginBottom: 10,
       marginLeft: 4,
       fontWeight: '500',
     },
 
-    passwordWrapper: {
-      position: 'relative',
+    infoBox: {
+      flexDirection:
+        'row',
+      alignItems:
+        'center',
+      backgroundColor:
+        '#FFFBEF',
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor:
+        '#E8D89B',
+      padding: 12,
+      marginTop: 8,
+      gap: 9,
     },
 
-    passwordInput: {
-      paddingRight: 50,
-    },
-
-    eyeButton: {
-      position: 'absolute',
-      right: 15,
-      top: 0,
-      height: 52,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-
-    /* =====================================================
-       FORGOT PASSWORD
-    ===================================================== */
-
-    forgotButton: {
-      alignSelf: 'flex-end',
-      marginTop: 1,
-      marginBottom: 4,
-      paddingVertical: 4,
-    },
-
-    forgotText: {
-      color: '#D4AF37',
-      fontSize: 13,
-      fontWeight: '700',
+    infoText: {
+      flex: 1,
+      fontSize: 12,
+      lineHeight: 18,
+      color:
+        '#555555',
     },
 
     loginButton: {
-      marginTop: 12,
-      backgroundColor: '#D4AF37',
+      marginTop: 18,
+      backgroundColor:
+        '#D4AF37',
       paddingVertical: 14,
       borderRadius: 25,
-      alignItems: 'center',
-      justifyContent: 'center',
-      flexDirection: 'row',
+      alignItems:
+        'center',
+      justifyContent:
+        'center',
+      flexDirection:
+        'row',
       gap: 8,
       minHeight: 50,
     },
 
-    loginButtonDisabled: {
+    disabledButton: {
       opacity: 0.7,
     },
 
     loginText: {
-      color: '#FFFFFF',
+      color:
+        '#FFFFFF',
       fontSize: 16,
       fontWeight: '800',
     },
 
     registerSection: {
       marginTop: 25,
-      alignItems: 'center',
+      alignItems:
+        'center',
     },
 
     registerQuestion: {
       fontSize: 13,
-      color: '#888888',
+      color:
+        '#888888',
       marginBottom: 8,
     },
 
     registerButton: {
-      backgroundColor: '#FFFFFF',
+      backgroundColor:
+        '#FFFFFF',
       borderWidth: 1,
-      borderColor: '#E0E0E0',
+      borderColor:
+        '#E0E0E0',
       borderRadius: 22,
       paddingVertical: 11,
       paddingHorizontal: 18,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
+      flexDirection:
+        'row',
+      alignItems:
+        'center',
+      justifyContent:
+        'center',
       gap: 6,
     },
 
     registerText: {
-      color: '#000000',
+      color:
+        '#000000',
       fontSize: 14,
       fontWeight: '700',
     },

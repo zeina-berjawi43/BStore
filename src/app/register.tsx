@@ -1,3 +1,4 @@
+
 import {
   View,
   Text,
@@ -5,28 +6,31 @@ import {
   Pressable,
   StyleSheet,
   ScrollView,
-  Alert,
+  ActivityIndicator,
 } from 'react-native';
 
-import { router } from 'expo-router';
-
-import { Ionicons } from '@expo/vector-icons';
-
-import { useState } from 'react';
+import {
+  router,
+} from 'expo-router';
 
 import {
-  register,
+  Ionicons,
+} from '@expo/vector-icons';
+
+import {
+  useState,
+} from 'react';
+
+import {
+  registerUser,
 } from '../services/authService';
 
-// =========================================================
-// REGISTER
-// =========================================================
-
 export default function Register() {
-  const [name, setName] =
+
+  const [firstName, setFirstName] =
     useState('');
 
-  const [email, setEmail] =
+  const [lastName, setLastName] =
     useState('');
 
   const [phone, setPhone] =
@@ -35,97 +39,60 @@ export default function Register() {
   const [address, setAddress] =
     useState('');
 
-  const [password, setPassword] =
+  const [error, setError] =
     useState('');
 
-  const [confirmPassword, setConfirmPassword] =
-    useState('');
-
-  const [showPassword, setShowPassword] =
+  const [loading, setLoading] =
     useState(false);
 
-  const [showConfirmPassword, setShowConfirmPassword] =
-    useState(false);
-
-  const [errors, setErrors] =
-    useState({
-      name: '',
-      email: '',
-      phone: '',
-      address: '',
-      password: '',
-      confirmPassword: '',
-    });
-
-  const [isRegistering, setIsRegistering] =
-    useState(false);
-
-  // =====================================================
+  // =========================================================
   // REGISTER
-  // =====================================================
+  // =========================================================
 
-  const handleRegister = async () => {
-    const cleanName =
-      name.trim();
+  const handleRegister =
+    async () => {
 
-    const cleanEmail =
-      email.trim().toLowerCase();
+      setError('');
 
-    const cleanPhone =
-      phone.trim();
+      const cleanFirstName =
+        firstName.trim();
 
-    const cleanAddress =
-      address.trim();
+      const cleanLastName =
+        lastName.trim();
 
-    const newErrors = {
-      name: '',
-      email: '',
-      phone: '',
-      address: '',
-      password: '',
-      confirmPassword: '',
-    };
+      const cleanPhone =
+        phone.trim();
 
-    // ===================================================
-    // NAME
-    // ===================================================
+      const cleanAddress =
+        address.trim();
 
-    if (!cleanName) {
-      newErrors.name =
-        'Full name is required.';
-    } else if (
-      cleanName.length < 3
-    ) {
-      newErrors.name =
-        'Please enter your full name.';
-    }
+      if (!cleanFirstName) {
 
-    // ===================================================
-    // EMAIL — OPTIONAL
-    // ===================================================
+        setError(
+          'Please enter your first name.'
+        );
 
-    if (cleanEmail) {
-      const emailRegex =
-        /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-      if (
-        !emailRegex.test(
-          cleanEmail
-        )
-      ) {
-        newErrors.email =
-          'Please enter a valid email address.';
+        return;
       }
-    }
 
-    // ===================================================
-    // PHONE
-    // ===================================================
+      if (!cleanLastName) {
 
-    if (!cleanPhone) {
-      newErrors.phone =
-        'Phone number is required.';
-    } else {
+        setError(
+          'Please enter your last name.'
+        );
+
+        return;
+      }
+
+      if (!cleanPhone) {
+
+        setError(
+          'Please enter your phone number.'
+        );
+
+        return;
+      }
+
       const phoneRegex =
         /^[0-9+\-\s()]{7,20}$/;
 
@@ -134,194 +101,84 @@ export default function Register() {
           cleanPhone
         )
       ) {
-        newErrors.phone =
-          'Please enter a valid phone number.';
-      }
-    }
 
-    // ===================================================
-    // ADDRESS
-    // ===================================================
-
-    if (!cleanAddress) {
-      newErrors.address =
-        'Address is required.';
-    }
-
-    // ===================================================
-    // PASSWORD
-    // ===================================================
-
-    if (!password) {
-      newErrors.password =
-        'Password is required.';
-    } else if (
-      password.length < 6
-    ) {
-      newErrors.password =
-        'Password must be at least 6 characters.';
-    }
-
-    // ===================================================
-    // CONFIRM PASSWORD
-    // ===================================================
-
-    if (!confirmPassword) {
-      newErrors.confirmPassword =
-        'Please confirm your password.';
-    } else if (
-      password !== confirmPassword
-    ) {
-      newErrors.confirmPassword =
-        'Passwords do not match.';
-    }
-
-    // ===================================================
-    // SET ERRORS
-    // ===================================================
-
-    setErrors(newErrors);
-
-    // ===================================================
-    // STOP IF INVALID
-    // ===================================================
-
-    if (
-      Object.values(newErrors).some(
-        error =>
-          error !== ''
-      )
-    ) {
-      return;
-    }
-
-    // ===================================================
-    // PREVENT DOUBLE REGISTER
-    // ===================================================
-
-    if (isRegistering) {
-      return;
-    }
-
-    setIsRegistering(true);
-
-    // ===================================================
-    // SEND TO BACKEND
-    // ===================================================
-
-    try {
-      const data =
-        await register(
-          cleanName,
-          cleanPhone,
-          password,
-          cleanAddress,
-          cleanEmail || undefined
+        setError(
+          'Please enter a valid phone number.'
         );
 
-      console.log(
-        'REGISTER SUCCESS:',
-        data
-      );
+        return;
+      }
 
-      // =================================================
-      // CLEAR FORM
-      // =================================================
+      if (!cleanAddress) {
 
-      setName('');
-      setEmail('');
-      setPhone('');
-      setAddress('');
-      setPassword('');
-      setConfirmPassword('');
+        setError(
+          'Please enter your address.'
+        );
 
-      setShowPassword(false);
-      setShowConfirmPassword(false);
+        return;
+      }
 
-      setErrors({
-        name: '',
-        email: '',
-        phone: '',
-        address: '',
-        password: '',
-        confirmPassword: '',
-      });
+      try {
 
-      console.log(
-        'AUTO LOGIN COMPLETED'
-      );
+        setLoading(true);
 
-      // =================================================
-      // GO HOME
-      // =================================================
+        await registerUser({
 
-      router.replace('/');
+          firstName:
+            cleanFirstName,
 
-    } catch (error: any) {
-      console.log(
-        'REGISTER ERROR:',
-        error
-      );
-
-      // =================================================
-      // PHONE ALREADY EXISTS
-      // =================================================
-
-      if (
-        error?.message ===
-        'Phone number already exists'
-      ) {
-        setErrors({
-          ...newErrors,
+          lastName:
+            cleanLastName,
 
           phone:
-            'An account with this phone number already exists.',
+            cleanPhone,
+
+          address:
+            cleanAddress,
         });
 
-        return;
-      }
+        router.push({
 
-      // =================================================
-      // EMAIL ALREADY EXISTS
-      // =================================================
+          pathname:
+            '/verify-otp',
 
-      if (
-        error?.message ===
-        'Email already exists'
-      ) {
-        setErrors({
-          ...newErrors,
+          params: {
 
-          email:
-            'An account with this email already exists.',
+            phone:
+              cleanPhone,
+
+            mode:
+              'register',
+          },
+
         });
 
-        return;
+      } catch (error: any) {
+
+        console.log(
+          'REGISTER ERROR:',
+          error
+        );
+
+        setError(
+          error?.message ||
+            'Registration failed. Please try again.'
+        );
+
+      } finally {
+
+        setLoading(false);
       }
-
-      // =================================================
-      // OTHER ERROR
-      // =================================================
-
-      Alert.alert(
-        'Registration Error',
-        error?.message ||
-          'Something went wrong. Please try again.'
-      );
-
-    } finally {
-      setIsRegistering(false);
-    }
-  };
-
-  // =====================================================
-  // UI
-  // =====================================================
+    };
 
   return (
+
     <View style={styles.container}>
+
       <ScrollView
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={
+          false
+        }
         contentContainerStyle={
           styles.scrollContent
         }
@@ -330,367 +187,273 @@ export default function Register() {
         {/* HEADER */}
 
         <View style={styles.header}>
+
           <Pressable
-            style={styles.backButton}
+            style={
+              styles.backButton
+            }
             onPress={() =>
               router.back()
             }
-            disabled={isRegistering}
+            disabled={loading}
           >
+
             <Ionicons
               name="arrow-back"
               size={23}
               color="#000000"
             />
+
           </Pressable>
 
-          <View style={styles.headerText}>
-            <Text style={styles.title}>
+          <View
+            style={
+              styles.headerText
+            }
+          >
+
+            <Text
+              style={styles.title}
+            >
               Create Account
             </Text>
 
-            <Text style={styles.subtitle}>
-              Register to start shopping
+            <Text
+              style={styles.subtitle}
+            >
+              Enter your information
             </Text>
+
           </View>
+
         </View>
 
-        {/* FORM */}
+        {/* CARD */}
 
-        <View style={styles.formCard}>
+        <View style={styles.card}>
 
-          {/* FULL NAME */}
+          {/* FIRST NAME */}
 
           <Text style={styles.label}>
-            Full Name *
+            First Name
           </Text>
 
           <TextInput
-            placeholder="Full Name"
+            placeholder="First Name"
             placeholderTextColor="#888888"
-            value={name}
-            onChangeText={text => {
-              setName(text);
+            value={firstName}
+            onChangeText={(text) => {
 
-              if (errors.name) {
-                setErrors({
-                  ...errors,
-                  name: '',
-                });
+              setFirstName(text);
+
+              if (error) {
+                setError('');
               }
+
             }}
             autoCapitalize="words"
             autoCorrect={false}
-            editable={!isRegistering}
-            style={[
-              styles.input,
-              errors.name &&
-                styles.inputError,
-            ]}
+            editable={!loading}
+            style={styles.input}
           />
 
-          {errors.name ? (
-            <Text style={styles.errorText}>
-              {errors.name}
-            </Text>
-          ) : null}
+          {/* LAST NAME */}
 
-          {/* EMAIL */}
-
-          <View style={styles.labelRow}>
-            <Text style={styles.label}>
-              Email
-            </Text>
-
-            <Text style={styles.optionalText}>
-              Optional
-            </Text>
-          </View>
+          <Text style={styles.label}>
+            Last Name
+          </Text>
 
           <TextInput
-            placeholder="Email address (optional)"
+            placeholder="Last Name"
             placeholderTextColor="#888888"
-            value={email}
-            onChangeText={text => {
-              setEmail(text);
+            value={lastName}
+            onChangeText={(text) => {
 
-              if (errors.email) {
-                setErrors({
-                  ...errors,
-                  email: '',
-                });
+              setLastName(text);
+
+              if (error) {
+                setError('');
               }
-            }}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-            editable={!isRegistering}
-            style={[
-              styles.input,
-              errors.email &&
-                styles.inputError,
-            ]}
-          />
 
-          {errors.email ? (
-            <Text style={styles.errorText}>
-              {errors.email}
-            </Text>
-          ) : null}
+            }}
+            autoCapitalize="words"
+            autoCorrect={false}
+            editable={!loading}
+            style={styles.input}
+          />
 
           {/* PHONE */}
 
           <Text style={styles.label}>
-            Phone Number *
+            Phone Number
           </Text>
 
           <TextInput
             placeholder="Phone Number"
             placeholderTextColor="#888888"
             value={phone}
-            onChangeText={text => {
+            onChangeText={(text) => {
+
               setPhone(text);
 
-              if (errors.phone) {
-                setErrors({
-                  ...errors,
-                  phone: '',
-                });
+              if (error) {
+                setError('');
               }
+
             }}
             keyboardType="phone-pad"
             autoCapitalize="none"
             autoCorrect={false}
-            editable={!isRegistering}
-            style={[
-              styles.input,
-              errors.phone &&
-                styles.inputError,
-            ]}
+            editable={!loading}
+            style={styles.input}
           />
-
-          {errors.phone ? (
-            <Text style={styles.errorText}>
-              {errors.phone}
-            </Text>
-          ) : null}
 
           {/* ADDRESS */}
 
           <Text style={styles.label}>
-            Address *
+            Address
           </Text>
 
           <TextInput
             placeholder="Address"
             placeholderTextColor="#888888"
             value={address}
-            onChangeText={text => {
+            onChangeText={(text) => {
+
               setAddress(text);
 
-              if (errors.address) {
-                setErrors({
-                  ...errors,
-                  address: '',
-                });
+              if (error) {
+                setError('');
               }
+
             }}
             multiline
-            editable={!isRegistering}
+            textAlignVertical="top"
+            editable={!loading}
             style={[
               styles.input,
               styles.addressInput,
-              errors.address &&
-                styles.inputError,
             ]}
           />
 
-          {errors.address ? (
-            <Text style={styles.errorText}>
-              {errors.address}
+          {error ? (
+
+            <Text
+              style={styles.errorText}
+            >
+              {error}
             </Text>
+
           ) : null}
 
-          {/* PASSWORD */}
+          {/* INFO */}
 
-          <Text style={styles.label}>
-            Password *
-          </Text>
+          <View
+            style={styles.infoBox}
+          >
 
-          <View style={styles.passwordWrapper}>
-            <TextInput
-              placeholder="Password"
-              placeholderTextColor="#888888"
-              value={password}
-              onChangeText={text => {
-                setPassword(text);
-
-                if (errors.password) {
-                  setErrors({
-                    ...errors,
-                    password: '',
-                  });
-                }
-              }}
-              secureTextEntry={
-                !showPassword
-              }
-              editable={!isRegistering}
-              style={[
-                styles.input,
-                styles.passwordInput,
-                errors.password &&
-                  styles.inputError,
-              ]}
+            <Ionicons
+              name="shield-checkmark-outline"
+              size={21}
+              color="#D4AF37"
             />
 
-            <Pressable
-              style={styles.eyeButton}
-              onPress={() =>
-                setShowPassword(
-                  !showPassword
-                )
-              }
-              disabled={isRegistering}
+            <Text
+              style={styles.infoText}
             >
-              <Ionicons
-                name={
-                  showPassword
-                    ? 'eye-outline'
-                    : 'eye-off-outline'
-                }
-                size={21}
-                color="#777777"
-              />
-            </Pressable>
-          </View>
-
-          {errors.password ? (
-            <Text style={styles.errorText}>
-              {errors.password}
+              After registration, your phone
+              number will need to be verified.
             </Text>
-          ) : null}
 
-          {/* CONFIRM PASSWORD */}
-
-          <Text style={styles.label}>
-            Confirm Password *
-          </Text>
-
-          <View style={styles.passwordWrapper}>
-            <TextInput
-              placeholder="Confirm Password"
-              placeholderTextColor="#888888"
-              value={confirmPassword}
-              onChangeText={text => {
-                setConfirmPassword(text);
-
-                if (
-                  errors.confirmPassword
-                ) {
-                  setErrors({
-                    ...errors,
-                    confirmPassword: '',
-                  });
-                }
-              }}
-              secureTextEntry={
-                !showConfirmPassword
-              }
-              editable={!isRegistering}
-              style={[
-                styles.input,
-                styles.passwordInput,
-                errors.confirmPassword &&
-                  styles.inputError,
-              ]}
-            />
-
-            <Pressable
-              style={styles.eyeButton}
-              onPress={() =>
-                setShowConfirmPassword(
-                  !showConfirmPassword
-                )
-              }
-              disabled={isRegistering}
-            >
-              <Ionicons
-                name={
-                  showConfirmPassword
-                    ? 'eye-outline'
-                    : 'eye-off-outline'
-                }
-                size={21}
-                color="#777777"
-              />
-            </Pressable>
           </View>
-
-          {errors.confirmPassword ? (
-            <Text style={styles.errorText}>
-              {errors.confirmPassword}
-            </Text>
-          ) : null}
 
           {/* REGISTER */}
 
           <Pressable
             style={[
               styles.registerButton,
-              isRegistering &&
-                styles.registerButtonDisabled,
+              loading &&
+                styles.disabledButton,
             ]}
             onPress={
               handleRegister
             }
-            disabled={
-              isRegistering
-            }
+            disabled={loading}
           >
-            <Text style={styles.registerText}>
-              {isRegistering
-                ? 'Creating Account...'
-                : 'Create Account'}
-            </Text>
 
-            {!isRegistering && (
-              <Ionicons
-                name="arrow-forward"
-                size={18}
+            {loading ? (
+
+              <ActivityIndicator
+                size="small"
                 color="#FFFFFF"
               />
+
+            ) : (
+
+              <>
+                <Text
+                  style={
+                    styles.registerButtonText
+                  }
+                >
+                  Create Account
+                </Text>
+
+                <Ionicons
+                  name="arrow-forward"
+                  size={18}
+                  color="#FFFFFF"
+                />
+              </>
+
             )}
+
           </Pressable>
+
         </View>
 
         {/* LOGIN */}
 
-        <View style={styles.loginSection}>
-          <Text style={styles.loginQuestion}>
+        <View
+          style={
+            styles.loginSection
+          }
+        >
+
+          <Text
+            style={
+              styles.loginQuestion
+            }
+          >
             Already have an account?
           </Text>
 
           <Pressable
-            style={styles.loginButton}
-            onPress={() =>
-              router.push('/login')
+            style={
+              styles.loginButton
             }
-            disabled={isRegistering}
+            onPress={() =>
+              router.push(
+                '/login'
+              )
+            }
+            disabled={loading}
           >
-            <Text style={styles.loginText}>
+
+            <Text
+              style={
+                styles.loginText
+              }
+            >
               Login
             </Text>
 
-            <Ionicons
-              name="chevron-forward"
-              size={17}
-              color="#D4AF37"
-            />
           </Pressable>
+
         </View>
 
       </ScrollView>
+
     </View>
   );
 }
@@ -699,178 +462,188 @@ export default function Register() {
 // STYLES
 // =========================================================
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F7F7F7',
-    paddingTop: 20,
-  },
+const styles =
+  StyleSheet.create({
 
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 18,
-    paddingBottom: 40,
-  },
+    container: {
+      flex: 1,
+      backgroundColor:
+        '#F7F7F7',
+      paddingTop: 20,
+    },
 
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 25,
-  },
+    scrollContent: {
+      paddingHorizontal: 20,
+      paddingTop: 18,
+      paddingBottom: 40,
+    },
 
-  backButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
+    header: {
+      flexDirection:
+        'row',
+      alignItems:
+        'center',
+      marginBottom: 25,
+    },
 
-  headerText: {
-    flex: 1,
-  },
+    backButton: {
+      width: 42,
+      height: 42,
+      borderRadius: 21,
+      backgroundColor:
+        '#FFFFFF',
+      borderWidth: 1,
+      borderColor:
+        '#E0E0E0',
+      alignItems:
+        'center',
+      justifyContent:
+        'center',
+      marginRight: 12,
+    },
 
-  title: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#000000',
-  },
+    headerText: {
+      flex: 1,
+    },
 
-  subtitle: {
-    marginTop: 4,
-    fontSize: 13,
-    color: '#888888',
-  },
+    title: {
+      fontSize: 28,
+      fontWeight: '800',
+      color: '#000000',
+    },
 
-  formCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    padding: 18,
-  },
+    subtitle: {
+      marginTop: 4,
+      fontSize: 13,
+      color: '#888888',
+    },
 
-  labelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 7,
-  },
+    card: {
+      backgroundColor:
+        '#FFFFFF',
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor:
+        '#E0E0E0',
+      padding: 18,
+    },
 
-  label: {
-    marginBottom: 7,
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#1A1A1A',
-  },
+    label: {
+      marginBottom: 7,
+      marginTop: 3,
+      fontSize: 14,
+      fontWeight: '700',
+      color: '#1A1A1A',
+    },
 
-  optionalText: {
-    marginLeft: 7,
-    marginBottom: 7,
-    fontSize: 11,
-    color: '#888888',
-    fontWeight: '500',
-  },
+    input: {
+      minHeight: 52,
+      backgroundColor:
+        '#F7F7F7',
+      borderRadius: 14,
+      paddingHorizontal: 16,
+      paddingVertical: 13,
+      fontSize: 15,
+      borderWidth: 1,
+      borderColor:
+        '#E0E0E0',
+      marginBottom: 13,
+      color: '#000000',
+    },
 
-  input: {
-    minHeight: 52,
-    backgroundColor: '#F7F7F7',
-    borderRadius: 13,
-    paddingHorizontal: 16,
-    paddingVertical: 13,
-    fontSize: 14,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    marginBottom: 16,
-    color: '#000000',
-  },
+    addressInput: {
+      height: 90,
+      textAlignVertical:
+        'top',
+    },
 
-  inputError: {
-    borderColor: '#E53935',
-  },
+    errorText: {
+      color:
+        '#D93025',
+      fontSize: 12,
+      marginBottom: 10,
+      marginLeft: 4,
+      fontWeight: '500',
+    },
 
-  errorText: {
-    color: '#E53935',
-    fontSize: 12,
-    marginTop: -11,
-    marginBottom: 12,
-    marginLeft: 4,
-  },
+    infoBox: {
+      flexDirection:
+        'row',
+      alignItems:
+        'center',
+      backgroundColor:
+        '#FFFBEF',
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor:
+        '#E8D89B',
+      padding: 12,
+      gap: 9,
+    },
 
-  addressInput: {
-    height: 90,
-    textAlignVertical: 'top',
-    paddingTop: 15,
-  },
+    infoText: {
+      flex: 1,
+      fontSize: 12,
+      lineHeight: 18,
+      color:
+        '#555555',
+    },
 
-  passwordWrapper: {
-    position: 'relative',
-  },
+    registerButton: {
+      marginTop: 18,
+      backgroundColor:
+        '#D4AF37',
+      minHeight: 50,
+      borderRadius: 25,
+      alignItems:
+        'center',
+      justifyContent:
+        'center',
+      flexDirection:
+        'row',
+      gap: 8,
+    },
 
-  passwordInput: {
-    paddingRight: 50,
-  },
+    disabledButton: {
+      opacity: 0.7,
+    },
 
-  eyeButton: {
-    position: 'absolute',
-    right: 15,
-    top: 0,
-    height: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+    registerButtonText: {
+      color:
+        '#FFFFFF',
+      fontSize: 15,
+      fontWeight: '800',
+    },
 
-  registerButton: {
-    marginTop: 5,
-    backgroundColor: '#D4AF37',
-    paddingVertical: 15,
-    borderRadius: 25,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 8,
-  },
+    loginSection: {
+      marginTop: 25,
+      alignItems:
+        'center',
+    },
 
-  registerButtonDisabled: {
-    opacity: 0.6,
-  },
+    loginQuestion: {
+      fontSize: 13,
+      color:
+        '#888888',
+      marginBottom: 8,
+    },
 
-  registerText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '800',
-  },
+    loginButton: {
+      backgroundColor:
+        '#FFFFFF',
+      borderWidth: 1,
+      borderColor:
+        '#E0E0E0',
+      borderRadius: 22,
+      paddingVertical: 11,
+      paddingHorizontal: 28,
+    },
 
-  loginSection: {
-    marginTop: 20,
-    alignItems: 'center',
-  },
+    loginText: {
+      color:
+        '#000000',
+      fontSize: 14,
+      fontWeight: '700',
+    },
 
-  loginQuestion: {
-    fontSize: 13,
-    color: '#888888',
-    marginBottom: 8,
-  },
-
-  loginButton: {
-    minHeight: 45,
-    paddingHorizontal: 18,
-    borderRadius: 23,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
-  },
-
-  loginText: {
-    color: '#000000',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-});
+  });

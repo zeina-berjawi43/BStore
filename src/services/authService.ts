@@ -4,440 +4,301 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const API_URL =
   'https://mystore-backend-u6ey.onrender.com';
 
-// ============================================================
+// =========================================================
 // TYPES
-// ============================================================
+// =========================================================
 
 export type User = {
-  id: string;
   _id?: string;
-  name: string;
+  id?: string;
+
+  name?: string;
+
+  firstName?: string;
+  lastName?: string;
+
   email?: string | null;
+
+  phone?: string;
+
+  address?: string;
+
+  role?: string;
+
+  phoneVerified?: boolean;
+
+  notificationsEnabled?: boolean;
+};
+
+export type AuthResponse = {
+  message: string;
+
+  user?: User;
+
+  accessToken?: string;
+
+  refreshToken?: string;
+
+  requiresPhoneVerification?: boolean;
+
+  verificationStatus?: string;
+
+  phoneVerificationStatus?: string;
+
+  phoneVerificationType?: string;
+};
+
+// =========================================================
+// SAVE AUTH DATA
+// =========================================================
+
+const saveAuthData = async (
+  data: AuthResponse
+) => {
+
+  if (data.accessToken) {
+    await AsyncStorage.setItem(
+      'accessToken',
+      data.accessToken
+    );
+  }
+
+  if (data.refreshToken) {
+    await AsyncStorage.setItem(
+      'refreshToken',
+      data.refreshToken
+    );
+  }
+
+  if (data.user) {
+    await AsyncStorage.setItem(
+      'user',
+      JSON.stringify(data.user)
+    );
+  }
+
+  if (
+    data.accessToken &&
+    data.user
+  ) {
+    await AsyncStorage.setItem(
+      'isLoggedIn',
+      'true'
+    );
+  }
+};
+
+// =========================================================
+// REGISTER CUSTOMER
+// =========================================================
+
+export const registerUser = async ({
+  firstName,
+  lastName,
+  phone,
+  address,
+}: {
+  firstName: string;
+  lastName: string;
   phone: string;
   address: string;
-  role: 'user' | 'admin';
-};
+}) => {
 
-export type LoginResponse = {
-  message: string;
-  user: User;
-  accessToken: string;
-  refreshToken: string;
-};
-
-export type RegisterResponse = {
-  message: string;
-  user: User;
-  accessToken: string;
-  refreshToken: string;
-};
-
-// ============================================================
-// REGISTER
-// NAME + EMAIL OPTIONAL + PHONE + PASSWORD + ADDRESS
-// AUTO LOGIN
-// ============================================================
-
-export const register = async (
-  name: string,
-  phone: string,
-  password: string,
-  address: string,
-  email?: string
-): Promise<RegisterResponse> => {
   const response = await fetch(
     `${API_URL}/auth/register`,
     {
       method: 'POST',
 
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type':
+          'application/json',
+
+        Accept:
+          'application/json',
       },
 
       body: JSON.stringify({
-        name: name.trim(),
-        email:
-          email?.trim().toLowerCase() ||
-          undefined,
-        phone: phone.trim(),
-        password,
-        address: address.trim(),
+        firstName:
+          firstName.trim(),
+
+        lastName:
+          lastName.trim(),
+
+        phone:
+          phone.trim(),
+
+        address:
+          address.trim(),
       }),
     }
   );
 
-  let data: any = {};
+  let data: AuthResponse;
 
   try {
     data = await response.json();
   } catch {
-    data = {};
+    throw new Error(
+      'Invalid server response.'
+    );
   }
 
   if (!response.ok) {
     throw new Error(
-      data.message || 'Registration failed'
+      data.message ||
+        'Registration failed.'
     );
   }
-
-  // ==========================================================
-  // MAKE SURE TOKENS EXIST
-  // ==========================================================
-
-  if (
-    !data.accessToken ||
-    !data.refreshToken
-  ) {
-    throw new Error(
-      'Registration succeeded but login tokens were not received'
-    );
-  }
-
-  // ==========================================================
-  // SAVE ACCESS TOKEN
-  // ==========================================================
-
-  await AsyncStorage.setItem(
-    'accessToken',
-    data.accessToken
-  );
-
-  // ==========================================================
-  // SAVE REFRESH TOKEN
-  // ==========================================================
-
-  await AsyncStorage.setItem(
-    'refreshToken',
-    data.refreshToken
-  );
-
-  // ==========================================================
-  // SAVE USER
-  // ==========================================================
-
-  if (data.user) {
-    await AsyncStorage.setItem(
-      'user',
-      JSON.stringify(data.user)
-    );
-  }
-
-  // ==========================================================
-  // SAVE LOGIN STATUS
-  // ==========================================================
-
-  await AsyncStorage.setItem(
-    'isLoggedIn',
-    'true'
-  );
-
-  console.log(
-    'REGISTER + AUTO LOGIN SUCCESS'
-  );
 
   return data;
 };
 
-// ============================================================
-// LOGIN
-// PHONE + PASSWORD
-// ============================================================
+// =========================================================
+// REQUEST LOGIN OTP
+// =========================================================
 
-export const login = async (
-  phone: string,
-  password: string
-): Promise<LoginResponse> => {
-  const response = await fetch(
-    `${API_URL}/auth/login`,
-    {
-      method: 'POST',
-
-      headers: {
-        'Content-Type': 'application/json',
-      },
-
-      body: JSON.stringify({
-        phone: phone.trim(),
-        password,
-      }),
-    }
-  );
-
-  let data: any = {};
-
-  try {
-    data = await response.json();
-  } catch {
-    data = {};
-  }
-
-  if (!response.ok) {
-    throw new Error(
-      data.message || 'Login failed'
-    );
-  }
-
-  // ==========================================================
-  // SAVE ACCESS TOKEN
-  // ==========================================================
-
-  await AsyncStorage.setItem(
-    'accessToken',
-    data.accessToken
-  );
-
-  // ==========================================================
-  // SAVE REFRESH TOKEN
-  // ==========================================================
-
-  await AsyncStorage.setItem(
-    'refreshToken',
-    data.refreshToken
-  );
-
-  // ==========================================================
-  // SAVE USER
-  // ==========================================================
-
-  if (data.user) {
-    await AsyncStorage.setItem(
-      'user',
-      JSON.stringify(data.user)
-    );
-  }
-
-  // ==========================================================
-  // SAVE LOGIN STATUS
-  // ==========================================================
-
-  await AsyncStorage.setItem(
-    'isLoggedIn',
-    'true'
-  );
-
-  console.log(
-    'LOGIN SUCCESS'
-  );
-
-  return data;
-};
-
-// ============================================================
-// SAVE EXPO PUSH TOKEN
-// ============================================================
-
-export const saveExpoPushToken =
+export const requestLoginOTP =
   async (
-    expoPushToken: string
-  ): Promise<void> => {
-
-    const accessToken =
-      await getAccessToken();
-
-    if (!accessToken) {
-      throw new Error(
-        'No access token found'
-      );
-    }
+    phone: string
+  ) => {
 
     const response =
       await fetch(
-        `${API_URL}/users/me/push-token`,
+        `${API_URL}/auth/request-otp`,
         {
-          method: 'PUT',
+          method: 'POST',
 
           headers: {
             'Content-Type':
               'application/json',
-
-            Authorization:
-              `Bearer ${accessToken}`,
-          },
-
-          body: JSON.stringify({
-            expoPushToken,
-          }),
-        }
-      );
-
-    let data: any = {};
-
-    try {
-      data = await response.json();
-    } catch {
-      data = {};
-    }
-
-    if (!response.ok) {
-      throw new Error(
-        data.message ||
-          'Failed to save Expo push token'
-      );
-    }
-
-    console.log(
-      'EXPO PUSH TOKEN SAVED TO BACKEND'
-    );
-  };
-
-// ============================================================
-// GET NOTIFICATION SETTING
-// ============================================================
-
-export const getNotificationSetting =
-  async (): Promise<boolean> => {
-
-    const accessToken =
-      await getAccessToken();
-
-    if (!accessToken) {
-      throw new Error(
-        'No access token found'
-      );
-    }
-
-    const response =
-      await fetch(
-        `${API_URL}/users/me/notification-setting`,
-        {
-          method: 'GET',
-
-          headers: {
-            Authorization:
-              `Bearer ${accessToken}`,
 
             Accept:
               'application/json',
           },
+
+          body: JSON.stringify({
+            phone:
+              phone.trim(),
+          }),
         }
       );
 
-    let data: any = {};
+    let data: AuthResponse;
 
     try {
-      data = await response.json();
+      data =
+        await response.json();
     } catch {
-      data = {};
+      throw new Error(
+        'Invalid server response.'
+      );
     }
 
     if (!response.ok) {
       throw new Error(
         data.message ||
-          'Failed to get notification setting'
+          'Unable to request verification code.'
       );
     }
 
-    return (
-      data.notificationsEnabled === true
-    );
+    return data;
   };
 
-// ============================================================
-// UPDATE NOTIFICATION SETTING
-// ============================================================
+// =========================================================
+// VERIFY CUSTOMER OTP
+// =========================================================
 
-export const updateNotificationSetting =
+export const verifyLoginOTP =
   async (
-    notificationsEnabled: boolean
-  ): Promise<boolean> => {
-
-    const accessToken =
-      await getAccessToken();
-
-    if (!accessToken) {
-      throw new Error(
-        'No access token found'
-      );
-    }
+    phone: string,
+    otp: string
+  ) => {
 
     const response =
       await fetch(
-        `${API_URL}/users/me/notification-setting`,
+        `${API_URL}/auth/verify-otp`,
         {
-          method: 'PUT',
+          method: 'POST',
 
           headers: {
             'Content-Type':
               'application/json',
 
-            Authorization:
-              `Bearer ${accessToken}`,
+            Accept:
+              'application/json',
           },
 
           body: JSON.stringify({
-            notificationsEnabled,
+            phone:
+              phone.trim(),
+
+            otp:
+              otp.trim(),
           }),
         }
       );
 
-    let data: any = {};
+    let data: AuthResponse;
 
     try {
-      data = await response.json();
+      data =
+        await response.json();
     } catch {
-      data = {};
+      throw new Error(
+        'Invalid server response.'
+      );
     }
 
     if (!response.ok) {
       throw new Error(
         data.message ||
-          'Failed to update notification setting'
+          'OTP verification failed.'
       );
     }
 
-    return (
-      data.notificationsEnabled === true
-    );
+    await saveAuthData(data);
+
+    return data;
   };
 
-// ============================================================
+// =========================================================
 // GET ACCESS TOKEN
-// ============================================================
+// =========================================================
 
 export const getAccessToken =
-  async (): Promise<string | null> => {
+  async () => {
 
     return await AsyncStorage.getItem(
       'accessToken'
     );
   };
 
-// ============================================================
-// GET REFRESH TOKEN
-// ============================================================
-
-export const getRefreshToken =
-  async (): Promise<string | null> => {
-
-    return await AsyncStorage.getItem(
-      'refreshToken'
-    );
-  };
-
-// ============================================================
+// =========================================================
 // GET SAVED USER
-// ============================================================
+// =========================================================
 
-export const getCurrentUser =
+export const getSavedUser =
   async (): Promise<User | null> => {
 
-    const savedUser =
-      await AsyncStorage.getItem(
-        'user'
-      );
-
-    if (!savedUser) {
-      return null;
-    }
-
     try {
+
+      const savedUser =
+        await AsyncStorage.getItem(
+          'user'
+        );
+
+      if (!savedUser) {
+        return null;
+      }
+
       return JSON.parse(
         savedUser
       );
+
     } catch (error) {
 
       console.log(
-        'INVALID SAVED USER DATA:',
+        'GET SAVED USER ERROR:',
         error
       );
 
@@ -445,18 +306,168 @@ export const getCurrentUser =
     }
   };
 
-// ============================================================
-// GET CURRENT USER FROM BACKEND
-// ============================================================
+// =========================================================
+// REFRESH ACCESS TOKEN
+// =========================================================
 
-export const fetchCurrentUser =
-  async (): Promise<User | null> => {
+export const refreshAccessToken =
+  async () => {
 
-    const accessToken =
+    const refreshToken =
+      await AsyncStorage.getItem(
+        'refreshToken'
+      );
+
+    if (!refreshToken) {
+      return null;
+    }
+
+    const response =
+      await fetch(
+        `${API_URL}/auth/refresh-token`,
+        {
+          method: 'POST',
+
+          headers: {
+            'Content-Type':
+              'application/json',
+
+            Accept:
+              'application/json',
+          },
+
+          body: JSON.stringify({
+            refreshToken,
+          }),
+        }
+      );
+
+    let data: any = {};
+
+    try {
+      data =
+        await response.json();
+    } catch {
+      data = {};
+    }
+
+    if (!response.ok) {
+
+      await logoutLocal();
+
+      return null;
+    }
+
+    if (
+      data.accessToken
+    ) {
+
+      await AsyncStorage.setItem(
+        'accessToken',
+        data.accessToken
+      );
+
+      return data.accessToken;
+    }
+
+    return null;
+  };
+
+// =========================================================
+// GET VALID ACCESS TOKEN
+// =========================================================
+
+export const getValidAccessToken =
+  async () => {
+
+    const token =
       await getAccessToken();
 
+    if (token) {
+      return token;
+    }
+
+    return await refreshAccessToken();
+  };
+
+// =========================================================
+// LOGOUT SERVER
+// =========================================================
+
+export const logout =
+  async () => {
+
+    const refreshToken =
+      await AsyncStorage.getItem(
+        'refreshToken'
+      );
+
+    try {
+
+      if (refreshToken) {
+
+        await fetch(
+          `${API_URL}/auth/logout`,
+          {
+            method: 'POST',
+
+            headers: {
+              'Content-Type':
+                'application/json',
+
+              Accept:
+                'application/json',
+            },
+
+            body: JSON.stringify({
+              refreshToken,
+            }),
+          }
+        );
+      }
+
+    } catch (error) {
+
+      console.log(
+        'LOGOUT SERVER ERROR:',
+        error
+      );
+
+    } finally {
+
+      await logoutLocal();
+    }
+  };
+
+// =========================================================
+// LOGOUT LOCAL
+// =========================================================
+
+export const logoutLocal =
+  async () => {
+
+    await AsyncStorage.multiRemove([
+      'accessToken',
+      'refreshToken',
+      'user',
+      'isLoggedIn',
+    ]);
+  };
+
+// =========================================================
+// FETCH CURRENT USER
+// =========================================================
+
+export const fetchCurrentUser =
+  async (): Promise<User> => {
+
+    const accessToken =
+      await getValidAccessToken();
+
     if (!accessToken) {
-      return null;
+      throw new Error(
+        'No access token found.'
+      );
     }
 
     const response =
@@ -478,35 +489,58 @@ export const fetchCurrentUser =
     let data: any = {};
 
     try {
-      data = await response.json();
+      data =
+        await response.json();
     } catch {
       data = {};
     }
 
-    if (!response.ok) {
+    console.log(
+      'FETCH CURRENT USER RESPONSE:',
+      data
+    );
 
-      if (
-        response.status === 401
-      ) {
+    // =======================================================
+    // SESSION EXPIRED
+    // =======================================================
 
-        await logout();
+    if (
+      response.status === 401
+    ) {
 
-        return null;
-      }
+      await logoutLocal();
 
       throw new Error(
-        data.message ||
-          'Failed to get current user'
+        'Session expired'
       );
     }
 
-    if (!data.user) {
-      return null;
+    // =======================================================
+    // OTHER ERRORS
+    // =======================================================
+
+    if (!response.ok) {
+
+      throw new Error(
+        data.message ||
+          'Unable to load account information.'
+      );
     }
 
-    // ========================================================
-    // UPDATE LOCAL USER
-    // ========================================================
+    // =======================================================
+    // USER NOT FOUND
+    // =======================================================
+
+    if (!data.user) {
+
+      throw new Error(
+        'User information was not found.'
+      );
+    }
+
+    // =======================================================
+    // SAVE UPDATED USER LOCALLY
+    // =======================================================
 
     await AsyncStorage.setItem(
       'user',
@@ -518,155 +552,67 @@ export const fetchCurrentUser =
     return data.user;
   };
 
-// ============================================================
-// CHECK LOGIN STATUS
-// ============================================================
+// =========================================================
+// CHECK IF USER IS LOGGED IN
+// =========================================================
 
 export const isLoggedIn =
   async (): Promise<boolean> => {
 
-    const loggedIn =
-      await AsyncStorage.getItem(
-        'isLoggedIn'
-      );
-
-    return loggedIn === 'true';
-  };
-
-// ============================================================
-// REFRESH ACCESS TOKEN
-// ============================================================
-
-export const refreshAccessToken =
-  async (): Promise<string> => {
-
-    const refreshToken =
-      await getRefreshToken();
-
-    if (!refreshToken) {
-      throw new Error(
-        'No refresh token found'
-      );
-    }
-
-    const response =
-      await fetch(
-        `${API_URL}/auth/refresh-token`,
-        {
-          method: 'POST',
-
-          headers: {
-            'Content-Type':
-              'application/json',
-          },
-
-          body: JSON.stringify({
-            refreshToken,
-          }),
-        }
-      );
-
-    let data: any = {};
-
-    try {
-      data = await response.json();
-    } catch {
-      data = {};
-    }
-
-    if (!response.ok) {
-
-      await logout();
-
-      throw new Error(
-        data.message ||
-          'Refresh token expired'
-      );
-    }
-
-    if (!data.accessToken) {
-      throw new Error(
-        'New access token was not received'
-      );
-    }
-
-    await AsyncStorage.setItem(
-      'accessToken',
-      data.accessToken
-    );
-
-    console.log(
-      'NEW ACCESS TOKEN SAVED'
-    );
-
-    return data.accessToken;
-  };
-
-// ============================================================
-// LOGOUT
-// ============================================================
-
-export const logout =
-  async (): Promise<void> => {
-
-    const refreshToken =
-      await getRefreshToken();
-
     try {
 
-      if (refreshToken) {
+      const accessToken =
+        await getValidAccessToken();
 
-        const response =
-          await fetch(
-            `${API_URL}/auth/logout`,
-            {
-              method: 'POST',
-
-              headers: {
-                'Content-Type':
-                  'application/json',
-              },
-
-              body: JSON.stringify({
-                refreshToken,
-              }),
-            }
-          );
-
-        let data: any = {};
-
-        try {
-          data = await response.json();
-        } catch {
-          data = {};
-        }
-
-        if (!response.ok) {
-
-          console.log(
-            'BACKEND LOGOUT FAILED:',
-            data.message
-          );
-
-        }
+      if (!accessToken) {
+        return false;
       }
+
+      const loggedIn =
+        await AsyncStorage.getItem(
+          'isLoggedIn'
+        );
+
+      return loggedIn === 'true';
 
     } catch (error) {
 
       console.log(
-        'LOGOUT SERVER ERROR:',
+        'IS LOGGED IN ERROR:',
         error
       );
 
-    } finally {
-
-      await AsyncStorage.multiRemove([
-        'accessToken',
-        'refreshToken',
-        'user',
-        'isLoggedIn',
-        'loginAlert',
-      ]);
-
+      return false;
     }
   };
+
+// =========================================================
+// CHECK IF CURRENT USER IS ADMIN
+// =========================================================
+
+export const isAdmin =
+  async (): Promise<boolean> => {
+
+    try {
+
+      const user =
+        await getSavedUser();
+
+      return user?.role === 'admin';
+
+    } catch (error) {
+
+      console.log(
+        'IS ADMIN ERROR:',
+        error
+      );
+
+      return false;
+    }
+  };
+
+// =========================================================
+// API URL EXPORT
+// =========================================================
+
+export { API_URL };

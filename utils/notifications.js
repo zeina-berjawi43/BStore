@@ -1,53 +1,53 @@
-import * as Notifications from "expo-notifications";
-import * as Device from "expo-device";
-import Constants from "expo-constants";
-
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
+import Constants from 'expo-constants';
 
 // ============================================================
 // NOTIFICATION HANDLER
 // ============================================================
 
 Notifications.setNotificationHandler({
-
-  handleNotification:
-    async () => ({
-
-      shouldShowAlert:
-        true,
-
-      shouldPlaySound:
-        true,
-
-      shouldSetBadge:
-        false,
-
-    }),
-
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
 });
-
 
 // ============================================================
 // REGISTER FOR PUSH NOTIFICATIONS
 // ============================================================
 
 export async function registerForPushNotificationsAsync() {
-
   try {
-
     // ========================================================
-    // CHECK PHYSICAL DEVICE
+    // PHYSICAL DEVICE ONLY
     // ========================================================
 
     if (!Device.isDevice) {
-
       console.log(
-        "Push notifications require a physical device."
+        'PUSH: Push notifications require a physical device.'
       );
 
       return null;
-
     }
 
+    // ========================================================
+    // ANDROID CHANNEL
+    // ========================================================
+
+    if (Device.osName === 'Android') {
+      await Notifications.setNotificationChannelAsync(
+        'default',
+        {
+          name: 'default',
+          importance:
+            Notifications.AndroidImportance.MAX,
+          vibrationPattern: [0, 250, 250, 250],
+          sound: 'default',
+        }
+      );
+    }
 
     // ========================================================
     // CHECK PERMISSION
@@ -58,20 +58,16 @@ export async function registerForPushNotificationsAsync() {
     } =
       await Notifications.getPermissionsAsync();
 
-
     let finalStatus =
       existingStatus;
-
 
     // ========================================================
     // REQUEST PERMISSION
     // ========================================================
 
     if (
-      existingStatus !==
-      "granted"
+      existingStatus !== 'granted'
     ) {
-
       const {
         status,
       } =
@@ -79,47 +75,37 @@ export async function registerForPushNotificationsAsync() {
 
       finalStatus =
         status;
-
     }
-
 
     // ========================================================
     // PERMISSION NOT GRANTED
     // ========================================================
 
     if (
-      finalStatus !==
-      "granted"
+      finalStatus !== 'granted'
     ) {
-
       console.log(
-        "Notification permission was not granted."
+        'PUSH: Notification permission was not granted.'
       );
 
       return null;
-
     }
 
-
     // ========================================================
-    // GET PROJECT ID
+    // GET EAS PROJECT ID
     // ========================================================
 
     const projectId =
       Constants.expoConfig?.extra?.eas?.projectId ??
       Constants.easConfig?.projectId;
 
-
     if (!projectId) {
-
       console.log(
-        "EAS Project ID is missing."
+        'PUSH: EAS Project ID is missing.'
       );
 
       return null;
-
     }
-
 
     // ========================================================
     // GET EXPO PUSH TOKEN
@@ -128,35 +114,28 @@ export async function registerForPushNotificationsAsync() {
     const token =
       (
         await Notifications.getExpoPushTokenAsync({
-
           projectId,
-
         })
       ).data;
-
 
     // ========================================================
     // LOG TOKEN
     // ========================================================
 
     console.log(
-      "Expo Push Token:",
+      'PUSH: Expo Push Token:',
       token
     );
 
-
     return token;
-
 
   } catch (error) {
 
     console.log(
-      "REGISTER PUSH NOTIFICATION ERROR:",
+      'PUSH: REGISTER ERROR:',
       error
     );
 
     return null;
-
   }
-
 }

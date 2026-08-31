@@ -1,3 +1,4 @@
+
 import {
   View,
   Text,
@@ -6,6 +7,7 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -15,7 +17,9 @@ import {
   useFocusEffect,
 } from 'expo-router';
 
-import { Ionicons } from '@expo/vector-icons';
+import {
+  Ionicons,
+} from '@expo/vector-icons';
 
 import {
   useCallback,
@@ -23,35 +27,12 @@ import {
 } from 'react';
 
 import {
-  getAccessToken,
+  API_URL,
+  getValidAccessToken,
 } from '../services/authService';
 
-// =========================================================
-// BACKEND URL
-// =========================================================
-
-const API_URL =
-  'https://mystore-backend-u6ey.onrender.com';
-
-// =========================================================
-// USER TYPE
-// =========================================================
-
-type User = {
-  _id?: string;
-  id?: string;
-  name: string;
-  email?: string | null;
-  phone?: string;
-  address?: string;
-  role?: string;
-};
-
-// =========================================================
-// COMPONENT
-// =========================================================
-
 export default function EditAccount() {
+
   const [name, setName] =
     useState('');
 
@@ -67,64 +48,25 @@ export default function EditAccount() {
   const [saving, setSaving] =
     useState(false);
 
-  // =======================================================
+  const [loading, setLoading] =
+    useState(true);
+
+  // =========================================================
   // LOAD USER
-  // =======================================================
+  // =========================================================
 
-  const loadUser = async () => {
-    try {
-      const accessToken =
-        await getAccessToken();
-
-      if (!accessToken) {
-        Alert.alert(
-          'Login Required',
-          'Please login again.',
-          [
-            {
-              text: 'OK',
-              onPress: () =>
-                router.replace('/login'),
-            },
-          ]
-        );
-
-        return;
-      }
-
-      const response =
-        await fetch(
-          `${API_URL}/users/me`,
-          {
-            method: 'GET',
-
-            headers: {
-              Authorization:
-                `Bearer ${accessToken}`,
-
-              Accept:
-                'application/json',
-            },
-          }
-        );
-
-      let data: any = {};
+  const loadUser =
+    async () => {
 
       try {
-        data = await response.json();
-      } catch {
-        data = {};
-      }
 
-      console.log(
-        'GET USER RESPONSE:',
-        data
-      );
+        setLoading(true);
 
-      if (!response.ok) {
-        if (
-          response.status === 401
-        ) {
+        const accessToken =
+          await getValidAccessToken();
+
+        if (!accessToken) {
+
           await AsyncStorage.multiRemove([
             'accessToken',
             'refreshToken',
@@ -132,87 +74,86 @@ export default function EditAccount() {
             'isLoggedIn',
           ]);
 
-          Alert.alert(
-            'Session Expired',
-            'Please login again.',
-            [
-              {
-                text: 'OK',
-                onPress: () =>
-                  router.replace('/login'),
+          router.replace('/login');
+
+          return;
+        }
+
+        const response =
+          await fetch(
+            `${API_URL}/users/me`,
+            {
+              method: 'GET',
+
+              headers: {
+                Authorization:
+                  `Bearer ${accessToken}`,
+
+                Accept:
+                  'application/json',
               },
-            ]
+            }
           );
+
+        let data: any = {};
+
+        try {
+          data =
+            await response.json();
+        } catch {
+          data = {};
+        }
+
+        console.log(
+          'GET USER RESPONSE:',
+          data
+        );
+
+        if (
+          response.status === 401
+        ) {
+
+          await AsyncStorage.multiRemove([
+            'accessToken',
+            'refreshToken',
+            'user',
+            'isLoggedIn',
+          ]);
+
+          router.replace('/login');
 
           return;
         }
 
-        throw new Error(
-          data.message ||
-            'Unable to load account information.'
-        );
-      }
+        if (!response.ok) {
 
-      const user: User =
-        data.user;
-
-      if (!user) {
-        throw new Error(
-          'User information was not found.'
-        );
-      }
-
-      setName(
-        user.name || ''
-      );
-
-      setEmail(
-        user.email || ''
-      );
-
-      setPhone(
-        user.phone || ''
-      );
-
-      setAddress(
-        user.address || ''
-      );
-
-      await AsyncStorage.setItem(
-        'user',
-        JSON.stringify(user)
-      );
-
-    } catch (error) {
-      console.log(
-        'LOAD ACCOUNT ERROR:',
-        error
-      );
-
-      // =====================================================
-      // FALLBACK TO LOCAL USER
-      // =====================================================
-
-      try {
-        const savedUser =
-          await AsyncStorage.getItem(
-            'user'
+          throw new Error(
+            data.message ||
+              'Unable to load account information.'
           );
-
-        if (!savedUser) {
-          Alert.alert(
-            'Connection Error',
-            'Could not load your account information.'
-          );
-
-          return;
         }
 
-        const user: User =
-          JSON.parse(savedUser);
+        const user =
+          data.user;
+
+        if (!user) {
+
+          throw new Error(
+            'User information was not found.'
+          );
+        }
+
+        const fullName =
+          user.name ||
+          [
+            user.firstName,
+            user.lastName,
+          ]
+            .filter(Boolean)
+            .join(' ');
 
         setName(
-          user.name || ''
+          fullName
         );
 
         setEmail(
@@ -227,37 +168,51 @@ export default function EditAccount() {
           user.address || ''
         );
 
-      } catch (localError) {
+        await AsyncStorage.setItem(
+          'user',
+          JSON.stringify(user)
+        );
+
+      } catch (error: any) {
+
         console.log(
-          'LOCAL USER ERROR:',
-          localError
+          'LOAD ACCOUNT ERROR:',
+          error
         );
 
         Alert.alert(
           'Connection Error',
-          'Could not load your account information.'
+          error?.message ||
+            'Could not load your account information.'
         );
-      }
-    }
-  };
 
-  // =======================================================
-  // LOAD WHEN PAGE OPENS
-  // =======================================================
+      } finally {
+
+        setLoading(false);
+      }
+    };
+
+  // =========================================================
+  // FOCUS
+  // =========================================================
 
   useFocusEffect(
     useCallback(() => {
+
       loadUser();
+
     }, [])
   );
 
-  // =======================================================
-  // SAVE CHANGES
-  // =======================================================
+  // =========================================================
+  // SAVE
+  // =========================================================
 
   const saveChanges =
     async () => {
+
       if (!name.trim()) {
+
         Alert.alert(
           'Missing Information',
           'Please enter your name.'
@@ -267,6 +222,7 @@ export default function EditAccount() {
       }
 
       if (!phone.trim()) {
+
         Alert.alert(
           'Missing Information',
           'Please enter your phone number.'
@@ -276,6 +232,7 @@ export default function EditAccount() {
       }
 
       if (!address.trim()) {
+
         Alert.alert(
           'Missing Information',
           'Please enter your address.'
@@ -289,23 +246,15 @@ export default function EditAccount() {
       }
 
       try {
+
         setSaving(true);
 
         const accessToken =
-          await getAccessToken();
+          await getValidAccessToken();
 
         if (!accessToken) {
-          Alert.alert(
-            'Login Required',
-            'Please login again.',
-            [
-              {
-                text: 'OK',
-                onPress: () =>
-                  router.replace('/login'),
-              },
-            ]
-          );
+
+          router.replace('/login');
 
           return;
         }
@@ -327,23 +276,27 @@ export default function EditAccount() {
                   'application/json',
               },
 
-              body: JSON.stringify({
-                name:
-                  name.trim(),
+              body:
+                JSON.stringify({
 
-                phone:
-                  phone.trim(),
+                  name:
+                    name.trim(),
 
-                address:
-                  address.trim(),
-              }),
+                  phone:
+                    phone.trim(),
+
+                  address:
+                    address.trim(),
+
+                }),
             }
           );
 
         let data: any = {};
 
         try {
-          data = await response.json();
+          data =
+            await response.json();
         } catch {
           data = {};
         }
@@ -353,31 +306,23 @@ export default function EditAccount() {
           data
         );
 
+        if (
+          response.status === 401
+        ) {
+
+          await AsyncStorage.multiRemove([
+            'accessToken',
+            'refreshToken',
+            'user',
+            'isLoggedIn',
+          ]);
+
+          router.replace('/login');
+
+          return;
+        }
+
         if (!response.ok) {
-          if (
-            response.status === 401
-          ) {
-            await AsyncStorage.multiRemove([
-              'accessToken',
-              'refreshToken',
-              'user',
-              'isLoggedIn',
-            ]);
-
-            Alert.alert(
-              'Session Expired',
-              'Please login again.',
-              [
-                {
-                  text: 'OK',
-                  onPress: () =>
-                    router.replace('/login'),
-                },
-              ]
-            );
-
-            return;
-          }
 
           Alert.alert(
             'Update Failed',
@@ -388,11 +333,11 @@ export default function EditAccount() {
           return;
         }
 
-        const updatedUser:
-          User =
+        const updatedUser =
           data.user;
 
         if (updatedUser) {
+
           await AsyncStorage.setItem(
             'user',
             JSON.stringify(
@@ -400,8 +345,17 @@ export default function EditAccount() {
             )
           );
 
+          const fullName =
+            updatedUser.name ||
+            [
+              updatedUser.firstName,
+              updatedUser.lastName,
+            ]
+              .filter(Boolean)
+              .join(' ');
+
           setName(
-            updatedUser.name || ''
+            fullName
           );
 
           setEmail(
@@ -430,6 +384,7 @@ export default function EditAccount() {
         );
 
       } catch (error) {
+
         console.log(
           'SAVE ACCOUNT ERROR:',
           error
@@ -441,18 +396,54 @@ export default function EditAccount() {
         );
 
       } finally {
+
         setSaving(false);
       }
     };
 
-  // =======================================================
+  // =========================================================
+  // LOADING
+  // =========================================================
+
+  if (loading) {
+
+    return (
+
+      <View
+        style={
+          styles.loadingContainer
+        }
+      >
+
+        <ActivityIndicator
+          size="large"
+          color="#D4AF37"
+        />
+
+        <Text
+          style={
+            styles.loadingText
+          }
+        >
+          Loading account...
+        </Text>
+
+      </View>
+    );
+  }
+
+  // =========================================================
   // UI
-  // =======================================================
+  // =========================================================
 
   return (
+
     <View style={styles.container}>
+
       <ScrollView
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={
+          false
+        }
         contentContainerStyle={
           styles.scrollContent
         }
@@ -461,34 +452,54 @@ export default function EditAccount() {
         {/* HEADER */}
 
         <View style={styles.header}>
+
           <Pressable
-            style={styles.backButton}
+            style={
+              styles.backButton
+            }
             onPress={() =>
               router.back()
             }
             disabled={saving}
           >
+
             <Ionicons
               name="arrow-back"
               size={23}
               color="#000000"
             />
+
           </Pressable>
 
-          <View style={styles.headerText}>
-            <Text style={styles.title}>
+          <View
+            style={
+              styles.headerText
+            }
+          >
+
+            <Text
+              style={styles.title}
+            >
               Edit Account
             </Text>
 
-            <Text style={styles.subtitle}>
+            <Text
+              style={styles.subtitle}
+            >
               Update your personal information
             </Text>
+
           </View>
+
         </View>
 
         {/* SECTION */}
 
-        <Text style={styles.sectionTitle}>
+        <Text
+          style={
+            styles.sectionTitle
+          }
+        >
           Personal Information
         </Text>
 
@@ -496,8 +507,13 @@ export default function EditAccount() {
 
           {/* NAME */}
 
-          <View style={styles.field}>
-            <Text style={styles.label}>
+          <View
+            style={styles.field}
+          >
+
+            <Text
+              style={styles.label}
+            >
               Full Name
             </Text>
 
@@ -505,18 +521,28 @@ export default function EditAccount() {
               placeholder="Full Name"
               placeholderTextColor="#888888"
               value={name}
-              onChangeText={setName}
+              onChangeText={
+                setName
+              }
               autoCapitalize="words"
               autoCorrect={false}
               editable={!saving}
-              style={styles.input}
+              style={
+                styles.input
+              }
             />
+
           </View>
 
           {/* EMAIL */}
 
-          <View style={styles.field}>
-            <Text style={styles.label}>
+          <View
+            style={styles.field}
+          >
+
+            <Text
+              style={styles.label}
+            >
               Email
             </Text>
 
@@ -529,12 +555,18 @@ export default function EditAccount() {
                 styles.disabledInput,
               ]}
             />
+
           </View>
 
           {/* PHONE */}
 
-          <View style={styles.field}>
-            <Text style={styles.label}>
+          <View
+            style={styles.field}
+          >
+
+            <Text
+              style={styles.label}
+            >
               Phone Number
             </Text>
 
@@ -542,13 +574,18 @@ export default function EditAccount() {
               placeholder="Phone Number"
               placeholderTextColor="#888888"
               value={phone}
-              onChangeText={setPhone}
+              onChangeText={
+                setPhone
+              }
               keyboardType="phone-pad"
               autoCapitalize="none"
               autoCorrect={false}
               editable={!saving}
-              style={styles.input}
+              style={
+                styles.input
+              }
             />
+
           </View>
 
           {/* ADDRESS */}
@@ -559,7 +596,10 @@ export default function EditAccount() {
               styles.lastField,
             ]}
           >
-            <Text style={styles.label}>
+
+            <Text
+              style={styles.label}
+            >
               Address
             </Text>
 
@@ -567,7 +607,9 @@ export default function EditAccount() {
               placeholder="Address"
               placeholderTextColor="#888888"
               value={address}
-              onChangeText={setAddress}
+              onChangeText={
+                setAddress
+              }
               multiline
               editable={!saving}
               style={[
@@ -575,6 +617,7 @@ export default function EditAccount() {
                 styles.addressInput,
               ]}
             />
+
           </View>
 
         </View>
@@ -587,45 +630,63 @@ export default function EditAccount() {
             saving &&
               styles.disabledButton,
           ]}
-          onPress={saveChanges}
-          disabled={saving}
+          onPress={
+            saveChanges
+          }
+          disabled={
+            saving
+          }
         >
+
           {saving ? (
-            <Ionicons
-              name="hourglass-outline"
-              size={20}
+
+            <ActivityIndicator
+              size="small"
               color="#FFFFFF"
             />
+
           ) : (
+
             <Ionicons
               name="checkmark-circle-outline"
               size={21}
               color="#FFFFFF"
             />
+
           )}
 
-          <Text style={styles.saveText}>
+          <Text
+            style={styles.saveText}
+          >
             {saving
               ? 'Saving...'
               : 'Save Changes'}
           </Text>
+
         </Pressable>
 
         {/* CANCEL */}
 
         <Pressable
-          style={styles.cancelButton}
+          style={
+            styles.cancelButton
+          }
           onPress={() =>
             router.back()
           }
           disabled={saving}
         >
-          <Text style={styles.cancelText}>
+
+          <Text
+            style={styles.cancelText}
+          >
             Cancel
           </Text>
+
         </Pressable>
 
       </ScrollView>
+
     </View>
   );
 }
@@ -636,10 +697,31 @@ export default function EditAccount() {
 
 const styles =
   StyleSheet.create({
+
     container: {
       flex: 1,
-      backgroundColor: '#F7F7F7',
+      backgroundColor:
+        '#F7F7F7',
       paddingTop: 20,
+    },
+
+    loadingContainer: {
+      flex: 1,
+      backgroundColor:
+        '#F7F7F7',
+      alignItems:
+        'center',
+      justifyContent:
+        'center',
+    },
+
+    loadingText: {
+      marginTop: 12,
+      fontSize: 14,
+      color:
+        '#1A1A1A',
+      fontWeight:
+        '600',
     },
 
     scrollContent: {
@@ -649,8 +731,10 @@ const styles =
     },
 
     header: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection:
+        'row',
+      alignItems:
+        'center',
       marginBottom: 8,
     },
 
@@ -658,11 +742,15 @@ const styles =
       width: 42,
       height: 42,
       borderRadius: 21,
-      backgroundColor: '#FFFFFF',
+      backgroundColor:
+        '#FFFFFF',
       borderWidth: 1,
-      borderColor: '#E0E0E0',
-      alignItems: 'center',
-      justifyContent: 'center',
+      borderColor:
+        '#E0E0E0',
+      alignItems:
+        'center',
+      justifyContent:
+        'center',
       marginRight: 12,
     },
 
@@ -672,29 +760,36 @@ const styles =
 
     title: {
       fontSize: 28,
-      fontWeight: '800',
-      color: '#000000',
+      fontWeight:
+        '800',
+      color:
+        '#000000',
     },
 
     subtitle: {
       marginTop: 4,
       fontSize: 13,
-      color: '#888888',
+      color:
+        '#888888',
     },
 
     sectionTitle: {
       marginTop: 25,
       marginBottom: 10,
       fontSize: 15,
-      fontWeight: '700',
-      color: '#1A1A1A',
+      fontWeight:
+        '700',
+      color:
+        '#1A1A1A',
     },
 
     card: {
-      backgroundColor: '#FFFFFF',
+      backgroundColor:
+        '#FFFFFF',
       borderRadius: 18,
       borderWidth: 1,
-      borderColor: '#E0E0E0',
+      borderColor:
+        '#E0E0E0',
       padding: 15,
     },
 
@@ -709,41 +804,53 @@ const styles =
     label: {
       marginBottom: 7,
       fontSize: 13,
-      fontWeight: '700',
-      color: '#1A1A1A',
+      fontWeight:
+        '700',
+      color:
+        '#1A1A1A',
     },
 
     input: {
       minHeight: 50,
-      backgroundColor: '#F7F7F7',
+      backgroundColor:
+        '#F7F7F7',
       borderRadius: 12,
       borderWidth: 1,
-      borderColor: '#E0E0E0',
+      borderColor:
+        '#E0E0E0',
       paddingHorizontal: 15,
       paddingVertical: 13,
       fontSize: 14,
-      color: '#1A1A1A',
+      color:
+        '#1A1A1A',
     },
 
     disabledInput: {
-      backgroundColor: '#EEEEEE',
-      color: '#888888',
+      backgroundColor:
+        '#EEEEEE',
+      color:
+        '#888888',
     },
 
     addressInput: {
       height: 85,
       paddingTop: 14,
-      textAlignVertical: 'top',
+      textAlignVertical:
+        'top',
     },
 
     saveButton: {
       marginTop: 20,
       height: 52,
       borderRadius: 26,
-      backgroundColor: '#D4AF37',
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
+      backgroundColor:
+        '#D4AF37',
+      flexDirection:
+        'row',
+      alignItems:
+        'center',
+      justifyContent:
+        'center',
       gap: 8,
     },
 
@@ -752,25 +859,34 @@ const styles =
     },
 
     saveText: {
-      color: '#FFFFFF',
+      color:
+        '#FFFFFF',
       fontSize: 15,
-      fontWeight: '700',
+      fontWeight:
+        '700',
     },
 
     cancelButton: {
       marginTop: 12,
       height: 50,
       borderRadius: 25,
-      backgroundColor: '#FFFFFF',
+      backgroundColor:
+        '#FFFFFF',
       borderWidth: 1,
-      borderColor: '#E0E0E0',
-      alignItems: 'center',
-      justifyContent: 'center',
+      borderColor:
+        '#E0E0E0',
+      alignItems:
+        'center',
+      justifyContent:
+        'center',
     },
 
     cancelText: {
-      color: '#1A1A1A',
+      color:
+        '#1A1A1A',
       fontSize: 15,
-      fontWeight: '600',
+      fontWeight:
+        '600',
     },
+
   });
