@@ -408,7 +408,7 @@ export default function Checkout() {
   const handleEditInformation =
     () => {
 
-      router.push("/profile");
+      router.push("/edit-account")
     };
 
 
