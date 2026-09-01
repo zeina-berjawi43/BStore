@@ -15,11 +15,11 @@ import {
 
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+
 import {
   router,
   useFocusEffect,
 } from "expo-router";
-
 
 // ============================================================
 // API
@@ -28,18 +28,14 @@ import {
 const API_URL =
   "https://mystore-backend-u6ey.onrender.com";
 
-
 // ============================================================
 // TYPES
 // ============================================================
 
 type BackendProduct = {
   _id: string;
-
   name: string;
-
   description?: string;
-
   image?: string;
 
   category?: {
@@ -55,55 +51,37 @@ type BackendProduct = {
   availability?: boolean;
 };
 
-
 type CartItem = {
   product: BackendProduct;
-
   quantity: number;
-
   price: number;
 };
 
-
 type CartResponse = {
   _id: string;
-
   user: string;
-
   items: CartItem[];
 };
 
-
 type User = {
   firstName?: string;
-
   lastName?: string;
-
-  // Kept for compatibility with older saved user data.
   name?: string;
-
-  // OPTIONAL
   email?: string;
-
-  phone: string;
-
-  address: string;
+  phone?: string;
+  address?: string;
 };
-
 
 // ============================================================
 // GET ACCESS TOKEN
 // ============================================================
 
 const getAccessToken = async () => {
-  return await AsyncStorage.getItem(
-    "accessToken"
-  );
+  return await AsyncStorage.getItem("accessToken");
 };
 
-
 // ============================================================
-// CHECK RESPONSE JSON
+// READ JSON
 // ============================================================
 
 const readJsonResponse = async (
@@ -115,7 +93,6 @@ const readJsonResponse = async (
     return {};
   }
 };
-
 
 // ============================================================
 // COMPONENT
@@ -135,7 +112,6 @@ export default function Checkout() {
   const [placingOrder, setPlacingOrder] =
     useState(false);
 
-
   // ==========================================================
   // DISPLAY NAME
   // ==========================================================
@@ -150,7 +126,6 @@ export default function Checkout() {
         )
       : "";
 
-
   // ==========================================================
   // LOAD USER
   // ==========================================================
@@ -160,9 +135,12 @@ export default function Checkout() {
     try {
 
       const storedUser =
-        await AsyncStorage.getItem(
-          "user"
-        );
+        await AsyncStorage.getItem("user");
+
+      console.log(
+        "CHECKOUT STORED USER:",
+        storedUser
+      );
 
       if (!storedUser) {
 
@@ -171,10 +149,13 @@ export default function Checkout() {
         return;
       }
 
-
       const parsedUser =
         JSON.parse(storedUser);
 
+      console.log(
+        "CHECKOUT USER:",
+        parsedUser
+      );
 
       setUser(parsedUser);
 
@@ -189,7 +170,6 @@ export default function Checkout() {
     }
   };
 
-
   // ==========================================================
   // LOAD CART
   // ==========================================================
@@ -201,6 +181,10 @@ export default function Checkout() {
       const token =
         await getAccessToken();
 
+      console.log(
+        "CHECKOUT TOKEN EXISTS:",
+        !!token
+      );
 
       if (!token) {
 
@@ -210,7 +194,6 @@ export default function Checkout() {
 
         return;
       }
-
 
       const response =
         await fetch(
@@ -228,19 +211,16 @@ export default function Checkout() {
           }
         );
 
-
       const data =
         await readJsonResponse(
           response
         );
-
 
       console.log(
         "GET CART RESPONSE:",
         response.status,
         data
       );
-
 
       // ======================================================
       // TOKEN EXPIRED
@@ -251,15 +231,17 @@ export default function Checkout() {
         response.status === 403
       ) {
 
-        await AsyncStorage.removeItem(
-          "accessToken"
-        );
+        await AsyncStorage.multiRemove([
+          "accessToken",
+          "refreshToken",
+          "user",
+          "isLoggedIn",
+        ]);
 
         router.replace("/login");
 
         return;
       }
-
 
       if (!response.ok) {
 
@@ -274,9 +256,8 @@ export default function Checkout() {
         return;
       }
 
-
       // ======================================================
-      // CART EXISTS
+      // CART
       // ======================================================
 
       if (data?.cart) {
@@ -284,11 +265,23 @@ export default function Checkout() {
         const cartData =
           data.cart as CartResponse;
 
-        setCart(
-          cartData.items || []
+        const items =
+          Array.isArray(cartData.items)
+            ? cartData.items
+            : [];
+
+        console.log(
+          "CHECKOUT CART ITEMS:",
+          items.length
         );
 
+        setCart(items);
+
       } else {
+
+        console.log(
+          "CHECKOUT: NO CART"
+        );
 
         setCart([]);
       }
@@ -309,7 +302,6 @@ export default function Checkout() {
     }
   };
 
-
   // ==========================================================
   // LOAD DATA
   // ==========================================================
@@ -325,15 +317,21 @@ export default function Checkout() {
         loadCart(),
       ]);
 
+    } catch (error) {
+
+      console.log(
+        "LOAD CHECKOUT DATA ERROR:",
+        error
+      );
+
     } finally {
 
       setLoading(false);
     }
   };
 
-
   // ==========================================================
-  // RELOAD WHEN SCREEN OPENS
+  // RELOAD SCREEN
   // ==========================================================
 
   useFocusEffect(
@@ -344,9 +342,8 @@ export default function Checkout() {
     }, [])
   );
 
-
   // ==========================================================
-  // PRICE
+  // ITEM TOTAL
   // ==========================================================
 
   const getItemTotal = (
@@ -370,7 +367,6 @@ export default function Checkout() {
     return price * quantity;
   };
 
-
   // ==========================================================
   // TOTAL
   // ==========================================================
@@ -383,23 +379,8 @@ export default function Checkout() {
       0
     );
 
-
   const formattedTotal =
     totalPrice.toFixed(2);
-
-
-  // ==========================================================
-  // USER INFORMATION CHECK
-  // ==========================================================
-
-  const hasCompleteInformation =
-    !!(
-      user &&
-      displayName &&
-      user.phone?.trim() &&
-      user.address?.trim()
-    );
-
 
   // ==========================================================
   // EDIT INFORMATION
@@ -408,15 +389,54 @@ export default function Checkout() {
   const handleEditInformation =
     () => {
 
-      router.push("/edit-account")
+      router.push("/edit-account");
     };
-
 
   // ==========================================================
   // PLACE ORDER
   // ==========================================================
 
   const placeOrder = async () => {
+
+    console.log(
+      "================================"
+    );
+
+    console.log(
+      "PLACE ORDER BUTTON PRESSED"
+    );
+
+    console.log(
+      "USER:",
+      user
+    );
+
+    console.log(
+      "DISPLAY NAME:",
+      displayName
+    );
+
+    console.log(
+      "CART LENGTH:",
+      cart.length
+    );
+
+    console.log(
+      "PLACING ORDER:",
+      placingOrder
+    );
+
+    console.log(
+      "================================"
+    );
+
+    // ========================================================
+    // PREVENT DOUBLE CLICK
+    // ========================================================
+
+    if (placingOrder) {
+      return;
+    }
 
     // ========================================================
     // EMPTY CART
@@ -432,7 +452,6 @@ export default function Checkout() {
       return;
     }
 
-
     // ========================================================
     // USER
     // ========================================================
@@ -446,16 +465,17 @@ export default function Checkout() {
           {
             text: "Login",
             onPress: () =>
-              router.replace(
-                "/login"
-              ),
+              router.replace("/login"),
+          },
+          {
+            text: "Cancel",
+            style: "cancel",
           },
         ]
       );
 
       return;
     }
-
 
     // ========================================================
     // USER INFORMATION
@@ -486,40 +506,58 @@ export default function Checkout() {
       return;
     }
 
+    // ========================================================
+    // START
+    // ========================================================
 
     try {
 
       setPlacingOrder(true);
 
-
-      // ======================================================
-      // TOKEN
-      // ======================================================
-
       const token =
         await getAccessToken();
 
+      console.log(
+        "ACCESS TOKEN EXISTS:",
+        !!token
+      );
 
       if (!token) {
 
-        await AsyncStorage.removeItem(
-          "accessToken"
-        );
+        await AsyncStorage.multiRemove([
+          "accessToken",
+          "refreshToken",
+          "user",
+          "isLoggedIn",
+        ]);
 
-        router.replace("/login");
+        Alert.alert(
+          "Login Required",
+          "Please login again.",
+          [
+            {
+              text: "Login",
+              onPress: () =>
+                router.replace("/login"),
+            },
+          ]
+        );
 
         return;
       }
 
-
       // ======================================================
-      // REQUEST
+      // CREATE ORDER
       // ======================================================
 
       console.log(
         "CREATING ORDER..."
       );
 
+      console.log(
+        "SHIPPING ADDRESS:",
+        user.address
+      );
 
       const response =
         await fetch(
@@ -538,30 +576,24 @@ export default function Checkout() {
                 `Bearer ${token}`,
             },
 
-            body: JSON.stringify({
-              shippingAddress:
-                user.address.trim(),
-            }),
+            body:
+              JSON.stringify({
+                shippingAddress:
+                  user.address.trim(),
+              }),
           }
         );
-
-
-      // ======================================================
-      // RESPONSE
-      // ======================================================
 
       const data =
         await readJsonResponse(
           response
         );
 
-
       console.log(
         "CREATE ORDER RESPONSE:",
         response.status,
         data
       );
-
 
       // ======================================================
       // AUTH ERROR
@@ -572,20 +604,27 @@ export default function Checkout() {
         response.status === 403
       ) {
 
-        await AsyncStorage.removeItem(
-          "accessToken"
-        );
+        await AsyncStorage.multiRemove([
+          "accessToken",
+          "refreshToken",
+          "user",
+          "isLoggedIn",
+        ]);
 
         Alert.alert(
           "Session Expired",
-          "Please login again."
+          "Please login again.",
+          [
+            {
+              text: "Login",
+              onPress: () =>
+                router.replace("/login"),
+            },
+          ]
         );
-
-        router.replace("/login");
 
         return;
       }
-
 
       // ======================================================
       // CART ERROR
@@ -604,9 +643,8 @@ export default function Checkout() {
         return;
       }
 
-
       // ======================================================
-      // OTHER BACKEND ERROR
+      // OTHER ERROR
       // ======================================================
 
       if (!response.ok) {
@@ -621,7 +659,6 @@ export default function Checkout() {
         return;
       }
 
-
       // ======================================================
       // SUCCESS
       // ======================================================
@@ -631,25 +668,18 @@ export default function Checkout() {
         data?.order
       ) {
 
-        // ====================================================
-        // REMOVE LOCAL CART
-        // ====================================================
+        console.log(
+          "ORDER CREATED SUCCESSFULLY:",
+          data.order
+        );
 
+        // Clear local cart
         await AsyncStorage.removeItem(
           "cart"
         );
 
-
-        // ====================================================
-        // CLEAR SCREEN CART
-        // ====================================================
-
+        // Clear screen cart
         setCart([]);
-
-
-        // ====================================================
-        // SUCCESS
-        // ====================================================
 
         Alert.alert(
           "Order Placed 🎉",
@@ -658,16 +688,13 @@ export default function Checkout() {
             {
               text: "OK",
               onPress: () =>
-                router.replace(
-                  "/orders"
-                ),
+                router.replace("/orders"),
             },
           ]
         );
 
         return;
       }
-
 
       // ======================================================
       // FALLBACK
@@ -686,7 +713,6 @@ export default function Checkout() {
         error
       );
 
-
       Alert.alert(
         "Connection Error",
         "Could not connect to the server. Please check your internet connection and try again."
@@ -698,7 +724,6 @@ export default function Checkout() {
     }
   };
 
-
   // ==========================================================
   // LOADING
   // ==========================================================
@@ -706,7 +731,10 @@ export default function Checkout() {
   if (loading) {
 
     return (
-      <View style={styles.loadingContainer}>
+
+      <View
+        style={styles.loadingContainer}
+      >
 
         <ActivityIndicator
           size="large"
@@ -722,20 +750,21 @@ export default function Checkout() {
     );
   }
 
-
   // ==========================================================
   // RENDER
   // ==========================================================
 
   return (
 
-    <View style={styles.container}>
+    <View
+      style={styles.container}
+    >
 
-      {/* ======================================================
-          HEADER
-      ====================================================== */}
+      {/* HEADER */}
 
-      <View style={styles.header}>
+      <View
+        style={styles.header}
+      >
 
         <Pressable
           onPress={() =>
@@ -752,13 +781,11 @@ export default function Checkout() {
 
         </Pressable>
 
-
         <Text
           style={styles.headerTitle}
         >
           Checkout
         </Text>
-
 
         <View
           style={styles.headerSpacer}
@@ -766,10 +793,7 @@ export default function Checkout() {
 
       </View>
 
-
-      {/* ======================================================
-          CONTENT
-      ====================================================== */}
+      {/* CONTENT */}
 
       <ScrollView
         contentContainerStyle={
@@ -780,9 +804,7 @@ export default function Checkout() {
         }
       >
 
-        {/* ====================================================
-            CUSTOMER INFORMATION
-        ==================================================== */}
+        {/* CUSTOMER INFORMATION */}
 
         <View
           style={styles.section}
@@ -814,12 +836,13 @@ export default function Checkout() {
 
           </View>
 
-
           {user ? (
 
             <View
               style={styles.infoCard}
             >
+
+              {/* NAME */}
 
               <View
                 style={styles.infoRow}
@@ -858,6 +881,7 @@ export default function Checkout() {
 
               </View>
 
+              {/* PHONE */}
 
               <View
                 style={styles.infoRow}
@@ -896,6 +920,7 @@ export default function Checkout() {
 
               </View>
 
+              {/* EMAIL */}
 
               {user.email ? (
 
@@ -937,6 +962,7 @@ export default function Checkout() {
 
               ) : null}
 
+              {/* ADDRESS */}
 
               <View
                 style={styles.infoRow}
@@ -991,9 +1017,7 @@ export default function Checkout() {
 
               <Pressable
                 onPress={() =>
-                  router.replace(
-                    "/login"
-                  )
+                  router.replace("/login")
                 }
                 style={
                   styles.loginButton
@@ -1016,10 +1040,7 @@ export default function Checkout() {
 
         </View>
 
-
-        {/* ====================================================
-            ORDER ITEMS
-        ==================================================== */}
+        {/* ORDER ITEMS */}
 
         <View
           style={styles.section}
@@ -1031,85 +1052,93 @@ export default function Checkout() {
             Order Summary
           </Text>
 
+          {cart.length === 0 ? (
 
-          {cart.map(
-            (item, index) => {
+            <View
+              style={styles.emptyCartCard}
+            >
 
-              const itemTotal =
-                getItemTotal(item);
+              <Text
+                style={styles.emptyCartText}
+              >
+                Your cart is empty.
+              </Text>
 
+            </View>
 
-              return (
+          ) : (
 
-                <View
-                  key={
-                    `${item.product._id}-${index}`
-                  }
-                  style={styles.itemCard}
-                >
+            cart.map(
+              (item, index) => {
+
+                const itemTotal =
+                  getItemTotal(item);
+
+                return (
 
                   <View
-                    style={
-                      styles.itemInfo
+                    key={
+                      `${item.product._id}-${index}`
                     }
+                    style={styles.itemCard}
                   >
 
-                    <Text
-                      numberOfLines={2}
+                    <View
                       style={
-                        styles.productName
+                        styles.itemInfo
                       }
                     >
-                      {item.product.name}
-                    </Text>
 
+                      <Text
+                        numberOfLines={2}
+                        style={
+                          styles.productName
+                        }
+                      >
+                        {item.product.name}
+                      </Text>
+
+                      <Text
+                        style={
+                          styles.quantityText
+                        }
+                      >
+                        Quantity:{" "}
+                        {item.quantity}
+                      </Text>
+
+                      <Text
+                        style={
+                          styles.unitPrice
+                        }
+                      >
+                        $
+                        {Number(
+                          item.price
+                        ).toFixed(2)}
+                        {" "}each
+                      </Text>
+
+                    </View>
 
                     <Text
                       style={
-                        styles.quantityText
+                        styles.itemTotal
                       }
                     >
-                      Quantity:{" "}
-                      {item.quantity}
-                    </Text>
-
-
-                    <Text
-                      style={
-                        styles.unitPrice
-                      }
-                    >
-                      ${Number(
-                        item.price
-                      ).toFixed(2)} each
+                      $
+                      {itemTotal.toFixed(2)}
                     </Text>
 
                   </View>
-
-
-                  <Text
-                    style={
-                      styles.itemTotal
-                    }
-                  >
-                    $
-                    {itemTotal.toFixed(
-                      2
-                    )}
-                  </Text>
-
-                </View>
-
-              );
-            }
+                );
+              }
+            )
           )}
 
         </View>
 
-
-        {/* ====================================================
-            TOTAL
-        ==================================================== */}
+        {/* TOTAL */}
 
         <View
           style={styles.totalCard}
@@ -1129,10 +1158,7 @@ export default function Checkout() {
 
         </View>
 
-
-        {/* ====================================================
-            PAYMENT
-        ==================================================== */}
+        {/* PAYMENT */}
 
         <View
           style={styles.paymentCard}
@@ -1172,10 +1198,7 @@ export default function Checkout() {
 
       </ScrollView>
 
-
-      {/* ======================================================
-          PLACE ORDER
-      ====================================================== */}
+      {/* PLACE ORDER */}
 
       <View
         style={styles.bottomContainer}
@@ -1203,23 +1226,12 @@ export default function Checkout() {
 
         </View>
 
-
         <Pressable
           onPress={placeOrder}
-          disabled={
-            !user ||
-            !hasCompleteInformation ||
-            cart.length === 0 ||
-            placingOrder
-          }
+          disabled={placingOrder}
           style={[
             styles.placeOrderButton,
-            (
-              !user ||
-              !hasCompleteInformation ||
-              cart.length === 0 ||
-              placingOrder
-            ) &&
+            placingOrder &&
               styles.placeOrderButtonDisabled,
           ]}
         >
@@ -1251,7 +1263,6 @@ export default function Checkout() {
   );
 }
 
-
 // ============================================================
 // STYLES
 // ============================================================
@@ -1264,7 +1275,6 @@ const styles =
       backgroundColor: "#F7F7F7",
     },
 
-
     loadingContainer: {
       flex: 1,
       justifyContent: "center",
@@ -1272,13 +1282,11 @@ const styles =
       backgroundColor: "#F7F7F7",
     },
 
-
     loadingText: {
       marginTop: 10,
       fontSize: 14,
       color: "#555",
     },
-
 
     header: {
       height: 60,
@@ -1291,7 +1299,6 @@ const styles =
       borderBottomColor: "#E5E5E5",
     },
 
-
     backButton: {
       width: 40,
       height: 40,
@@ -1299,29 +1306,24 @@ const styles =
       alignItems: "center",
     },
 
-
     headerTitle: {
       fontSize: 20,
       fontWeight: "700",
       color: "#000000",
     },
 
-
     headerSpacer: {
       width: 40,
     },
-
 
     content: {
       padding: 16,
       paddingBottom: 140,
     },
 
-
     section: {
       marginBottom: 20,
     },
-
 
     sectionHeader: {
       flexDirection: "row",
@@ -1330,7 +1332,6 @@ const styles =
       marginBottom: 10,
     },
 
-
     sectionTitle: {
       fontSize: 18,
       fontWeight: "700",
@@ -1338,13 +1339,11 @@ const styles =
       marginBottom: 10,
     },
 
-
     editText: {
       fontSize: 14,
       fontWeight: "600",
       color: "#8A6D1D",
     },
-
 
     infoCard: {
       backgroundColor: "#FFFFFF",
@@ -1352,19 +1351,16 @@ const styles =
       padding: 16,
     },
 
-
     infoRow: {
       flexDirection: "row",
       alignItems: "flex-start",
       marginBottom: 16,
     },
 
-
     infoTextContainer: {
       flex: 1,
       marginLeft: 12,
     },
-
 
     infoLabel: {
       fontSize: 12,
@@ -1372,13 +1368,11 @@ const styles =
       marginBottom: 3,
     },
 
-
     infoValue: {
       fontSize: 15,
       color: "#111",
       fontWeight: "500",
     },
-
 
     emptyInfoCard: {
       backgroundColor: "#FFFFFF",
@@ -1387,13 +1381,11 @@ const styles =
       alignItems: "center",
     },
 
-
     emptyInfoText: {
       fontSize: 14,
       color: "#555",
       marginBottom: 12,
     },
-
 
     loginButton: {
       backgroundColor: "#000000",
@@ -1402,13 +1394,11 @@ const styles =
       borderRadius: 8,
     },
 
-
     loginButtonText: {
       color: "#FFFFFF",
       fontSize: 14,
       fontWeight: "600",
     },
-
 
     itemCard: {
       backgroundColor: "#FFFFFF",
@@ -1420,12 +1410,22 @@ const styles =
       alignItems: "center",
     },
 
+    emptyCartCard: {
+      backgroundColor: "#FFFFFF",
+      borderRadius: 14,
+      padding: 18,
+      alignItems: "center",
+    },
+
+    emptyCartText: {
+      fontSize: 14,
+      color: "#666",
+    },
 
     itemInfo: {
       flex: 1,
       paddingRight: 15,
     },
-
 
     productName: {
       fontSize: 15,
@@ -1434,26 +1434,22 @@ const styles =
       marginBottom: 6,
     },
 
-
     quantityText: {
       fontSize: 13,
       color: "#666",
       marginBottom: 3,
     },
 
-
     unitPrice: {
       fontSize: 13,
       color: "#666",
     },
-
 
     itemTotal: {
       fontSize: 16,
       fontWeight: "700",
       color: "#000000",
     },
-
 
     totalCard: {
       backgroundColor: "#FFFFFF",
@@ -1465,20 +1461,17 @@ const styles =
       marginBottom: 15,
     },
 
-
     totalLabel: {
       fontSize: 18,
       fontWeight: "700",
       color: "#000000",
     },
 
-
     totalValue: {
       fontSize: 20,
       fontWeight: "800",
       color: "#000000",
     },
-
 
     paymentCard: {
       backgroundColor: "#FFFFFF",
@@ -1488,12 +1481,10 @@ const styles =
       alignItems: "center",
     },
 
-
     paymentTextContainer: {
       marginLeft: 12,
       flex: 1,
     },
-
 
     paymentTitle: {
       fontSize: 15,
@@ -1502,12 +1493,10 @@ const styles =
       marginBottom: 3,
     },
 
-
     paymentSubtitle: {
       fontSize: 13,
       color: "#666",
     },
-
 
     bottomContainer: {
       position: "absolute",
@@ -1522,7 +1511,6 @@ const styles =
       borderTopColor: "#E5E5E5",
     },
 
-
     bottomTotal: {
       flexDirection: "row",
       justifyContent: "space-between",
@@ -1530,19 +1518,16 @@ const styles =
       marginBottom: 10,
     },
 
-
     bottomTotalLabel: {
       fontSize: 14,
       color: "#666",
     },
-
 
     bottomTotalValue: {
       fontSize: 18,
       fontWeight: "800",
       color: "#000000",
     },
-
 
     placeOrderButton: {
       height: 52,
@@ -1552,11 +1537,9 @@ const styles =
       alignItems: "center",
     },
 
-
     placeOrderButtonDisabled: {
       opacity: 0.45,
     },
-
 
     placeOrderText: {
       color: "#FFFFFF",
