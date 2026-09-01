@@ -1,3 +1,8 @@
+import React, {
+  useCallback,
+  useState,
+} from "react";
+
 import {
   View,
   Text,
@@ -6,34 +11,27 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
-} from 'react-native';
+} from "react-native";
 
-import { Ionicons } from '@expo/vector-icons';
-
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
+import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   router,
   useFocusEffect,
-} from 'expo-router';
-
-import {
-  useCallback,
-  useState,
-} from 'react';
+} from "expo-router";
 
 
-/* =========================================================
-   API
-========================================================= */
+// ============================================================
+// API
+// ============================================================
 
 const API_URL =
-  'https://mystore-backend-u6ey.onrender.com';
+  "https://mystore-backend-u6ey.onrender.com";
 
 
-/* =========================================================
-   TYPES
-========================================================= */
+// ============================================================
+// TYPES
+// ============================================================
 
 type BackendProduct = {
   _id: string;
@@ -77,10 +75,15 @@ type CartResponse = {
 
 
 type User = {
-  name: string;
+  firstName?: string;
 
+  lastName?: string;
+
+  // Kept for compatibility with older saved user data.
+  name?: string;
+
+  // OPTIONAL
   email?: string;
-
 
   phone: string;
 
@@ -88,290 +91,250 @@ type User = {
 };
 
 
-/* =========================================================
-   CHECKOUT
-========================================================= */
+// ============================================================
+// GET ACCESS TOKEN
+// ============================================================
+
+const getAccessToken = async () => {
+  return await AsyncStorage.getItem(
+    "accessToken"
+  );
+};
+
+
+// ============================================================
+// CHECK RESPONSE JSON
+// ============================================================
+
+const readJsonResponse = async (
+  response: Response
+) => {
+  try {
+    return await response.json();
+  } catch {
+    return {};
+  }
+};
+
+
+// ============================================================
+// COMPONENT
+// ============================================================
 
 export default function Checkout() {
-
-
-  /* =======================================================
-     STATE
-  ======================================================= */
-
-  const [cart, setCart] =
-    useState<CartItem[]>([]);
-
 
   const [user, setUser] =
     useState<User | null>(null);
 
+  const [cart, setCart] =
+    useState<CartItem[]>([]);
 
   const [loading, setLoading] =
     useState(true);
-
 
   const [placingOrder, setPlacingOrder] =
     useState(false);
 
 
-  /* =======================================================
-     GET ACCESS TOKEN
-  ======================================================= */
+  // ==========================================================
+  // DISPLAY NAME
+  // ==========================================================
 
-  const getAccessToken =
-    async () => {
-
-      try {
-
-        const token =
-          await AsyncStorage.getItem(
-            'accessToken'
-          );
-
-
-        return token;
-
-      } catch (error) {
-
-        console.log(
-          'GET TOKEN ERROR:',
-          error
-        );
+  const displayName =
+    user
+      ? (
+          user.name?.trim() ||
+          `${user.firstName || ""} ${
+            user.lastName || ""
+          }`.trim()
+        )
+      : "";
 
 
-        return null;
-      }
-    };
-
-
-  /* =======================================================
-     LOAD USER
-  ======================================================= */
+  // ==========================================================
+  // LOAD USER
+  // ==========================================================
 
   const loadUser = async () => {
 
     try {
 
-      const savedUser =
+      const storedUser =
         await AsyncStorage.getItem(
-          'user'
+          "user"
+        );
+
+      if (!storedUser) {
+
+        setUser(null);
+
+        return;
+      }
+
+
+      const parsedUser =
+        JSON.parse(storedUser);
+
+
+      setUser(parsedUser);
+
+    } catch (error) {
+
+      console.log(
+        "LOAD USER ERROR:",
+        error
+      );
+
+      setUser(null);
+    }
+  };
+
+
+  // ==========================================================
+  // LOAD CART
+  // ==========================================================
+
+  const loadCart = async () => {
+
+    try {
+
+      const token =
+        await getAccessToken();
+
+
+      if (!token) {
+
+        setCart([]);
+
+        router.replace("/login");
+
+        return;
+      }
+
+
+      const response =
+        await fetch(
+          `${API_URL}/cart`,
+          {
+            method: "GET",
+
+            headers: {
+              Accept:
+                "application/json",
+
+              Authorization:
+                `Bearer ${token}`,
+            },
+          }
         );
 
 
-      if (savedUser) {
-
-        const parsedUser =
-          JSON.parse(
-            savedUser
-          );
+      const data =
+        await readJsonResponse(
+          response
+        );
 
 
-        setUser(
-          parsedUser
+      console.log(
+        "GET CART RESPONSE:",
+        response.status,
+        data
+      );
+
+
+      // ======================================================
+      // TOKEN EXPIRED
+      // ======================================================
+
+      if (
+        response.status === 401 ||
+        response.status === 403
+      ) {
+
+        await AsyncStorage.removeItem(
+          "accessToken"
+        );
+
+        router.replace("/login");
+
+        return;
+      }
+
+
+      if (!response.ok) {
+
+        Alert.alert(
+          "Cart Error",
+          data?.message ||
+            "Unable to load your cart."
+        );
+
+        setCart([]);
+
+        return;
+      }
+
+
+      // ======================================================
+      // CART EXISTS
+      // ======================================================
+
+      if (data?.cart) {
+
+        const cartData =
+          data.cart as CartResponse;
+
+        setCart(
+          cartData.items || []
         );
 
       } else {
 
-        setUser(
-          null
-        );
-
+        setCart([]);
       }
 
     } catch (error) {
 
       console.log(
-        'LOAD USER ERROR:',
+        "LOAD CART ERROR:",
         error
       );
 
-
-      setUser(
-        null
+      Alert.alert(
+        "Connection Error",
+        "Unable to connect to the server."
       );
 
+      setCart([]);
     }
-
   };
 
 
-  /* =======================================================
-     LOAD CART FROM DATABASE
-  ======================================================= */
+  // ==========================================================
+  // LOAD DATA
+  // ==========================================================
 
-  const loadCart =
-    async () => {
+  const loadData = async () => {
 
-      try {
+    try {
 
-        const accessToken =
-          await getAccessToken();
-
-
-        if (!accessToken) {
-
-          setCart(
-            []
-          );
-
-
-          router.replace(
-            '/login'
-          );
-
-
-          return;
-        }
-
-
-        const response =
-          await fetch(
-            `${API_URL}/cart`,
-            {
-              method: 'GET',
-
-              headers: {
-
-                Accept:
-                  'application/json',
-
-                Authorization:
-                  `Bearer ${accessToken}`,
-
-              },
-
-            }
-          );
-
-
-        const data =
-          await response.json();
-
-
-        console.log(
-          'CART RESPONSE:',
-          data
-        );
-
-
-        /* ===============================================
-           TOKEN EXPIRED
-        =============================================== */
-
-        if (
-          response.status === 401 ||
-          response.status === 403
-        ) {
-
-          setCart(
-            []
-          );
-
-
-          await AsyncStorage.removeItem(
-            'accessToken'
-          );
-
-
-          router.replace(
-            '/login'
-          );
-
-
-          return;
-        }
-
-
-        /* ===============================================
-           OTHER ERROR
-        =============================================== */
-
-        if (!response.ok) {
-
-          console.log(
-            'GET CART ERROR:',
-            data
-          );
-
-
-          setCart(
-            []
-          );
-
-
-          return;
-        }
-
-
-        /* ===============================================
-           CART
-        =============================================== */
-
-        if (
-          data.cart
-        ) {
-
-          setCart(
-            data.cart.items || []
-          );
-
-        } else {
-
-          setCart(
-            []
-          );
-
-        }
-
-      } catch (error) {
-
-        console.log(
-          'LOAD CART ERROR:',
-          error
-        );
-
-
-        setCart(
-          []
-        );
-
-      }
-
-    };
-
-
-  /* =======================================================
-     LOAD EVERYTHING
-  ======================================================= */
-
-  const loadData =
-    async () => {
-
-      setLoading(
-        true
-      );
-
+      setLoading(true);
 
       await Promise.all([
-
         loadUser(),
-
         loadCart(),
-
       ]);
 
+    } finally {
 
-      setLoading(
-        false
-      );
-
-    };
+      setLoading(false);
+    }
+  };
 
 
-  /* =======================================================
-     LOAD WHEN SCREEN OPENS / FOCUSES
-  ======================================================= */
+  // ==========================================================
+  // RELOAD WHEN SCREEN OPENS
+  // ==========================================================
 
   useFocusEffect(
     useCallback(() => {
@@ -382,679 +345,495 @@ export default function Checkout() {
   );
 
 
-  /* =======================================================
-     PRICE
-  ======================================================= */
+  // ==========================================================
+  // PRICE
+  // ==========================================================
 
-  /*
-   * Prices are stored in USD.
-   *
-   * No currency conversion.
-   *
-   * No LBP.
-   *
-   * No exchange rate.
-   */
-
-  const getPrice = (
-    price: string | number
+  const getItemTotal = (
+    item: CartItem
   ) => {
+
+    const price =
+      Number(item.price);
+
+    const quantity =
+      Number(item.quantity);
 
     if (
-      typeof price === 'number'
+      !Number.isFinite(price) ||
+      !Number.isFinite(quantity)
     ) {
 
-      return price;
-
+      return 0;
     }
 
-
-    const cleanedPrice =
-      String(price)
-        .replace('$', '')
-        .replace(',', '.')
-        .trim();
-
-
-    const numberPrice =
-      Number(
-        cleanedPrice
-      );
-
-
-    return Number.isNaN(
-      numberPrice
-    )
-      ? 0
-      : numberPrice;
-
+    return price * quantity;
   };
 
 
-  /* =======================================================
-     FORMAT USD
-  ======================================================= */
+  // ==========================================================
+  // TOTAL
+  // ==========================================================
 
-  const formatUSD = (
-    amount: number
-  ) => {
-
-    const safeAmount =
-      Number(amount) || 0;
-
-
-    return `$${safeAmount.toFixed(2)}`;
-
-  };
-
-
-  /* =======================================================
-     TOTAL
-  ======================================================= */
-
-  /*
-   * Total is calculated directly in USD.
-   */
-
-  const total =
+  const totalPrice =
     cart.reduce(
-      (
-        sum,
-        item
-      ) => {
-
-        const price =
-          getPrice(
-            item.price
-          );
-
-
-        const quantity =
-          Number(
-            item.quantity
-          ) || 0;
-
-
-        return (
-          sum +
-          price *
-          quantity
-        );
-
-      },
+      (total, item) =>
+        total +
+        getItemTotal(item),
       0
     );
 
 
-  /* =======================================================
-     CUSTOMER INFORMATION
-  ======================================================= */
+  const formattedTotal =
+    totalPrice.toFixed(2);
 
-  /*
-   * Email is OPTIONAL.
-   *
-   * Required information:
-   * - Name
-   * - Phone
-   * - Address
-   */
+
+  // ==========================================================
+  // USER INFORMATION CHECK
+  // ==========================================================
 
   const hasCompleteInformation =
     !!(
       user &&
-      user.name?.trim() &&
+      displayName &&
       user.phone?.trim() &&
       user.address?.trim()
     );
 
 
-  /* =======================================================
-     PLACE ORDER
-  ======================================================= */
+  // ==========================================================
+  // EDIT INFORMATION
+  // ==========================================================
 
-  const placeOrder =
-    async () => {
+  const handleEditInformation =
+    () => {
 
-      /* ===============================================
-         CHECK CART
-      =============================================== */
-
-      if (
-        cart.length === 0
-      ) {
-
-        Alert.alert(
-          'Empty Cart',
-          'Your cart is empty.'
-        );
-
-
-        return;
-
-      }
-
-
-      /* ===============================================
-         CHECK LOGIN
-      =============================================== */
-
-      if (!user) {
-
-        Alert.alert(
-          'Login Required',
-          'Please login before placing an order.'
-        );
-
-
-        router.push(
-          '/login'
-        );
-
-
-        return;
-
-      }
-
-
-      /* ===============================================
-         CHECK USER INFORMATION
-      =============================================== */
-
-      /*
-       * Email is NOT required anymore.
-       */
-
-      if (
-        !user.name?.trim() ||
-        !user.phone?.trim() ||
-        !user.address?.trim()
-      ) {
-
-        Alert.alert(
-          'Missing Information',
-          'Please complete your name, phone number, and address before placing the order.',
-          [
-
-            {
-              text: 'Edit Information',
-
-              onPress: () =>
-                router.push(
-                  '/edit-account'
-                ),
-
-            },
-
-            {
-              text: 'Cancel',
-
-              style: 'cancel',
-
-            },
-
-          ]
-        );
-
-
-        return;
-
-      }
-
-
-      try {
-
-        setPlacingOrder(
-          true
-        );
-
-
-        /* =============================================
-           GET TOKEN
-        ============================================= */
-
-        const accessToken =
-          await getAccessToken();
-
-
-        if (!accessToken) {
-
-          Alert.alert(
-            'Login Required',
-            'Your session has expired. Please login again.'
-          );
-
-
-          router.replace(
-            '/login'
-          );
-
-
-          return;
-
-        }
-
-
-        /* =============================================
-           CREATE ORDER
-           BACKEND:
-           POST /orders/create
-        ============================================= */
-
-        /*
-         * We only send the shipping address.
-         *
-         * The backend gets the real product
-         * prices from MongoDB.
-         *
-         * No LBP.
-         *
-         * No exchange rate.
-         *
-         * No converted price.
-         */
-
-        const response =
-          await fetch(
-            `${API_URL}/orders/create`,
-            {
-              method: 'POST',
-
-              headers: {
-
-                Accept:
-                  'application/json',
-
-                'Content-Type':
-                  'application/json',
-
-                Authorization:
-                  `Bearer ${accessToken}`,
-
-              },
-
-              body:
-                JSON.stringify({
-
-                  shippingAddress:
-                    user.address.trim(),
-
-                }),
-
-            }
-          );
-
-
-        const data =
-          await response.json();
-
-
-        console.log(
-          'CREATE ORDER RESPONSE:',
-          data
-        );
-
-
-        /* =============================================
-           AUTH ERROR
-        ============================================= */
-
-        if (
-          response.status === 401 ||
-          response.status === 403
-        ) {
-
-          Alert.alert(
-            'Session Expired',
-            'Please login again.'
-          );
-
-
-          await AsyncStorage.removeItem(
-            'accessToken'
-          );
-
-
-          router.replace(
-            '/login'
-          );
-
-
-          return;
-
-        }
-
-
-        /* =============================================
-           CART NOT FOUND
-        ============================================= */
-
-        if (
-          response.status === 404
-        ) {
-
-          Alert.alert(
-            'Cart Error',
-            data.message ||
-              'Cart not found.'
-          );
-
-
-          return;
-
-        }
-
-
-        /* =============================================
-           OTHER BACKEND ERROR
-        ============================================= */
-
-        if (
-          !response.ok
-        ) {
-
-          console.log(
-            'CREATE ORDER ERROR:',
-            data
-          );
-
-
-          Alert.alert(
-            'Order Failed',
-            data.message ||
-              'Something went wrong while creating your order.'
-          );
-
-
-          return;
-
-        }
-
-
-        /* =============================================
-           SUCCESS
-        ============================================= */
-
-        if (
-          response.status === 201 &&
-          data.order
-        ) {
-
-          /*
-           * Backend clears MongoDB cart
-           * after successful order creation.
-           *
-           * Remove old prototype cart too.
-           */
-
-          await AsyncStorage.removeItem(
-            'cart'
-          );
-
-
-          Alert.alert(
-            'Order Placed 🎉',
-            'Your order has been placed successfully.',
-            [
-
-              {
-                text: 'OK',
-
-                onPress: () =>
-                  router.replace(
-                    '/orders'
-                  ),
-
-              },
-
-            ]
-          );
-
-
-          return;
-
-        }
-
-
-        /* =============================================
-           FALLBACK
-        ============================================= */
-
-        Alert.alert(
-          'Order',
-          data.message ||
-            'Order created successfully.'
-        );
-
-
-      } catch (error) {
-
-        console.log(
-          'PLACE ORDER ERROR:',
-          error
-        );
-
-
-        Alert.alert(
-          'Connection Error',
-          'Could not connect to the server. Please make sure the backend is running.'
-        );
-
-
-      } finally {
-
-        setPlacingOrder(
-          false
-        );
-
-      }
-
+      router.push("/profile");
     };
 
 
-  /* =======================================================
-     LOADING
-  ======================================================= */
+  // ==========================================================
+  // PLACE ORDER
+  // ==========================================================
 
-  if (
-    loading
-  ) {
+  const placeOrder = async () => {
+
+    // ========================================================
+    // EMPTY CART
+    // ========================================================
+
+    if (cart.length === 0) {
+
+      Alert.alert(
+        "Cart is Empty",
+        "Please add products to your cart first."
+      );
+
+      return;
+    }
+
+
+    // ========================================================
+    // USER
+    // ========================================================
+
+    if (!user) {
+
+      Alert.alert(
+        "Login Required",
+        "Please login before placing your order.",
+        [
+          {
+            text: "Login",
+            onPress: () =>
+              router.replace(
+                "/login"
+              ),
+          },
+        ]
+      );
+
+      return;
+    }
+
+
+    // ========================================================
+    // USER INFORMATION
+    // ========================================================
+
+    if (
+      !displayName ||
+      !user.phone?.trim() ||
+      !user.address?.trim()
+    ) {
+
+      Alert.alert(
+        "Missing Information",
+        "Please complete your name, phone number and address before placing the order.",
+        [
+          {
+            text: "Edit Information",
+            onPress:
+              handleEditInformation,
+          },
+          {
+            text: "Cancel",
+            style: "cancel",
+          },
+        ]
+      );
+
+      return;
+    }
+
+
+    try {
+
+      setPlacingOrder(true);
+
+
+      // ======================================================
+      // TOKEN
+      // ======================================================
+
+      const token =
+        await getAccessToken();
+
+
+      if (!token) {
+
+        await AsyncStorage.removeItem(
+          "accessToken"
+        );
+
+        router.replace("/login");
+
+        return;
+      }
+
+
+      // ======================================================
+      // REQUEST
+      // ======================================================
+
+      console.log(
+        "CREATING ORDER..."
+      );
+
+
+      const response =
+        await fetch(
+          `${API_URL}/orders/create`,
+          {
+            method: "POST",
+
+            headers: {
+              Accept:
+                "application/json",
+
+              "Content-Type":
+                "application/json",
+
+              Authorization:
+                `Bearer ${token}`,
+            },
+
+            body: JSON.stringify({
+              shippingAddress:
+                user.address.trim(),
+            }),
+          }
+        );
+
+
+      // ======================================================
+      // RESPONSE
+      // ======================================================
+
+      const data =
+        await readJsonResponse(
+          response
+        );
+
+
+      console.log(
+        "CREATE ORDER RESPONSE:",
+        response.status,
+        data
+      );
+
+
+      // ======================================================
+      // AUTH ERROR
+      // ======================================================
+
+      if (
+        response.status === 401 ||
+        response.status === 403
+      ) {
+
+        await AsyncStorage.removeItem(
+          "accessToken"
+        );
+
+        Alert.alert(
+          "Session Expired",
+          "Please login again."
+        );
+
+        router.replace("/login");
+
+        return;
+      }
+
+
+      // ======================================================
+      // CART ERROR
+      // ======================================================
+
+      if (
+        response.status === 404
+      ) {
+
+        Alert.alert(
+          "Cart Error",
+          data?.message ||
+            "Your cart could not be found."
+        );
+
+        return;
+      }
+
+
+      // ======================================================
+      // OTHER BACKEND ERROR
+      // ======================================================
+
+      if (!response.ok) {
+
+        Alert.alert(
+          "Order Failed",
+          data?.message ||
+            data?.error ||
+            "Unable to place your order."
+        );
+
+        return;
+      }
+
+
+      // ======================================================
+      // SUCCESS
+      // ======================================================
+
+      if (
+        response.status === 201 &&
+        data?.order
+      ) {
+
+        // ====================================================
+        // REMOVE LOCAL CART
+        // ====================================================
+
+        await AsyncStorage.removeItem(
+          "cart"
+        );
+
+
+        // ====================================================
+        // CLEAR SCREEN CART
+        // ====================================================
+
+        setCart([]);
+
+
+        // ====================================================
+        // SUCCESS
+        // ====================================================
+
+        Alert.alert(
+          "Order Placed 🎉",
+          "Your order has been placed successfully.",
+          [
+            {
+              text: "OK",
+              onPress: () =>
+                router.replace(
+                  "/orders"
+                ),
+            },
+          ]
+        );
+
+        return;
+      }
+
+
+      // ======================================================
+      // FALLBACK
+      // ======================================================
+
+      Alert.alert(
+        "Order",
+        data?.message ||
+          "Order created successfully."
+      );
+
+    } catch (error) {
+
+      console.log(
+        "PLACE ORDER ERROR:",
+        error
+      );
+
+
+      Alert.alert(
+        "Connection Error",
+        "Could not connect to the server. Please check your internet connection and try again."
+      );
+
+    } finally {
+
+      setPlacingOrder(false);
+    }
+  };
+
+
+  // ==========================================================
+  // LOADING
+  // ==========================================================
+
+  if (loading) {
 
     return (
-
-      <View
-        style={
-          styles.loadingContainer
-        }
-      >
+      <View style={styles.loadingContainer}>
 
         <ActivityIndicator
           size="large"
-          color="#D4AF37"
         />
 
-
         <Text
-          style={
-            styles.loadingText
-          }
+          style={styles.loadingText}
         >
           Loading checkout...
         </Text>
 
       </View>
-
     );
-
   }
 
 
-  /* =======================================================
-     UI
-  ======================================================= */
+  // ==========================================================
+  // RENDER
+  // ==========================================================
 
   return (
 
-    <View
-      style={
-        styles.container
-      }
-    >
+    <View style={styles.container}>
 
-      <ScrollView
-        showsVerticalScrollIndicator={
-          false
-        }
-        contentContainerStyle={
-          styles.scrollContent
-        }
-      >
+      {/* ======================================================
+          HEADER
+      ====================================================== */}
 
-        {/* =================================================
-            HEADER
-        ================================================= */}
+      <View style={styles.header}>
 
-        <View
-          style={
-            styles.header
+        <Pressable
+          onPress={() =>
+            router.back()
           }
+          style={styles.backButton}
         >
 
-          <Pressable
-            style={
-              styles.backIconButton
-            }
-            onPress={() =>
-              router.back()
-            }
-          >
-
-            <Ionicons
-              name="arrow-back"
-              size={22}
-              color="#000000"
-            />
-
-          </Pressable>
-
-
-          <Text
-            style={
-              styles.title
-            }
-          >
-            Checkout
-          </Text>
-
-
-          <View
-            style={
-              styles.headerSpace
-            }
+          <Ionicons
+            name="arrow-back"
+            size={24}
+            color="#000"
           />
 
-        </View>
+        </Pressable>
 
-
-        {/* =================================================
-            DELIVERY INFORMATION
-        ================================================= */}
 
         <Text
-          style={
-            styles.sectionTitle
-          }
+          style={styles.headerTitle}
         >
-          Delivery Information
+          Checkout
         </Text>
 
 
-        {user ? (
+        <View
+          style={styles.headerSpacer}
+        />
+
+      </View>
+
+
+      {/* ======================================================
+          CONTENT
+      ====================================================== */}
+
+      <ScrollView
+        contentContainerStyle={
+          styles.content
+        }
+        showsVerticalScrollIndicator={
+          false
+        }
+      >
+
+        {/* ====================================================
+            CUSTOMER INFORMATION
+        ==================================================== */}
+
+        <View
+          style={styles.section}
+        >
 
           <View
-            style={
-              styles.customerCard
-            }
+            style={styles.sectionHeader}
           >
 
-            {/* NAME */}
+            <Text
+              style={styles.sectionTitle}
+            >
+              Customer Information
+            </Text>
 
-            <View
-              style={
-                styles.infoRow
+            <Pressable
+              onPress={
+                handleEditInformation
               }
             >
 
+              <Text
+                style={styles.editText}
+              >
+                Edit
+              </Text>
+
+            </Pressable>
+
+          </View>
+
+
+          {user ? (
+
+            <View
+              style={styles.infoCard}
+            >
+
               <View
-                style={
-                  styles.infoIcon
-                }
+                style={styles.infoRow}
               >
 
                 <Ionicons
                   name="person-outline"
                   size={20}
-                  color="#D4AF37"
+                  color="#555"
                 />
 
-              </View>
-
-
-              <View
-                style={
-                  styles.infoContent
-                }
-              >
-
-                <Text
-                  style={
-                    styles.infoLabel
-                  }
-                >
-                  Name
-                </Text>
-
-
-                <Text
-                  style={
-                    styles.infoValue
-                  }
-                >
-                  {user.name}
-                </Text>
-
-              </View>
-
-            </View>
-
-
-            {/* EMAIL */}
-
-            {user.email?.trim() ? (
-
-              <View
-                style={
-                  styles.infoRow
-                }
-              >
-
                 <View
                   style={
-                    styles.infoIcon
-                  }
-                >
-
-                  <Ionicons
-                    name="mail-outline"
-                    size={20}
-                    color="#D4AF37"
-                  />
-
-                </View>
-
-
-                <View
-                  style={
-                    styles.infoContent
+                    styles.infoTextContainer
                   }
                 >
 
@@ -1063,1311 +842,726 @@ export default function Checkout() {
                       styles.infoLabel
                     }
                   >
-                    Email
+                    Name
                   </Text>
-
 
                   <Text
                     style={
                       styles.infoValue
                     }
                   >
-                    {user.email}
+                    {displayName ||
+                      "Not provided"}
                   </Text>
 
                 </View>
 
               </View>
 
-            ) : null}
-
-
-            {/* PHONE */}
-
-            <View
-              style={
-                styles.infoRow
-              }
-            >
 
               <View
-                style={
-                  styles.infoIcon
-                }
+                style={styles.infoRow}
               >
 
                 <Ionicons
                   name="call-outline"
                   size={20}
-                  color="#D4AF37"
+                  color="#555"
                 />
 
+                <View
+                  style={
+                    styles.infoTextContainer
+                  }
+                >
+
+                  <Text
+                    style={
+                      styles.infoLabel
+                    }
+                  >
+                    Phone
+                  </Text>
+
+                  <Text
+                    style={
+                      styles.infoValue
+                    }
+                  >
+                    {user.phone ||
+                      "Not provided"}
+                  </Text>
+
+                </View>
+
               </View>
 
 
-              <View
-                style={
-                  styles.infoContent
-                }
-              >
+              {user.email ? (
 
-                <Text
-                  style={
-                    styles.infoLabel
-                  }
+                <View
+                  style={styles.infoRow}
                 >
-                  Phone
-                </Text>
 
+                  <Ionicons
+                    name="mail-outline"
+                    size={20}
+                    color="#555"
+                  />
 
-                <Text
-                  style={
-                    styles.infoValue
-                  }
-                >
-                  {user.phone ||
-                    'Phone number not added'}
-                </Text>
+                  <View
+                    style={
+                      styles.infoTextContainer
+                    }
+                  >
 
-              </View>
+                    <Text
+                      style={
+                        styles.infoLabel
+                      }
+                    >
+                      Email
+                    </Text>
 
-            </View>
+                    <Text
+                      style={
+                        styles.infoValue
+                      }
+                    >
+                      {user.email}
+                    </Text>
 
+                  </View>
 
-            {/* ADDRESS */}
+                </View>
 
-            <View
-              style={[
-                styles.infoRow,
-                styles.lastInfoRow,
-              ]}
-            >
+              ) : null}
+
 
               <View
-                style={
-                  styles.infoIcon
-                }
+                style={styles.infoRow}
               >
 
                 <Ionicons
                   name="location-outline"
                   size={20}
-                  color="#D4AF37"
+                  color="#555"
                 />
 
-              </View>
-
-
-              <View
-                style={
-                  styles.infoContent
-                }
-              >
-
-                <Text
+                <View
                   style={
-                    styles.infoLabel
+                    styles.infoTextContainer
                   }
                 >
-                  Address
-                </Text>
 
+                  <Text
+                    style={
+                      styles.infoLabel
+                    }
+                  >
+                    Address
+                  </Text>
 
-                <Text
-                  style={
-                    styles.infoValue
-                  }
-                >
-                  {user.address ||
-                    'Address not added'}
-                </Text>
+                  <Text
+                    style={
+                      styles.infoValue
+                    }
+                  >
+                    {user.address ||
+                      "Not provided"}
+                  </Text>
+
+                </View>
 
               </View>
 
             </View>
 
-
-            {/* WARNING */}
-
-            {!hasCompleteInformation && (
-
-              <View
-                style={
-                  styles.warningBox
-                }
-              >
-
-                <Ionicons
-                  name="alert-circle-outline"
-                  size={20}
-                  color="#8A6A00"
-                />
-
-
-                <Text
-                  style={
-                    styles.warningText
-                  }
-                >
-                  Please complete your
-                  name, phone number, and
-                  address before placing
-                  the order.
-                </Text>
-
-              </View>
-
-            )}
-
-
-            {/* EDIT */}
-
-            <Pressable
-              style={
-                styles.editButton
-              }
-              onPress={() =>
-                router.push(
-                  '/edit-account'
-                )
-              }
-            >
-
-              <Text
-                style={
-                  styles.editText
-                }
-              >
-                Edit Information
-              </Text>
-
-
-              <Ionicons
-                name="chevron-forward"
-                size={17}
-                color="#B0B0B0"
-              />
-
-            </Pressable>
-
-          </View>
-
-        ) : (
-
-          /* =================================================
-             LOGIN
-          ================================================= */
-
-          <View
-            style={
-              styles.loginCard
-            }
-          >
+          ) : (
 
             <View
-              style={
-                styles.loginIcon
-              }
-            >
-
-              <Ionicons
-                name="person-outline"
-                size={28}
-                color="#D4AF37"
-              />
-
-            </View>
-
-
-            <Text
-              style={
-                styles.loginTitle
-              }
-            >
-              Login Required
-            </Text>
-
-
-            <Text
-              style={
-                styles.loginMessage
-              }
-            >
-              Please login to continue
-              with your order.
-            </Text>
-
-
-            <Pressable
-              style={
-                styles.loginButton
-              }
-              onPress={() =>
-                router.push(
-                  '/login'
-                )
-              }
+              style={styles.emptyInfoCard}
             >
 
               <Text
-                style={
-                  styles.loginButtonText
-                }
+                style={styles.emptyInfoText}
               >
-                Login
+                Please login to continue.
               </Text>
 
+              <Pressable
+                onPress={() =>
+                  router.replace(
+                    "/login"
+                  )
+                }
+                style={
+                  styles.loginButton
+                }
+              >
 
-              <Ionicons
-                name="arrow-forward"
-                size={17}
-                color="#FFFFFF"
-              />
+                <Text
+                  style={
+                    styles.loginButtonText
+                  }
+                >
+                  Login
+                </Text>
 
-            </Pressable>
+              </Pressable>
 
-          </View>
+            </View>
 
-        )}
+          )}
+
+        </View>
 
 
-        {/* =================================================
-            ORDER SUMMARY
-        ================================================= */}
+        {/* ====================================================
+            ORDER ITEMS
+        ==================================================== */}
 
-        <Text
-          style={
-            styles.sectionTitle
-          }
+        <View
+          style={styles.section}
         >
-          Order Summary
-        </Text>
 
-
-        {cart.length === 0 ? (
-
-          <View
-            style={
-              styles.emptyCart
-            }
+          <Text
+            style={styles.sectionTitle}
           >
-
-            <Ionicons
-              name="cart-outline"
-              size={45}
-              color="#B0B0B0"
-            />
+            Order Summary
+          </Text>
 
 
-            <Text
-              style={
-                styles.emptyCartTitle
-              }
-            >
-              Your cart is empty
-            </Text>
+          {cart.map(
+            (item, index) => {
 
-
-            <Text
-              style={
-                styles.emptyCartText
-              }
-            >
-              Add some products before
-              checking out.
-            </Text>
-
-          </View>
-
-        ) : (
-
-          cart.map(
-            (
-              item,
-              index
-            ) => {
-
-              const product =
-                item.product;
-
-
-              /*
-               * item.price is USD.
-               */
-
-              const unitPrice =
-                getPrice(
-                  item.price
-                );
-
-
-              /*
-               * Total remains USD.
-               */
-
-              const productTotal =
-                unitPrice *
-                Number(
-                  item.quantity
-                );
+              const itemTotal =
+                getItemTotal(item);
 
 
               return (
 
                 <View
-                  key={`${product._id}-${index}`}
-                  style={
-                    styles.productRow
+                  key={
+                    `${item.product._id}-${index}`
                   }
+                  style={styles.itemCard}
                 >
 
-                  {/* PRODUCT ICON */}
-
                   <View
                     style={
-                      styles.productIcon
-                    }
-                  >
-
-                    <Ionicons
-                      name="cube-outline"
-                      size={28}
-                      color="#D4AF37"
-                    />
-
-                  </View>
-
-
-                  {/* PRODUCT INFO */}
-
-                  <View
-                    style={
-                      styles.productInfo
+                      styles.itemInfo
                     }
                   >
 
                     <Text
+                      numberOfLines={2}
                       style={
                         styles.productName
                       }
-                      numberOfLines={1}
                     >
-                      {product.name}
+                      {item.product.name}
                     </Text>
 
 
                     <Text
                       style={
-                        styles.productCategory
+                        styles.quantityText
                       }
                     >
-                      {product.category?.name ||
-                        ''}
-                    </Text>
-
-
-                    <Text
-                      style={
-                        styles.quantity
-                      }
-                    >
-                      {formatUSD(
-                        unitPrice
-                      )}{' '}
-                      ×{' '}
+                      Quantity:{" "}
                       {item.quantity}
+                    </Text>
+
+
+                    <Text
+                      style={
+                        styles.unitPrice
+                      }
+                    >
+                      ${Number(
+                        item.price
+                      ).toFixed(2)} each
                     </Text>
 
                   </View>
 
 
-                  {/* PRODUCT TOTAL */}
-
                   <Text
                     style={
-                      styles.productTotal
+                      styles.itemTotal
                     }
                   >
-                    {formatUSD(
-                      productTotal
+                    $
+                    {itemTotal.toFixed(
+                      2
                     )}
                   </Text>
 
                 </View>
 
               );
-
             }
-          )
+          )}
 
-        )}
+        </View>
 
 
-        {/* =================================================
+        {/* ====================================================
             TOTAL
-        ================================================= */}
+        ==================================================== */}
 
         <View
-          style={
-            styles.totalCard
-          }
+          style={styles.totalCard}
         >
 
-          <View>
-
-            <Text
-              style={
-                styles.totalLabel
-              }
-            >
-              Total
-            </Text>
-
-
-            <Text
-              style={
-                styles.totalItems
-              }
-            >
-              {cart.reduce(
-                (
-                  sum,
-                  item
-                ) =>
-                  sum +
-                  Number(
-                    item.quantity
-                  ),
-                0
-              )}{' '}
-              items
-            </Text>
-
-          </View>
-
+          <Text
+            style={styles.totalLabel}
+          >
+            Total
+          </Text>
 
           <Text
-            style={
-              styles.total
-            }
+            style={styles.totalValue}
           >
-            {formatUSD(
-              total
-            )}
+            ${formattedTotal}
           </Text>
 
         </View>
 
 
-        {/* =================================================
-            PLACE ORDER
-        ================================================= */}
+        {/* ====================================================
+            PAYMENT
+        ==================================================== */}
+
+        <View
+          style={styles.paymentCard}
+        >
+
+          <Ionicons
+            name="cash-outline"
+            size={24}
+            color="#333"
+          />
+
+          <View
+            style={
+              styles.paymentTextContainer
+            }
+          >
+
+            <Text
+              style={
+                styles.paymentTitle
+              }
+            >
+              Cash on Delivery
+            </Text>
+
+            <Text
+              style={
+                styles.paymentSubtitle
+              }
+            >
+              Pay when your order is delivered.
+            </Text>
+
+          </View>
+
+        </View>
+
+      </ScrollView>
+
+
+      {/* ======================================================
+          PLACE ORDER
+      ====================================================== */}
+
+      <View
+        style={styles.bottomContainer}
+      >
+
+        <View
+          style={styles.bottomTotal}
+        >
+
+          <Text
+            style={
+              styles.bottomTotalLabel
+            }
+          >
+            Total
+          </Text>
+
+          <Text
+            style={
+              styles.bottomTotalValue
+            }
+          >
+            ${formattedTotal}
+          </Text>
+
+        </View>
+
 
         <Pressable
-          style={[
-            styles.placeOrderButton,
-
-            (!user ||
-              !hasCompleteInformation ||
-              cart.length === 0 ||
-              placingOrder) &&
-              styles.disabledButton,
-          ]}
-          onPress={
-            placeOrder
-          }
+          onPress={placeOrder}
           disabled={
             !user ||
             !hasCompleteInformation ||
             cart.length === 0 ||
             placingOrder
           }
+          style={[
+            styles.placeOrderButton,
+            (
+              !user ||
+              !hasCompleteInformation ||
+              cart.length === 0 ||
+              placingOrder
+            ) &&
+              styles.placeOrderButtonDisabled,
+          ]}
         >
 
           {placingOrder ? (
 
             <ActivityIndicator
               size="small"
-              color="#FFFFFF"
+              color="#fff"
             />
 
           ) : (
 
-            <Ionicons
-              name="checkmark-circle-outline"
-              size={21}
-              color="#FFFFFF"
-            />
+            <Text
+              style={
+                styles.placeOrderText
+              }
+            >
+              Place Order
+            </Text>
 
           )}
 
-
-          <Text
-            style={
-              styles.placeOrderText
-            }
-          >
-            {placingOrder
-              ? 'Placing Order...'
-              : 'Place Order'}
-          </Text>
-
         </Pressable>
 
-
-        {/* =================================================
-            BACK TO CART
-        ================================================= */}
-
-        <Pressable
-          style={
-            styles.backButton
-          }
-          onPress={() =>
-            router.back()
-          }
-        >
-
-          <Ionicons
-            name="arrow-back"
-            size={18}
-            color="#000000"
-          />
-
-
-          <Text
-            style={
-              styles.backButtonText
-            }
-          >
-            Back to Cart
-          </Text>
-
-        </Pressable>
-
-
-        <View
-          style={
-            styles.bottomSpace
-          }
-        />
-
-      </ScrollView>
+      </View>
 
     </View>
-
   );
-
 }
 
 
-/* =========================================================
-   STYLES
-========================================================= */
+// ============================================================
+// STYLES
+// ============================================================
 
 const styles =
   StyleSheet.create({
 
-    /* =====================================================
-       LOADING
-    ===================================================== */
+    container: {
+      flex: 1,
+      backgroundColor: "#F7F7F7",
+    },
+
 
     loadingContainer: {
       flex: 1,
-
-      backgroundColor:
-        '#F7F7F7',
-
-      alignItems:
-        'center',
-
-      justifyContent:
-        'center',
+      justifyContent: "center",
+      alignItems: "center",
+      backgroundColor: "#F7F7F7",
     },
 
 
     loadingText: {
-      marginTop: 12,
-
+      marginTop: 10,
       fontSize: 14,
-
-      color:
-        '#1A1A1A',
-
-      fontWeight:
-        '600',
+      color: "#555",
     },
 
-
-    /* =====================================================
-       CONTAINER
-    ===================================================== */
-
-    container: {
-      flex: 1,
-
-      backgroundColor:
-        '#F7F7F7',
-
-      paddingTop: 20,
-    },
-
-
-    scrollContent: {
-      paddingHorizontal: 20,
-
-      paddingTop: 18,
-
-      paddingBottom: 40,
-    },
-
-
-    /* =====================================================
-       HEADER
-    ===================================================== */
 
     header: {
-      flexDirection:
-        'row',
-
-      alignItems:
-        'center',
-
-      marginBottom: 25,
+      height: 60,
+      backgroundColor: "#FFFFFF",
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingHorizontal: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: "#E5E5E5",
     },
 
 
-    backIconButton: {
-      width: 44,
-
-      height: 44,
-
-      borderRadius: 22,
-
-      backgroundColor:
-        '#FFFFFF',
-
-      borderWidth: 1,
-
-      borderColor:
-        '#E0E0E0',
-
-      alignItems:
-        'center',
-
-      justifyContent:
-        'center',
+    backButton: {
+      width: 40,
+      height: 40,
+      justifyContent: "center",
+      alignItems: "center",
     },
 
 
-    title: {
-      fontSize: 26,
-
-      fontWeight:
-        '800',
-
-      color:
-        '#000000',
-
-      marginLeft: 12,
+    headerTitle: {
+      fontSize: 20,
+      fontWeight: "700",
+      color: "#000000",
     },
 
 
-    headerSpace: {
-      width: 44,
+    headerSpacer: {
+      width: 40,
     },
 
 
-    /* =====================================================
-       SECTIONS
-    ===================================================== */
+    content: {
+      padding: 16,
+      paddingBottom: 140,
+    },
+
+
+    section: {
+      marginBottom: 20,
+    },
+
+
+    sectionHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: 10,
+    },
+
 
     sectionTitle: {
-      fontSize: 20,
-
-      fontWeight:
-        '800',
-
-      color:
-        '#000000',
-
-      marginTop: 5,
-
-      marginBottom: 13,
+      fontSize: 18,
+      fontWeight: "700",
+      color: "#000000",
+      marginBottom: 10,
     },
 
 
-    /* =====================================================
-       CUSTOMER CARD
-    ===================================================== */
+    editText: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: "#8A6D1D",
+    },
 
-    customerCard: {
-      backgroundColor:
-        '#FFFFFF',
 
-      borderRadius: 18,
-
+    infoCard: {
+      backgroundColor: "#FFFFFF",
+      borderRadius: 14,
       padding: 16,
-
-      borderWidth: 1,
-
-      borderColor:
-        '#E0E0E0',
     },
 
 
     infoRow: {
-      flexDirection:
-        'row',
-
-      alignItems:
-        'center',
-
-      marginBottom: 15,
+      flexDirection: "row",
+      alignItems: "flex-start",
+      marginBottom: 16,
     },
 
 
-    lastInfoRow: {
-      marginBottom: 0,
-    },
-
-
-    infoIcon: {
-      width: 42,
-
-      height: 42,
-
-      borderRadius: 21,
-
-      backgroundColor:
-        '#F7F7F7',
-
-      borderWidth: 1,
-
-      borderColor:
-        '#E0E0E0',
-
-      alignItems:
-        'center',
-
-      justifyContent:
-        'center',
-    },
-
-
-    infoContent: {
+    infoTextContainer: {
       flex: 1,
-
       marginLeft: 12,
     },
 
 
     infoLabel: {
-      fontSize: 11,
-
-      color:
-        '#888888',
-
+      fontSize: 12,
+      color: "#777",
       marginBottom: 3,
     },
 
 
     infoValue: {
+      fontSize: 15,
+      color: "#111",
+      fontWeight: "500",
+    },
+
+
+    emptyInfoCard: {
+      backgroundColor: "#FFFFFF",
+      borderRadius: 14,
+      padding: 18,
+      alignItems: "center",
+    },
+
+
+    emptyInfoText: {
       fontSize: 14,
-
-      fontWeight:
-        '600',
-
-      color:
-        '#000000',
-    },
-
-
-    warningBox: {
-      marginTop: 16,
-
-      padding: 12,
-
-      borderRadius: 12,
-
-      backgroundColor:
-        '#FFF8E6',
-
-      flexDirection:
-        'row',
-
-      alignItems:
-        'center',
-
-      gap: 8,
-    },
-
-
-    warningText: {
-      flex: 1,
-
-      fontSize: 12,
-
-      lineHeight: 18,
-
-      color:
-        '#8A6A00',
-    },
-
-
-    editButton: {
-      marginTop: 15,
-
-      paddingVertical: 10,
-
-      paddingHorizontal: 14,
-
-      borderRadius: 12,
-
-      backgroundColor:
-        '#F7F7F7',
-
-      flexDirection:
-        'row',
-
-      alignItems:
-        'center',
-
-      justifyContent:
-        'center',
-
-      alignSelf:
-        'flex-start',
-
-      gap: 5,
-    },
-
-
-    editText: {
-      color:
-        '#000000',
-
-      fontSize: 13,
-
-      fontWeight:
-        '700',
-    },
-
-
-    /* =====================================================
-       LOGIN
-    ===================================================== */
-
-    loginCard: {
-      backgroundColor:
-        '#FFFFFF',
-
-      borderRadius: 18,
-
-      padding: 22,
-
-      borderWidth: 1,
-
-      borderColor:
-        '#E0E0E0',
-
-      alignItems:
-        'center',
-    },
-
-
-    loginIcon: {
-      width: 58,
-
-      height: 58,
-
-      borderRadius: 29,
-
-      backgroundColor:
-        '#F7F7F7',
-
-      borderWidth: 1,
-
-      borderColor:
-        '#E0E0E0',
-
-      alignItems:
-        'center',
-
-      justifyContent:
-        'center',
-
+      color: "#555",
       marginBottom: 12,
     },
 
 
-    loginTitle: {
-      fontSize: 18,
-
-      fontWeight:
-        '800',
-
-      color:
-        '#000000',
-
-      marginBottom: 6,
-    },
-
-
-    loginMessage: {
-      fontSize: 13,
-
-      lineHeight: 20,
-
-      color:
-        '#888888',
-
-      textAlign:
-        'center',
-
-      marginBottom: 16,
-    },
-
-
     loginButton: {
-      backgroundColor:
-        '#000000',
-
-      paddingHorizontal: 24,
-
-      paddingVertical: 11,
-
-      borderRadius: 22,
-
-      flexDirection:
-        'row',
-
-      alignItems:
-        'center',
-
-      gap: 7,
+      backgroundColor: "#000000",
+      paddingHorizontal: 25,
+      paddingVertical: 10,
+      borderRadius: 8,
     },
 
 
     loginButtonText: {
-      color:
-        '#FFFFFF',
-
+      color: "#FFFFFF",
       fontSize: 14,
-
-      fontWeight:
-        '700',
+      fontWeight: "600",
     },
 
 
-    /* =====================================================
-       EMPTY CART
-    ===================================================== */
-
-    emptyCart: {
-      backgroundColor:
-        '#FFFFFF',
-
-      borderRadius: 18,
-
-      padding: 25,
-
-      alignItems:
-        'center',
-
-      borderWidth: 1,
-
-      borderColor:
-        '#E0E0E0',
-    },
-
-
-    emptyCartTitle: {
-      marginTop: 10,
-
-      fontSize: 17,
-
-      fontWeight:
-        '700',
-
-      color:
-        '#000000',
-    },
-
-
-    emptyCartText: {
-      marginTop: 5,
-
-      fontSize: 13,
-
-      color:
-        '#888888',
-
-      textAlign:
-        'center',
-    },
-
-
-    /* =====================================================
-       PRODUCTS
-    ===================================================== */
-
-    productRow: {
-      backgroundColor:
-        '#FFFFFF',
-
-      borderRadius: 16,
-
-      padding: 12,
-
+    itemCard: {
+      backgroundColor: "#FFFFFF",
+      borderRadius: 14,
+      padding: 15,
       marginBottom: 10,
-
-      borderWidth: 1,
-
-      borderColor:
-        '#E0E0E0',
-
-      flexDirection:
-        'row',
-
-      alignItems:
-        'center',
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
     },
 
 
-    productIcon: {
-      width: 58,
-
-      height: 58,
-
-      borderRadius: 13,
-
-      backgroundColor:
-        '#F7F7F7',
-
-      borderWidth: 1,
-
-      borderColor:
-        '#E0E0E0',
-
-      alignItems:
-        'center',
-
-      justifyContent:
-        'center',
-    },
-
-
-    productInfo: {
+    itemInfo: {
       flex: 1,
-
-      marginLeft: 12,
+      paddingRight: 15,
     },
 
 
     productName: {
-      fontSize: 14,
-
-      fontWeight:
-        '700',
-
-      color:
-        '#000000',
+      fontSize: 15,
+      fontWeight: "600",
+      color: "#000000",
+      marginBottom: 6,
     },
 
 
-    productCategory: {
-      marginTop: 3,
-
-      fontSize: 11,
-
-      color:
-        '#888888',
-    },
-
-
-    quantity: {
-      marginTop: 5,
-
-      fontSize: 12,
-
-      color:
-        '#777777',
-
-      fontWeight:
-        '600',
-    },
-
-
-    productTotal: {
-      marginLeft: 8,
-
+    quantityText: {
       fontSize: 13,
-
-      fontWeight:
-        '800',
-
-      color:
-        '#000000',
-
-      maxWidth: 105,
-
-      textAlign:
-        'right',
+      color: "#666",
+      marginBottom: 3,
     },
 
 
-    /* =====================================================
-       TOTAL
-    ===================================================== */
+    unitPrice: {
+      fontSize: 13,
+      color: "#666",
+    },
+
+
+    itemTotal: {
+      fontSize: 16,
+      fontWeight: "700",
+      color: "#000000",
+    },
+
 
     totalCard: {
-      marginTop: 8,
-
+      backgroundColor: "#FFFFFF",
+      borderRadius: 14,
       padding: 18,
-
-      backgroundColor:
-        '#000000',
-
-      borderRadius: 18,
-
-      flexDirection:
-        'row',
-
-      alignItems:
-        'center',
-
-      justifyContent:
-        'space-between',
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 15,
     },
 
 
     totalLabel: {
-      fontSize: 20,
-
-      fontWeight:
-        '800',
-
-      color:
-        '#FFFFFF',
-    },
-
-
-    totalItems: {
-      marginTop: 3,
-
-      fontSize: 11,
-
-      color:
-        '#CFCFCF',
-    },
-
-
-    total: {
       fontSize: 18,
-
-      fontWeight:
-        '800',
-
-      color:
-        '#D4AF37',
-
-      maxWidth: 170,
-
-      textAlign:
-        'right',
+      fontWeight: "700",
+      color: "#000000",
     },
 
 
-    /* =====================================================
-       PLACE ORDER
-    ===================================================== */
+    totalValue: {
+      fontSize: 20,
+      fontWeight: "800",
+      color: "#000000",
+    },
+
+
+    paymentCard: {
+      backgroundColor: "#FFFFFF",
+      borderRadius: 14,
+      padding: 16,
+      flexDirection: "row",
+      alignItems: "center",
+    },
+
+
+    paymentTextContainer: {
+      marginLeft: 12,
+      flex: 1,
+    },
+
+
+    paymentTitle: {
+      fontSize: 15,
+      fontWeight: "700",
+      color: "#000000",
+      marginBottom: 3,
+    },
+
+
+    paymentSubtitle: {
+      fontSize: 13,
+      color: "#666",
+    },
+
+
+    bottomContainer: {
+      position: "absolute",
+      bottom: 0,
+      left: 0,
+      right: 0,
+      backgroundColor: "#FFFFFF",
+      paddingHorizontal: 16,
+      paddingTop: 12,
+      paddingBottom: 25,
+      borderTopWidth: 1,
+      borderTopColor: "#E5E5E5",
+    },
+
+
+    bottomTotal: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 10,
+    },
+
+
+    bottomTotalLabel: {
+      fontSize: 14,
+      color: "#666",
+    },
+
+
+    bottomTotalValue: {
+      fontSize: 18,
+      fontWeight: "800",
+      color: "#000000",
+    },
+
 
     placeOrderButton: {
-      marginTop: 18,
-
-      backgroundColor:
-        '#D4AF37',
-
-      paddingVertical: 15,
-
-      borderRadius: 25,
-
-      alignItems:
-        'center',
-
-      justifyContent:
-        'center',
-
-      flexDirection:
-        'row',
-
-      gap: 8,
+      height: 52,
+      borderRadius: 12,
+      backgroundColor: "#000000",
+      justifyContent: "center",
+      alignItems: "center",
     },
 
 
-    disabledButton: {
-      backgroundColor:
-        '#CFCFCF',
+    placeOrderButtonDisabled: {
+      opacity: 0.45,
     },
 
 
     placeOrderText: {
-      color:
-        '#FFFFFF',
-
+      color: "#FFFFFF",
       fontSize: 16,
-
-      fontWeight:
-        '800',
-    },
-
-
-    /* =====================================================
-       BACK
-    ===================================================== */
-
-    backButton: {
-      marginTop: 12,
-
-      paddingVertical: 14,
-
-      borderRadius: 25,
-
-      alignItems:
-        'center',
-
-      justifyContent:
-        'center',
-
-      flexDirection:
-        'row',
-
-      gap: 7,
-
-      borderWidth: 1,
-
-      borderColor:
-        '#E0E0E0',
-
-      backgroundColor:
-        '#FFFFFF',
-    },
-
-
-    backButtonText: {
-      color:
-        '#000000',
-
-      fontSize: 14,
-
-      fontWeight:
-        '700',
-    },
-
-
-    bottomSpace: {
-      height: 20,
+      fontWeight: "700",
     },
 
   });
