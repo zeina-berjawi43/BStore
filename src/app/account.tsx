@@ -1,3 +1,4 @@
+
 import {
   View,
   Text,
@@ -91,6 +92,20 @@ export default function Account() {
   };
 
   // =======================================================
+  // DISPLAY NAME
+  // =======================================================
+
+  const displayName =
+    user?.name ||
+    [
+      user?.firstName,
+      user?.lastName,
+    ]
+      .filter(Boolean)
+      .join(' ') ||
+    'User';
+
+  // =======================================================
   // UI
   // =======================================================
 
@@ -149,7 +164,7 @@ export default function Account() {
                 style={styles.userName}
                 numberOfLines={1}
               >
-                {user.name}
+                {displayName}
               </Text>
 
               {user.email && (
