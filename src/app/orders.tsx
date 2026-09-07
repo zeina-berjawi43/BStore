@@ -282,6 +282,7 @@ export default function Orders() {
 
         setOrders([]);
 
+
       } finally {
 
         setLoading(false);
@@ -334,7 +335,7 @@ export default function Orders() {
         case 'Pending':
         default:
 
-          return '#D4AF37';
+          return '#E35B3F';
 
       }
 
@@ -354,7 +355,7 @@ export default function Orders() {
         status === 'Cancelled'
       ) {
 
-        return '#FFF0F0';
+        return '#FFF1F1';
 
       }
 
@@ -368,7 +369,7 @@ export default function Orders() {
       }
 
 
-      return '#FFF8E6';
+      return '#FFF7F3';
 
     };
 
@@ -416,19 +417,42 @@ export default function Orders() {
             <Ionicons
               name="arrow-back"
               size={23}
-              color="#000000"
+              color="#171717"
             />
 
           </Pressable>
 
 
-          <Text
+          <View
             style={
-              styles.title
+              styles.headerTextContainer
             }
           >
-            My Orders
-          </Text>
+
+            <Text
+              style={
+                styles.title
+              }
+            >
+              My Orders
+            </Text>
+
+            {orders.length > 0 && (
+
+              <Text
+                style={
+                  styles.headerSubtitle
+                }
+              >
+                {orders.length}{' '}
+                {orders.length === 1
+                  ? 'order'
+                  : 'orders'}
+              </Text>
+
+            )}
+
+          </View>
 
 
           <View
@@ -461,7 +485,7 @@ export default function Orders() {
               <Ionicons
                 name="receipt-outline"
                 size={32}
-                color="#D4AF37"
+                color="#E35B3F"
               />
 
             </View>
@@ -680,7 +704,7 @@ export default function Orders() {
                         <Ionicons
                           name="chevron-forward"
                           size={19}
-                          color="#D4AF37"
+                          color="#E35B3F"
                         />
 
                       </View>
@@ -781,7 +805,7 @@ export default function Orders() {
                               statusBackground,
 
                             borderColor:
-                              '#E0E0E0',
+                              statusColor,
                           },
 
                         ]}
@@ -801,9 +825,15 @@ export default function Orders() {
 
 
                         <Text
-                          style={
-                            styles.statusText
-                          }
+                          style={[
+                            styles.statusText,
+
+                            {
+                              color:
+                                statusColor,
+                            },
+
+                          ]}
                         >
                           {
                             order.status
@@ -840,16 +870,23 @@ export default function Orders() {
 const styles =
   StyleSheet.create({
 
+    /* =====================================================
+       CONTAINER
+    ===================================================== */
+
     container: {
       flex: 1,
-      backgroundColor: '#F7F7F7',
       paddingTop: 20,
+      backgroundColor:
+        '#F7F3EC',
     },
 
 
     scrollContent: {
-      paddingHorizontal: 20,
+      paddingHorizontal: 18,
+
       paddingTop: 18,
+
       paddingBottom: 40,
     },
 
@@ -860,37 +897,79 @@ const styles =
 
     header: {
       flexDirection: 'row',
+
       alignItems: 'center',
-      marginBottom: 25,
+
+      marginBottom: 20,
     },
 
 
     backButton: {
-      width: 42,
-      height: 42,
-      borderRadius: 21,
+      width: 46,
 
-      backgroundColor: '#FFFFFF',
+      height: 46,
+
+      borderRadius: 16,
+
+      backgroundColor:
+        '#FFFFFF',
 
       borderWidth: 1,
-      borderColor: '#E0E0E0',
+
+      borderColor:
+        '#E7DED1',
 
       alignItems: 'center',
+
       justifyContent: 'center',
 
-      marginRight: 12,
+      marginRight: 13,
+
+      shadowColor:
+        '#171717',
+
+      shadowOffset: {
+        width: 0,
+        height: 4,
+      },
+
+      shadowOpacity: 0.06,
+
+      shadowRadius: 8,
+
+      elevation: 2,
+    },
+
+
+    headerTextContainer: {
+      flex: 1,
     },
 
 
     title: {
-      fontSize: 28,
-      fontWeight: '800',
-      color: '#000000',
+      fontSize: 29,
+
+      fontWeight: '900',
+
+      color: '#171717',
+
+      letterSpacing: -0.8,
+    },
+
+
+    headerSubtitle: {
+      marginTop: 2,
+
+      fontSize: 13,
+
+      fontWeight: '600',
+
+      color: '#817B71',
     },
 
 
     headerSpace: {
-      flex: 1,
+      width: 46,
     },
 
 
@@ -899,16 +978,33 @@ const styles =
     ===================================================== */
 
     orderCard: {
-      backgroundColor: '#FFFFFF',
+      backgroundColor:
+        '#FFFFFF',
 
-      borderRadius: 18,
+      borderRadius: 21,
 
       padding: 16,
 
-      marginBottom: 15,
+      marginBottom: 14,
 
       borderWidth: 1,
-      borderColor: '#E0E0E0',
+
+      borderColor:
+        '#E7DED1',
+
+      shadowColor:
+        '#171717',
+
+      shadowOffset: {
+        width: 0,
+        height: 5,
+      },
+
+      shadowOpacity: 0.07,
+
+      shadowRadius: 10,
+
+      elevation: 2,
     },
 
 
@@ -917,21 +1013,26 @@ const styles =
 
       alignItems: 'center',
 
-      justifyContent: 'space-between',
+      justifyContent:
+        'space-between',
     },
 
 
     orderTitleContainer: {
       flex: 1,
+
+      paddingRight: 12,
     },
 
 
     orderNumber: {
-      fontSize: 16,
+      fontSize: 17,
 
-      fontWeight: '700',
+      fontWeight: '900',
 
-      color: '#1A1A1A',
+      color: '#171717',
+
+      letterSpacing: -0.2,
     },
 
 
@@ -940,22 +1041,29 @@ const styles =
 
       fontSize: 13,
 
-      color: '#888888',
+      fontWeight: '600',
+
+      color: '#817B71',
     },
 
 
     arrowContainer: {
-      width: 34,
-      height: 34,
+      width: 38,
 
-      borderRadius: 17,
+      height: 38,
 
-      backgroundColor: '#F7F7F7',
+      borderRadius: 13,
+
+      backgroundColor:
+        '#FFF7F3',
 
       borderWidth: 1,
-      borderColor: '#E0E0E0',
+
+      borderColor:
+        '#F0CFC4',
 
       alignItems: 'center',
+
       justifyContent: 'center',
     },
 
@@ -967,7 +1075,8 @@ const styles =
     divider: {
       height: 1,
 
-      backgroundColor: '#E0E0E0',
+      backgroundColor:
+        '#EEE4D7',
 
       marginVertical: 15,
     },
@@ -982,7 +1091,8 @@ const styles =
 
       alignItems: 'center',
 
-      justifyContent: 'space-between',
+      justifyContent:
+        'space-between',
     },
 
 
@@ -1003,27 +1113,31 @@ const styles =
     infoLabel: {
       fontSize: 12,
 
-      color: '#888888',
+      fontWeight: '700',
 
-      marginBottom: 4,
+      color: '#9A9186',
+
+      marginBottom: 5,
+
+      letterSpacing: 0.2,
     },
 
 
     infoValue: {
       fontSize: 14,
 
-      fontWeight: '600',
+      fontWeight: '800',
 
-      color: '#1A1A1A',
+      color: '#24221E',
     },
 
 
     total: {
-      fontSize: 16,
+      fontSize: 17,
 
-      fontWeight: '800',
+      fontWeight: '900',
 
-      color: '#D4AF37',
+      color: '#171717',
     },
 
 
@@ -1032,11 +1146,11 @@ const styles =
     ===================================================== */
 
     statusContainer: {
-      paddingHorizontal: 10,
+      paddingHorizontal: 11,
 
-      paddingVertical: 7,
+      paddingVertical: 8,
 
-      borderRadius: 15,
+      borderRadius: 14,
 
       borderWidth: 1,
 
@@ -1044,7 +1158,7 @@ const styles =
 
       alignItems: 'center',
 
-      gap: 5,
+      gap: 6,
     },
 
 
@@ -1060,9 +1174,7 @@ const styles =
     statusText: {
       fontSize: 12,
 
-      fontWeight: '700',
-
-      color: '#1A1A1A',
+      fontWeight: '800',
     },
 
 
@@ -1075,39 +1187,57 @@ const styles =
 
       justifyContent: 'center',
 
-      marginTop: 100,
+      marginTop: 95,
 
       paddingHorizontal: 25,
     },
 
 
     emptyIcon: {
-      width: 70,
+      width: 76,
 
-      height: 70,
+      height: 76,
 
-      borderRadius: 35,
+      borderRadius: 22,
 
-      backgroundColor: '#FFFFFF',
+      backgroundColor:
+        '#FFFFFF',
 
       borderWidth: 1,
 
-      borderColor: '#E0E0E0',
+      borderColor:
+        '#E7DED1',
 
       alignItems: 'center',
 
       justifyContent: 'center',
+
+      shadowColor:
+        '#171717',
+
+      shadowOffset: {
+        width: 0,
+        height: 5,
+      },
+
+      shadowOpacity: 0.06,
+
+      shadowRadius: 9,
+
+      elevation: 2,
     },
 
 
     emptyTitle: {
       marginTop: 20,
 
-      fontSize: 22,
+      fontSize: 23,
 
-      fontWeight: '800',
+      fontWeight: '900',
 
-      color: '#000000',
+      color: '#171717',
+
+      letterSpacing: -0.4,
     },
 
 
@@ -1120,26 +1250,47 @@ const styles =
 
       textAlign: 'center',
 
-      color: '#888888',
+      color: '#817B71',
+
+      fontWeight: '500',
+
+      maxWidth: 290,
     },
 
 
     shopButton: {
       marginTop: 25,
 
+      minHeight: 50,
+
       paddingHorizontal: 22,
 
-      paddingVertical: 13,
+      borderRadius: 16,
 
-      borderRadius: 25,
-
-      backgroundColor: '#000000',
+      backgroundColor:
+        '#171717',
 
       flexDirection: 'row',
 
       alignItems: 'center',
 
+      justifyContent: 'center',
+
       gap: 8,
+
+      shadowColor:
+        '#171717',
+
+      shadowOffset: {
+        width: 0,
+        height: 5,
+      },
+
+      shadowOpacity: 0.14,
+
+      shadowRadius: 8,
+
+      elevation: 3,
     },
 
 
@@ -1148,7 +1299,9 @@ const styles =
 
       fontSize: 14,
 
-      fontWeight: '700',
+      fontWeight: '800',
+
+      letterSpacing: 0.1,
     },
 
   });

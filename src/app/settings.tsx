@@ -1,4 +1,3 @@
-
 import {
   View,
   Text,
@@ -55,8 +54,8 @@ export default function Settings() {
 
             <Ionicons
               name="arrow-back"
-              size={23}
-              color="#000000"
+              size={22}
+              color="#171717"
             />
 
           </Pressable>
@@ -82,7 +81,7 @@ export default function Settings() {
                 styles.subtitle
               }
             >
-             Manage your preferences
+              Manage your preferences
             </Text>
 
           </View>
@@ -94,13 +93,27 @@ export default function Settings() {
             APP
         ================================================= */}
 
-        <Text
+        <View
           style={
-            styles.sectionTitle
+            styles.sectionHeader
           }
         >
-          App
-        </Text>
+
+          <View
+            style={
+              styles.sectionAccent
+            }
+          />
+
+          <Text
+            style={
+              styles.sectionTitle
+            }
+          >
+            App
+          </Text>
+
+        </View>
 
 
         <View
@@ -133,7 +146,7 @@ export default function Settings() {
               <Ionicons
                 name="notifications-outline"
                 size={22}
-                color="#D4AF37"
+                color="#E35B3F"
               />
 
             </View>
@@ -165,11 +178,19 @@ export default function Settings() {
             </View>
 
 
-            <Ionicons
-              name="chevron-forward"
-              size={20}
-              color="#B0B0B0"
-            />
+            <View
+              style={
+                styles.chevronContainer
+              }
+            >
+
+              <Ionicons
+                name="chevron-forward"
+                size={18}
+                color="#817B71"
+              />
+
+            </View>
 
           </Pressable>
 
@@ -180,13 +201,27 @@ export default function Settings() {
             SUPPORT
         ================================================= */}
 
-        <Text
+        <View
           style={
-            styles.sectionTitle
+            styles.sectionHeader
           }
         >
-          Support
-        </Text>
+
+          <View
+            style={
+              styles.sectionAccent
+            }
+          />
+
+          <Text
+            style={
+              styles.sectionTitle
+            }
+          >
+            Support
+          </Text>
+
+        </View>
 
 
         <View
@@ -219,7 +254,7 @@ export default function Settings() {
               <Ionicons
                 name="help-circle-outline"
                 size={22}
-                color="#D4AF37"
+                color="#E35B3F"
               />
 
             </View>
@@ -251,11 +286,19 @@ export default function Settings() {
             </View>
 
 
-            <Ionicons
-              name="chevron-forward"
-              size={20}
-              color="#B0B0B0"
-            />
+            <View
+              style={
+                styles.chevronContainer
+              }
+            >
+
+              <Ionicons
+                name="chevron-forward"
+                size={18}
+                color="#817B71"
+              />
+
+            </View>
 
           </Pressable>
 
@@ -291,7 +334,7 @@ export default function Settings() {
               <Ionicons
                 name="shield-checkmark-outline"
                 size={22}
-                color="#D4AF37"
+                color="#E35B3F"
               />
 
             </View>
@@ -323,11 +366,19 @@ export default function Settings() {
             </View>
 
 
-            <Ionicons
-              name="chevron-forward"
-              size={20}
-              color="#B0B0B0"
-            />
+            <View
+              style={
+                styles.chevronContainer
+              }
+            >
+
+              <Ionicons
+                name="chevron-forward"
+                size={18}
+                color="#817B71"
+              />
+
+            </View>
 
           </Pressable>
 
@@ -363,7 +414,7 @@ export default function Settings() {
               <Ionicons
                 name="information-circle-outline"
                 size={22}
-                color="#D4AF37"
+                color="#E35B3F"
               />
 
             </View>
@@ -395,11 +446,19 @@ export default function Settings() {
             </View>
 
 
-            <Ionicons
-              name="chevron-forward"
-              size={20}
-              color="#B0B0B0"
-            />
+            <View
+              style={
+                styles.chevronContainer
+              }
+            >
+
+              <Ionicons
+                name="chevron-forward"
+                size={18}
+                color="#817B71"
+              />
+
+            </View>
 
           </Pressable>
 
@@ -410,13 +469,27 @@ export default function Settings() {
             VERSION
         ================================================= */}
 
-        <Text
+        <View
           style={
-            styles.version
+            styles.versionContainer
           }
         >
-          BStore v1.0.0
-        </Text>
+
+          <View
+            style={
+              styles.versionDot
+            }
+          />
+
+          <Text
+            style={
+              styles.version
+            }
+          >
+            BStore v1.0.0
+          </Text>
+
+        </View>
 
       </ScrollView>
 
@@ -432,32 +505,34 @@ export default function Settings() {
 const styles =
   StyleSheet.create({
 
+    // =====================================================
+    // CONTAINER
+    // =====================================================
+
     container: {
 
       flex: 1,
-
+      paddingTop:20,
       backgroundColor:
-        '#F7F7F7',
-
-      paddingTop: 20,
+        '#F7F3EC',
 
     },
 
 
     scrollContent: {
 
-      paddingHorizontal: 20,
+      paddingHorizontal: 18,
 
       paddingTop: 18,
 
-      paddingBottom: 40,
+      paddingBottom: 45,
 
     },
 
 
-    /* =====================================================
-       HEADER
-    ===================================================== */
+    // =====================================================
+    // HEADER
+    // =====================================================
 
     header: {
 
@@ -467,18 +542,18 @@ const styles =
       alignItems:
         'center',
 
-      marginBottom: 8,
+      marginBottom: 2,
 
     },
 
 
     backButton: {
 
-      width: 42,
+      width: 46,
 
-      height: 42,
+      height: 46,
 
-      borderRadius: 21,
+      borderRadius: 16,
 
       backgroundColor:
         '#FFFFFF',
@@ -486,7 +561,7 @@ const styles =
       borderWidth: 1,
 
       borderColor:
-        '#E0E0E0',
+        '#E7DED1',
 
       alignItems:
         'center',
@@ -494,7 +569,21 @@ const styles =
       justifyContent:
         'center',
 
-      marginRight: 12,
+      marginRight: 13,
+
+      shadowColor:
+        '#171717',
+
+      shadowOffset: {
+        width: 0,
+        height: 4,
+      },
+
+      shadowOpacity: 0.06,
+
+      shadowRadius: 8,
+
+      elevation: 2,
 
     },
 
@@ -508,81 +597,133 @@ const styles =
 
     title: {
 
-      fontSize: 28,
+      fontSize: 29,
 
       fontWeight:
-        '800',
+        '900',
 
       color:
-        '#000000',
+        '#171717',
+
+      letterSpacing:
+        -0.8,
 
     },
 
 
     subtitle: {
 
-      marginTop: 4,
+      marginTop: 3,
 
       fontSize: 13,
 
+      fontWeight:
+        '500',
+
       color:
-        '#888888',
+        '#817B71',
 
     },
 
 
-    /* =====================================================
-       SECTION
-    ===================================================== */
+    // =====================================================
+    // SECTION HEADER
+    // =====================================================
 
-    sectionTitle: {
+    sectionHeader: {
+
+      flexDirection:
+        'row',
+
+      alignItems:
+        'center',
 
       marginTop: 25,
 
-      marginBottom: 10,
+      marginBottom: 11,
 
-      fontSize: 15,
-
-      fontWeight:
-        '700',
-
-      color:
-        '#1A1A1A',
+      paddingLeft: 2,
 
     },
 
 
-    /* =====================================================
-       CARD
-    ===================================================== */
+    sectionAccent: {
+
+      width: 4,
+
+      height: 21,
+
+      borderRadius: 3,
+
+      backgroundColor:
+        '#E35B3F',
+
+      marginRight: 9,
+
+    },
+
+
+    sectionTitle: {
+
+      fontSize: 20,
+
+      fontWeight:
+        '900',
+
+      color:
+        '#171717',
+
+      letterSpacing:
+        -0.3,
+
+    },
+
+
+    // =====================================================
+    // CARD
+    // =====================================================
 
     card: {
 
       backgroundColor:
         '#FFFFFF',
 
-      borderRadius: 18,
+      borderRadius: 21,
 
       borderWidth: 1,
 
       borderColor:
-        '#E0E0E0',
+        '#E7DED1',
 
       overflow:
         'hidden',
 
+      shadowColor:
+        '#171717',
+
+      shadowOffset: {
+        width: 0,
+        height: 5,
+      },
+
+      shadowOpacity: 0.07,
+
+      shadowRadius: 9,
+
+      elevation: 2,
+
     },
 
 
-    /* =====================================================
-       ROW
-    ===================================================== */
+    // =====================================================
+    // ROW
+    // =====================================================
 
     row: {
 
-      minHeight: 78,
+      minHeight: 84,
 
-      paddingHorizontal: 15,
+      paddingHorizontal: 14,
 
       flexDirection:
         'row',
@@ -593,21 +734,25 @@ const styles =
     },
 
 
+    // =====================================================
+    // ICON CONTAINER
+    // =====================================================
+
     iconContainer: {
 
-      width: 42,
+      width: 46,
 
-      height: 42,
+      height: 46,
 
-      borderRadius: 21,
+      borderRadius: 15,
 
       backgroundColor:
-        '#F7F7F7',
+        '#FFF7F3',
 
       borderWidth: 1,
 
       borderColor:
-        '#E0E0E0',
+        '#F0CFC4',
 
       alignItems:
         'center',
@@ -618,11 +763,17 @@ const styles =
     },
 
 
+    // =====================================================
+    // TEXT
+    // =====================================================
+
     rowText: {
 
       flex: 1,
 
-      marginLeft: 12,
+      marginLeft: 13,
+
+      paddingRight: 8,
 
     },
 
@@ -632,10 +783,13 @@ const styles =
       fontSize: 15,
 
       fontWeight:
-        '700',
+        '800',
 
       color:
-        '#1A1A1A',
+        '#24221E',
+
+      letterSpacing:
+        -0.1,
 
     },
 
@@ -646,41 +800,107 @@ const styles =
 
       fontSize: 12,
 
+      fontWeight:
+        '500',
+
       color:
-        '#888888',
+        '#817B71',
 
     },
 
+
+    // =====================================================
+    // CHEVRON
+    // =====================================================
+
+    chevronContainer: {
+
+      width: 32,
+
+      height: 32,
+
+      borderRadius: 11,
+
+      backgroundColor:
+        '#F8F2EA',
+
+      alignItems:
+        'center',
+
+      justifyContent:
+        'center',
+
+    },
+
+
+    // =====================================================
+    // DIVIDER
+    // =====================================================
 
     divider: {
 
       height: 1,
 
       backgroundColor:
-        '#E0E0E0',
+        '#EEE4D7',
 
-      marginLeft: 69,
+      marginLeft: 73,
+
+      marginRight: 14,
 
     },
 
 
-    /* =====================================================
-       VERSION
-    ===================================================== */
+    // =====================================================
+    // VERSION
+    // =====================================================
 
-    version: {
+    versionContainer: {
 
-      textAlign:
+      flexDirection:
+        'row',
+
+      alignItems:
+        'center',
+
+      justifyContent:
         'center',
 
       marginTop: 30,
 
-      marginBottom: 10,
+    },
 
-      fontSize: 13,
+
+    versionDot: {
+
+      width: 5,
+
+      height: 5,
+
+      borderRadius: 3,
+
+      backgroundColor:
+        '#E35B3F',
+
+      marginRight: 7,
+
+      opacity: 0.75,
+
+    },
+
+
+    version: {
+
+      fontSize: 12,
+
+      fontWeight:
+        '600',
 
       color:
-        '#AAAAAA',
+        '#9A9186',
+
+      letterSpacing:
+        0.2,
 
     },
 

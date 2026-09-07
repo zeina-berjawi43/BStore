@@ -1,4 +1,3 @@
-
 import {
   View,
   Text,
@@ -184,7 +183,9 @@ export default function Register() {
         }
       >
 
-        {/* HEADER */}
+        {/* =====================================================
+            HEADER
+        ===================================================== */}
 
         <View style={styles.header}>
 
@@ -201,7 +202,7 @@ export default function Register() {
             <Ionicons
               name="arrow-back"
               size={23}
-              color="#000000"
+              color="#171717"
             />
 
           </Pressable>
@@ -228,7 +229,9 @@ export default function Register() {
 
         </View>
 
-        {/* CARD */}
+        {/* =====================================================
+            FORM CARD
+        ===================================================== */}
 
         <View style={styles.card}>
 
@@ -240,7 +243,7 @@ export default function Register() {
 
           <TextInput
             placeholder="First Name"
-            placeholderTextColor="#888888"
+            placeholderTextColor="#9A9186"
             value={firstName}
             onChangeText={(text) => {
 
@@ -254,7 +257,11 @@ export default function Register() {
             autoCapitalize="words"
             autoCorrect={false}
             editable={!loading}
-            style={styles.input}
+            style={[
+              styles.input,
+              error &&
+                styles.inputError,
+            ]}
           />
 
           {/* LAST NAME */}
@@ -265,7 +272,7 @@ export default function Register() {
 
           <TextInput
             placeholder="Last Name"
-            placeholderTextColor="#888888"
+            placeholderTextColor="#9A9186"
             value={lastName}
             onChangeText={(text) => {
 
@@ -279,7 +286,11 @@ export default function Register() {
             autoCapitalize="words"
             autoCorrect={false}
             editable={!loading}
-            style={styles.input}
+            style={[
+              styles.input,
+              error &&
+                styles.inputError,
+            ]}
           />
 
           {/* PHONE */}
@@ -290,7 +301,7 @@ export default function Register() {
 
           <TextInput
             placeholder="Phone Number"
-            placeholderTextColor="#888888"
+            placeholderTextColor="#9A9186"
             value={phone}
             onChangeText={(text) => {
 
@@ -305,7 +316,11 @@ export default function Register() {
             autoCapitalize="none"
             autoCorrect={false}
             editable={!loading}
-            style={styles.input}
+            style={[
+              styles.input,
+              error &&
+                styles.inputError,
+            ]}
           />
 
           {/* ADDRESS */}
@@ -316,7 +331,7 @@ export default function Register() {
 
           <TextInput
             placeholder="Address"
-            placeholderTextColor="#888888"
+            placeholderTextColor="#9A9186"
             value={address}
             onChangeText={(text) => {
 
@@ -333,16 +348,36 @@ export default function Register() {
             style={[
               styles.input,
               styles.addressInput,
+              error &&
+                styles.inputError,
             ]}
           />
 
+          {/* ERROR */}
+
           {error ? (
 
-            <Text
-              style={styles.errorText}
+            <View
+              style={
+                styles.errorBox
+              }
             >
-              {error}
-            </Text>
+
+              <Ionicons
+                name="alert-circle-outline"
+                size={18}
+                color="#D93025"
+              />
+
+              <Text
+                style={
+                  styles.errorText
+                }
+              >
+                {error}
+              </Text>
+
+            </View>
 
           ) : null}
 
@@ -352,11 +387,19 @@ export default function Register() {
             style={styles.infoBox}
           >
 
-            <Ionicons
-              name="shield-checkmark-outline"
-              size={21}
-              color="#D4AF37"
-            />
+            <View
+              style={
+                styles.infoIcon
+              }
+            >
+
+              <Ionicons
+                name="shield-checkmark-outline"
+                size={20}
+                color="#E35B3F"
+              />
+
+            </View>
 
             <Text
               style={styles.infoText}
@@ -391,6 +434,7 @@ export default function Register() {
             ) : (
 
               <>
+
                 <Text
                   style={
                     styles.registerButtonText
@@ -404,6 +448,7 @@ export default function Register() {
                   size={18}
                   color="#FFFFFF"
                 />
+
               </>
 
             )}
@@ -412,7 +457,9 @@ export default function Register() {
 
         </View>
 
-        {/* LOGIN */}
+        {/* =====================================================
+            LOGIN
+        ===================================================== */}
 
         <View
           style={
@@ -448,6 +495,12 @@ export default function Register() {
               Login
             </Text>
 
+            <Ionicons
+              name="arrow-forward"
+              size={17}
+              color="#E35B3F"
+            />
+
           </Pressable>
 
         </View>
@@ -465,41 +518,73 @@ export default function Register() {
 const styles =
   StyleSheet.create({
 
+    // =======================================================
+    // MAIN
+    // =======================================================
+
     container: {
       flex: 1,
+
       backgroundColor:
-        '#F7F7F7',
-      paddingTop: 20,
+        '#F7F3EC',
+
+      paddingTop: 18,
     },
 
     scrollContent: {
-      paddingHorizontal: 20,
-      paddingTop: 18,
+      paddingHorizontal: 18,
+
+      paddingTop: 8,
+
       paddingBottom: 40,
     },
 
+
+    // =======================================================
+    // HEADER
+    // =======================================================
+
     header: {
-      flexDirection:
-        'row',
-      alignItems:
-        'center',
-      marginBottom: 25,
+      flexDirection: 'row',
+
+      alignItems: 'center',
+
+      marginBottom: 20,
     },
 
     backButton: {
-      width: 42,
-      height: 42,
-      borderRadius: 21,
+      width: 46,
+      height: 46,
+
+      borderRadius: 16,
+
       backgroundColor:
         '#FFFFFF',
+
       borderWidth: 1,
+
       borderColor:
-        '#E0E0E0',
-      alignItems:
-        'center',
-      justifyContent:
-        'center',
-      marginRight: 12,
+        '#E7DED1',
+
+      alignItems: 'center',
+
+      justifyContent: 'center',
+
+      marginRight: 13,
+
+      shadowColor:
+        '#171717',
+
+      shadowOffset: {
+        width: 0,
+        height: 4,
+      },
+
+      shadowOpacity: 0.08,
+
+      shadowRadius: 8,
+
+      elevation: 3,
     },
 
     headerText: {
@@ -507,143 +592,339 @@ const styles =
     },
 
     title: {
-      fontSize: 28,
-      fontWeight: '800',
-      color: '#000000',
+      fontSize: 29,
+
+      fontWeight: '900',
+
+      color:
+        '#171717',
+
+      letterSpacing: -0.8,
     },
 
     subtitle: {
-      marginTop: 4,
+      marginTop: 5,
+
       fontSize: 13,
-      color: '#888888',
+
+      color:
+        '#817B71',
+
+      lineHeight: 18,
     },
+
+
+    // =======================================================
+    // FORM CARD
+    // =======================================================
 
     card: {
       backgroundColor:
         '#FFFFFF',
-      borderRadius: 18,
+
+      borderRadius: 21,
+
       borderWidth: 1,
+
       borderColor:
-        '#E0E0E0',
+        '#E7DED1',
+
       padding: 18,
+
+      shadowColor:
+        '#171717',
+
+      shadowOffset: {
+        width: 0,
+        height: 6,
+      },
+
+      shadowOpacity: 0.08,
+
+      shadowRadius: 11,
+
+      elevation: 3,
     },
+
+
+    // =======================================================
+    // FORM
+    // =======================================================
 
     label: {
       marginBottom: 7,
+
       marginTop: 3,
+
       fontSize: 14,
-      fontWeight: '700',
-      color: '#1A1A1A',
+
+      fontWeight: '800',
+
+      color:
+        '#24221E',
     },
 
     input: {
       minHeight: 52,
+
       backgroundColor:
-        '#F7F7F7',
-      borderRadius: 14,
+        '#F8F2EA',
+
+      borderRadius: 15,
+
       paddingHorizontal: 16,
+
       paddingVertical: 13,
+
       fontSize: 15,
+
+      fontWeight: '600',
+
       borderWidth: 1,
+
       borderColor:
-        '#E0E0E0',
+        '#E6DED2',
+
       marginBottom: 13,
-      color: '#000000',
+
+      color:
+        '#171717',
+    },
+
+    inputError: {
+      borderColor:
+        '#D93025',
+
+      backgroundColor:
+        '#FFF7F3',
     },
 
     addressInput: {
-      height: 90,
+      height: 88,
+
       textAlignVertical:
         'top',
     },
 
-    errorText: {
-      color:
-        '#D93025',
-      fontSize: 12,
-      marginBottom: 10,
-      marginLeft: 4,
-      fontWeight: '500',
+
+    // =======================================================
+    // ERROR
+    // =======================================================
+
+    errorBox: {
+      flexDirection: 'row',
+
+      alignItems: 'center',
+
+      backgroundColor:
+        '#FFF7F3',
+
+      borderRadius: 13,
+
+      borderWidth: 1,
+
+      borderColor:
+        '#F0CFC4',
+
+      paddingHorizontal: 12,
+
+      paddingVertical: 10,
+
+      marginBottom: 12,
+
+      gap: 8,
     },
 
+    errorText: {
+      flex: 1,
+
+      color:
+        '#D93025',
+
+      fontSize: 12,
+
+      lineHeight: 17,
+
+      fontWeight: '600',
+    },
+
+
+    // =======================================================
+    // INFO
+    // =======================================================
+
     infoBox: {
-      flexDirection:
-        'row',
-      alignItems:
-        'center',
+      flexDirection: 'row',
+
+      alignItems: 'center',
+
       backgroundColor:
-        '#FFFBEF',
-      borderRadius: 12,
+        '#FFF7F3',
+
+      borderRadius: 15,
+
       borderWidth: 1,
+
       borderColor:
-        '#E8D89B',
+        '#F0CFC4',
+
       padding: 12,
+
       gap: 9,
+    },
+
+    infoIcon: {
+      width: 34,
+      height: 34,
+
+      borderRadius: 11,
+
+      backgroundColor:
+        '#FFFFFF',
+
+      borderWidth: 1,
+
+      borderColor:
+        '#F0CFC4',
+
+      alignItems: 'center',
+
+      justifyContent: 'center',
     },
 
     infoText: {
       flex: 1,
+
       fontSize: 12,
+
       lineHeight: 18,
+
       color:
-        '#555555',
+        '#777168',
+
+      fontWeight: '500',
     },
+
+
+    // =======================================================
+    // CREATE ACCOUNT BUTTON
+    // =======================================================
 
     registerButton: {
       marginTop: 18,
+
       backgroundColor:
-        '#D4AF37',
-      minHeight: 50,
-      borderRadius: 25,
-      alignItems:
-        'center',
-      justifyContent:
-        'center',
-      flexDirection:
-        'row',
+        '#E35B3F',
+
+      minHeight: 53,
+
+      borderRadius: 16,
+
+      alignItems: 'center',
+
+      justifyContent: 'center',
+
+      flexDirection: 'row',
+
       gap: 8,
+
+      shadowColor:
+        '#E35B3F',
+
+      shadowOffset: {
+        width: 0,
+        height: 4,
+      },
+
+      shadowOpacity: 0.18,
+
+      shadowRadius: 7,
+
+      elevation: 3,
     },
 
     disabledButton: {
-      opacity: 0.7,
+      opacity: 0.6,
+
+      shadowOpacity: 0,
+
+      elevation: 0,
     },
 
     registerButtonText: {
       color:
         '#FFFFFF',
+
       fontSize: 15,
-      fontWeight: '800',
+
+      fontWeight: '900',
     },
 
+
+    // =======================================================
+    // LOGIN SECTION
+    // =======================================================
+
     loginSection: {
-      marginTop: 25,
-      alignItems:
-        'center',
+      marginTop: 20,
+
+      alignItems: 'center',
     },
 
     loginQuestion: {
       fontSize: 13,
+
       color:
-        '#888888',
+        '#817B71',
+
       marginBottom: 8,
     },
 
     loginButton: {
+      minHeight: 50,
+
+      paddingHorizontal: 24,
+
+      borderRadius: 16,
+
       backgroundColor:
         '#FFFFFF',
+
       borderWidth: 1,
+
       borderColor:
-        '#E0E0E0',
-      borderRadius: 22,
-      paddingVertical: 11,
-      paddingHorizontal: 28,
+        '#E7DED1',
+
+      alignItems: 'center',
+
+      justifyContent: 'center',
+
+      flexDirection: 'row',
+
+      gap: 8,
+
+      shadowColor:
+        '#171717',
+
+      shadowOffset: {
+        width: 0,
+        height: 4,
+      },
+
+      shadowOpacity: 0.07,
+
+      shadowRadius: 8,
+
+      elevation: 2,
     },
 
     loginText: {
       color:
-        '#000000',
+        '#171717',
+
       fontSize: 14,
-      fontWeight: '700',
+
+      fontWeight: '900',
     },
 
   });

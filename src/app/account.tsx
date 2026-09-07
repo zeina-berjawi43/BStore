@@ -1,4 +1,3 @@
-
 import {
   View,
   Text,
@@ -25,6 +24,7 @@ import {
   logout as authLogout,
   User,
 } from '../services/authService';
+
 
 // =========================================================
 // ACCOUNT
@@ -111,6 +111,7 @@ export default function Account() {
 
   return (
     <View style={styles.container}>
+
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={
@@ -118,23 +119,30 @@ export default function Account() {
         }
       >
 
-        {/* HEADER */}
+        {/* =================================================
+            HEADER
+        ================================================= */}
 
         <View style={styles.header}>
+
           <Pressable
             style={styles.backButton}
             onPress={() =>
               router.replace('/')
             }
           >
+
             <Ionicons
               name="arrow-back"
               size={23}
-              color="#000000"
+              color="#171717"
             />
+
           </Pressable>
 
+
           <View style={styles.headerText}>
+
             <Text style={styles.title}>
               My Account
             </Text>
@@ -142,21 +150,30 @@ export default function Account() {
             <Text style={styles.subtitle}>
               Manage your account
             </Text>
+
           </View>
+
         </View>
 
-        {/* USER INFORMATION */}
+
+        {/* =================================================
+            USER INFORMATION
+        ================================================= */}
 
         {user && (
+
           <View style={styles.userCard}>
 
             <View style={styles.userIcon}>
+
               <Ionicons
                 name="person"
                 size={25}
-                color="#D4AF37"
+                color="#E35B3F"
               />
+
             </View>
+
 
             <View style={styles.userInfo}>
 
@@ -167,43 +184,89 @@ export default function Account() {
                 {displayName}
               </Text>
 
+
               {user.email && (
+
                 <Text
                   style={styles.userEmail}
                   numberOfLines={1}
                 >
                   {user.email}
                 </Text>
+
               )}
+
 
               {user.phone && (
-                <Text style={styles.userDetails}>
-                  {user.phone}
-                </Text>
+
+                <View style={styles.detailRow}>
+
+                  <Ionicons
+                    name="call-outline"
+                    size={13}
+                    color="#817B71"
+                  />
+
+                  <Text
+                    style={styles.userDetails}
+                    numberOfLines={1}
+                  >
+                    {user.phone}
+                  </Text>
+
+                </View>
+
               )}
 
+
               {user.address && (
-                <Text
-                  style={styles.userDetails}
-                  numberOfLines={1}
-                >
-                  {user.address}
-                </Text>
+
+                <View style={styles.detailRow}>
+
+                  <Ionicons
+                    name="location-outline"
+                    size={13}
+                    color="#817B71"
+                  />
+
+                  <Text
+                    style={styles.userDetails}
+                    numberOfLines={1}
+                  >
+                    {user.address}
+                  </Text>
+
+                </View>
+
               )}
 
             </View>
+
           </View>
+
         )}
 
-        {/* ACCOUNT */}
 
-        <Text style={styles.sectionTitle}>
-          Account
-        </Text>
+        {/* =================================================
+            ACCOUNT
+        ================================================= */}
+
+        <View style={styles.sectionHeader}>
+
+          <View style={styles.sectionAccent} />
+
+          <Text style={styles.sectionTitle}>
+            Account
+          </Text>
+
+        </View>
+
 
         <View style={styles.card}>
 
-          {/* EDIT ACCOUNT */}
+          {/* =================================================
+              EDIT ACCOUNT
+          ================================================= */}
 
           <Pressable
             style={styles.row}
@@ -213,15 +276,20 @@ export default function Account() {
               )
             }
           >
+
             <View style={styles.iconContainer}>
+
               <Ionicons
                 name="person-outline"
                 size={22}
-                color="#D4AF37"
+                color="#E35B3F"
               />
+
             </View>
 
+
             <View style={styles.rowText}>
+
               <Text style={styles.rowTitle}>
                 Edit Account
               </Text>
@@ -229,18 +297,29 @@ export default function Account() {
               <Text style={styles.rowSubtitle}>
                 Update your personal information
               </Text>
+
             </View>
 
-            <Ionicons
-              name="chevron-forward"
-              size={20}
-              color="#B0B0B0"
-            />
+
+            <View style={styles.chevronContainer}>
+
+              <Ionicons
+                name="chevron-forward"
+                size={18}
+                color="#817B71"
+              />
+
+            </View>
+
           </Pressable>
+
 
           <View style={styles.divider} />
 
-          {/* MY ORDERS */}
+
+          {/* =================================================
+              MY ORDERS
+          ================================================= */}
 
           <Pressable
             style={styles.row}
@@ -248,15 +327,20 @@ export default function Account() {
               router.push('/orders')
             }
           >
+
             <View style={styles.iconContainer}>
+
               <Ionicons
                 name="receipt-outline"
                 size={22}
-                color="#D4AF37"
+                color="#E35B3F"
               />
+
             </View>
 
+
             <View style={styles.rowText}>
+
               <Text style={styles.rowTitle}>
                 My Orders
               </Text>
@@ -264,18 +348,29 @@ export default function Account() {
               <Text style={styles.rowSubtitle}>
                 View your previous orders
               </Text>
+
             </View>
 
-            <Ionicons
-              name="chevron-forward"
-              size={20}
-              color="#B0B0B0"
-            />
+
+            <View style={styles.chevronContainer}>
+
+              <Ionicons
+                name="chevron-forward"
+                size={18}
+                color="#817B71"
+              />
+
+            </View>
+
           </Pressable>
+
 
           <View style={styles.divider} />
 
-          {/* SETTINGS */}
+
+          {/* =================================================
+              SETTINGS
+          ================================================= */}
 
           <Pressable
             style={styles.row}
@@ -283,15 +378,20 @@ export default function Account() {
               router.push('/settings')
             }
           >
+
             <View style={styles.iconContainer}>
+
               <Ionicons
                 name="settings-outline"
                 size={22}
-                color="#D4AF37"
+                color="#E35B3F"
               />
+
             </View>
 
+
             <View style={styles.rowText}>
+
               <Text style={styles.rowTitle}>
                 Settings
               </Text>
@@ -299,23 +399,34 @@ export default function Account() {
               <Text style={styles.rowSubtitle}>
                 App settings and preferences
               </Text>
+
             </View>
 
-            <Ionicons
-              name="chevron-forward"
-              size={20}
-              color="#B0B0B0"
-            />
+
+            <View style={styles.chevronContainer}>
+
+              <Ionicons
+                name="chevron-forward"
+                size={18}
+                color="#817B71"
+              />
+
+            </View>
+
           </Pressable>
 
         </View>
 
-        {/* LOGOUT */}
+
+        {/* =================================================
+            LOGOUT
+        ================================================= */}
 
         <Pressable
           style={styles.logoutButton}
           onPress={logout}
         >
+
           <Ionicons
             name="log-out-outline"
             size={21}
@@ -325,180 +436,455 @@ export default function Account() {
           <Text style={styles.logoutText}>
             Logout
           </Text>
+
         </Pressable>
 
       </ScrollView>
+
     </View>
   );
 }
+
 
 // =========================================================
 // STYLES
 // =========================================================
 
 const styles = StyleSheet.create({
+
+  /* =====================================================
+     CONTAINER
+  ===================================================== */
+
   container: {
     flex: 1,
-    backgroundColor: '#F7F7F7',
-    paddingTop: 20,
+    paddingTop:20,
+    backgroundColor:
+      '#F7F3EC',
   },
 
+
   scrollContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
+
     paddingTop: 18,
+
     paddingBottom: 40,
   },
 
+
+  /* =====================================================
+     HEADER
+  ===================================================== */
+
   header: {
     flexDirection: 'row',
+
     alignItems: 'center',
-    marginBottom: 18,
+
+    marginBottom: 20,
   },
 
+
   backButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: '#FFFFFF',
+    width: 46,
+
+    height: 46,
+
+    borderRadius: 16,
+
+    backgroundColor:
+      '#FFFFFF',
+
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+
+    borderColor:
+      '#E7DED1',
+
     alignItems: 'center',
+
     justifyContent: 'center',
-    marginRight: 12,
+
+    marginRight: 13,
+
+    shadowColor:
+      '#171717',
+
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+
+    shadowOpacity: 0.06,
+
+    shadowRadius: 8,
+
+    elevation: 2,
   },
+
 
   headerText: {
     flex: 1,
   },
 
+
   title: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#000000',
+    fontSize: 29,
+
+    fontWeight: '900',
+
+    color: '#171717',
+
+    letterSpacing: -0.8,
   },
+
 
   subtitle: {
-    marginTop: 4,
+    marginTop: 3,
+
     fontSize: 13,
-    color: '#888888',
+
+    fontWeight: '600',
+
+    color: '#817B71',
   },
+
+
+  /* =====================================================
+     USER CARD
+  ===================================================== */
 
   userCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
+    backgroundColor:
+      '#FFFFFF',
+
+    borderRadius: 21,
+
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+
+    borderColor:
+      '#E7DED1',
+
     padding: 15,
+
     flexDirection: 'row',
+
     alignItems: 'center',
+
     marginBottom: 5,
+
+    shadowColor:
+      '#171717',
+
+    shadowOffset: {
+      width: 0,
+      height: 5,
+    },
+
+    shadowOpacity: 0.07,
+
+    shadowRadius: 10,
+
+    elevation: 2,
   },
 
+
   userIcon: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: '#F7F7F7',
+    width: 58,
+
+    height: 58,
+
+    borderRadius: 18,
+
+    backgroundColor:
+      '#FFF7F3',
+
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+
+    borderColor:
+      '#F0CFC4',
+
     alignItems: 'center',
+
     justifyContent: 'center',
   },
+
 
   userInfo: {
     flex: 1,
-    marginLeft: 13,
+
+    marginLeft: 14,
+
+    minWidth: 0,
   },
 
+
   userName: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#000000',
+    fontSize: 18,
+
+    fontWeight: '900',
+
+    color: '#171717',
+
+    letterSpacing: -0.2,
   },
+
 
   userEmail: {
     marginTop: 3,
+
     fontSize: 12,
-    color: '#888888',
+
+    fontWeight: '600',
+
+    color: '#817B71',
   },
+
+
+  detailRow: {
+    flexDirection: 'row',
+
+    alignItems: 'center',
+
+    marginTop: 4,
+
+    minWidth: 0,
+  },
+
 
   userDetails: {
-    marginTop: 3,
+    marginLeft: 5,
+
+    flex: 1,
+
     fontSize: 12,
-    color: '#1A1A1A',
+
+    fontWeight: '600',
+
+    color: '#24221E',
   },
+
+
+  /* =====================================================
+     SECTION HEADER
+  ===================================================== */
+
+  sectionHeader: {
+    flexDirection: 'row',
+
+    alignItems: 'center',
+
+    marginTop: 25,
+
+    marginBottom: 11,
+  },
+
+
+  sectionAccent: {
+    width: 5,
+
+    height: 23,
+
+    borderRadius: 3,
+
+    backgroundColor:
+      '#E35B3F',
+
+    marginRight: 10,
+  },
+
 
   sectionTitle: {
-    marginTop: 25,
-    marginBottom: 10,
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1A1A1A',
+    fontSize: 20,
+
+    fontWeight: '900',
+
+    color: '#171717',
+
+    letterSpacing: -0.4,
   },
+
+
+  /* =====================================================
+     ACCOUNT CARD
+  ===================================================== */
 
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
+    backgroundColor:
+      '#FFFFFF',
+
+    borderRadius: 21,
+
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+
+    borderColor:
+      '#E7DED1',
+
     overflow: 'hidden',
+
+    shadowColor:
+      '#171717',
+
+    shadowOffset: {
+      width: 0,
+      height: 5,
+    },
+
+    shadowOpacity: 0.07,
+
+    shadowRadius: 10,
+
+    elevation: 2,
   },
+
+
+  /* =====================================================
+     ROW
+  ===================================================== */
 
   row: {
-    minHeight: 78,
+    minHeight: 82,
+
     paddingHorizontal: 15,
+
+    paddingVertical: 10,
+
     flexDirection: 'row',
+
     alignItems: 'center',
   },
 
+
   iconContainer: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: '#F7F7F7',
+    width: 46,
+
+    height: 46,
+
+    borderRadius: 15,
+
+    backgroundColor:
+      '#FFF7F3',
+
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+
+    borderColor:
+      '#F0CFC4',
+
     alignItems: 'center',
+
     justifyContent: 'center',
   },
+
 
   rowText: {
     flex: 1,
-    marginLeft: 12,
+
+    marginLeft: 13,
+
+    paddingRight: 8,
   },
+
 
   rowTitle: {
     fontSize: 15,
-    fontWeight: '700',
-    color: '#1A1A1A',
+
+    fontWeight: '800',
+
+    color: '#24221E',
   },
+
 
   rowSubtitle: {
     marginTop: 4,
+
     fontSize: 12,
-    color: '#888888',
+
+    fontWeight: '500',
+
+    color: '#817B71',
+
+    lineHeight: 17,
   },
+
+
+  chevronContainer: {
+    width: 32,
+
+    height: 32,
+
+    borderRadius: 11,
+
+    backgroundColor:
+      '#F8F2EA',
+
+    alignItems: 'center',
+
+    justifyContent: 'center',
+  },
+
+
+  /* =====================================================
+     DIVIDER
+  ===================================================== */
 
   divider: {
     height: 1,
-    backgroundColor: '#E0E0E0',
-    marginLeft: 69,
+
+    backgroundColor:
+      '#EEE4D7',
+
+    marginLeft: 74,
+
+    marginRight: 15,
   },
 
+
+  /* =====================================================
+     LOGOUT
+  ===================================================== */
+
   logoutButton: {
-    marginTop: 25,
-    backgroundColor: '#D4AF37',
-    paddingVertical: 14,
-    borderRadius: 25,
+    marginTop: 24,
+
+    minHeight: 53,
+
+    borderRadius: 16,
+
+    backgroundColor:
+      '#E35B3F',
+
     flexDirection: 'row',
+
     alignItems: 'center',
+
     justifyContent: 'center',
+
     gap: 8,
+
+    shadowColor:
+      '#E35B3F',
+
+    shadowOffset: {
+      width: 0,
+      height: 5,
+    },
+
+    shadowOpacity: 0.18,
+
+    shadowRadius: 9,
+
+    elevation: 3,
   },
+
 
   logoutText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
+
+    fontSize: 15,
+
+    fontWeight: '800',
+
+    letterSpacing: 0.1,
   },
+
 });

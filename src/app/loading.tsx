@@ -231,8 +231,8 @@ export default function Loading() {
 
           <Ionicons
             name="bag-handle-outline"
-            size={45}
-            color="#D4AF37"
+            size={43}
+            color="#E35B3F"
           />
 
         </Animated.View>
@@ -362,7 +362,7 @@ const styles =
       flex: 1,
 
       backgroundColor:
-        '#F7F7F7',
+        '#F7F3EC',
 
       alignItems:
         'center',
@@ -387,17 +387,18 @@ const styles =
     },
 
     iconCircle: {
-      width: 86,
-      height: 86,
+      width: 88,
+      height: 88,
 
-      borderRadius: 43,
+      borderRadius: 22,
 
       borderWidth: 1.5,
+
       borderColor:
-        '#D4AF37',
+        '#F0CFC4',
 
       backgroundColor:
-        '#FFFFFF',
+        '#FFF7F3',
 
       alignItems:
         'center',
@@ -407,11 +408,28 @@ const styles =
 
       marginBottom:
         20,
+
+      shadowColor:
+        '#171717',
+
+      shadowOffset: {
+        width: 0,
+        height: 6,
+      },
+
+      shadowOpacity:
+        0.08,
+
+      shadowRadius:
+        10,
+
+      elevation:
+        3,
     },
 
     logo: {
       color:
-        '#000000',
+        '#171717',
 
       fontSize: 38,
 
@@ -419,14 +437,17 @@ const styles =
         '900',
 
       letterSpacing:
-        1,
+        0.5,
     },
 
     tagline: {
       color:
-        '#888888',
+        '#817B71',
 
       fontSize: 12,
+
+      fontWeight:
+        '600',
 
       marginTop: 7,
 
@@ -456,12 +477,12 @@ const styles =
 
     loadingText: {
       color:
-        '#000000',
+        '#24221E',
 
       fontSize: 12,
 
       fontWeight:
-        '600',
+        '700',
 
       letterSpacing:
         0.8,
@@ -483,7 +504,7 @@ const styles =
       borderRadius: 3,
 
       backgroundColor:
-        '#D4AF37',
+        '#E35B3F',
     },
 
     // ===================================================
@@ -497,12 +518,12 @@ const styles =
       bottom: 35,
 
       color:
-        '#888888',
+        '#9A9186',
 
       fontSize: 9,
 
       fontWeight:
-        '700',
+        '800',
 
       letterSpacing:
         1.5,

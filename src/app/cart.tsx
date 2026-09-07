@@ -103,7 +103,6 @@ const getImageUrl = (
   }
 
 
-  // Complete external URL
   if (
     value.startsWith('http://') ||
     value.startsWith('https://')
@@ -114,7 +113,6 @@ const getImageUrl = (
   }
 
 
-  // Remove starting slashes
   value =
     value.replace(
       /^\/+/,
@@ -122,7 +120,6 @@ const getImageUrl = (
     );
 
 
-  // Old uploads path
   if (
     value.startsWith('uploads/')
   ) {
@@ -132,7 +129,6 @@ const getImageUrl = (
   }
 
 
-  // Windows uploads path
   if (
     value.startsWith('uploads\\')
   ) {
@@ -148,7 +144,6 @@ const getImageUrl = (
   }
 
 
-  // Default old image format
   return `${API_URL}/uploads/${value}`;
 
 };
@@ -170,14 +165,6 @@ export default function Cart() {
   ] = useState<CartItem[]>([]);
 
 
-  /*
-   * This is NOT a loading screen.
-   *
-   * It only tells us whether the first
-   * request has finished.
-   *
-   * We keep the UI visible while refreshing.
-   */
   const [
     hasLoadedOnce,
     setHasLoadedOnce,
@@ -196,12 +183,6 @@ export default function Cart() {
   ] = useState<Record<string, string>>({});
 
 
-  /*
-   * Keep token in memory.
-   *
-   * This prevents unnecessary AsyncStorage
-   * reads when the user presses + / - / Remove.
-   */
   const accessTokenRef =
     useRef<string | null>(null);
 
@@ -346,9 +327,7 @@ export default function Cart() {
 
             setCart([]);
 
-
             setManualQuantities({});
-
 
             setHasLoadedOnce(
               true
@@ -387,10 +366,6 @@ export default function Cart() {
             await response.json();
 
 
-          // ==================================================
-          // SESSION EXPIRED
-          // ==================================================
-
           if (
             response.status === 401 ||
             response.status === 403
@@ -402,9 +377,7 @@ export default function Cart() {
 
             setCart([]);
 
-
             setManualQuantities({});
-
 
             setHasLoadedOnce(
               true
@@ -421,10 +394,6 @@ export default function Cart() {
           }
 
 
-          // ==================================================
-          // BACKEND ERROR
-          // ==================================================
-
           if (!response.ok) {
 
             console.log(
@@ -432,14 +401,6 @@ export default function Cart() {
               data
             );
 
-
-            /*
-             * Do NOT immediately show
-             * "cart is empty".
-             *
-             * If there is already data on screen,
-             * keep it.
-             */
 
             setHasLoadedOnce(
               true
@@ -450,10 +411,6 @@ export default function Cart() {
 
           }
 
-
-          // ==================================================
-          // CART ITEMS
-          // ==================================================
 
           const items:
             CartItem[] =
@@ -481,11 +438,6 @@ export default function Cart() {
             error
           );
 
-
-          /*
-           * Do not erase existing cart
-           * just because refresh failed.
-           */
 
           setHasLoadedOnce(
             true
@@ -576,10 +528,6 @@ export default function Cart() {
             await response.json();
 
 
-          // ==================================================
-          // SESSION EXPIRED
-          // ==================================================
-
           if (
             response.status === 401 ||
             response.status === 403
@@ -599,10 +547,6 @@ export default function Cart() {
           }
 
 
-          // ==================================================
-          // ERROR
-          // ==================================================
-
           if (!response.ok) {
 
             console.log(
@@ -615,10 +559,6 @@ export default function Cart() {
 
           }
 
-
-          // ==================================================
-          // UPDATE LOCAL CART
-          // ==================================================
 
           if (data?.cart) {
 
@@ -700,10 +640,6 @@ export default function Cart() {
         change;
 
 
-      // ======================================================
-      // REMOVE WHEN QUANTITY BECOMES 0
-      // ======================================================
-
       if (
         newQuantity < 1
       ) {
@@ -717,10 +653,6 @@ export default function Cart() {
 
       }
 
-
-      // ======================================================
-      // OPTIMISTIC UI UPDATE
-      // ======================================================
 
       setCart(
         previous =>
@@ -850,10 +782,6 @@ export default function Cart() {
         );
 
 
-      // ======================================================
-      // INVALID / EMPTY
-      // ======================================================
-
       if (
         !typedValue ||
         !Number.isFinite(
@@ -880,10 +808,6 @@ export default function Cart() {
         );
 
 
-      // ======================================================
-      // NOTHING CHANGED
-      // ======================================================
-
       if (
         currentItem &&
         currentItem.quantity ===
@@ -907,10 +831,6 @@ export default function Cart() {
 
       }
 
-
-      // ======================================================
-      // OPTIMISTIC UPDATE
-      // ======================================================
 
       setCart(
         previous =>
@@ -1037,10 +957,6 @@ export default function Cart() {
           await response.json();
 
 
-        // ====================================================
-        // SESSION EXPIRED
-        // ====================================================
-
         if (
           response.status === 401 ||
           response.status === 403
@@ -1060,10 +976,6 @@ export default function Cart() {
         }
 
 
-        // ====================================================
-        // ERROR
-        // ====================================================
-
         if (!response.ok) {
 
           console.log(
@@ -1076,10 +988,6 @@ export default function Cart() {
 
         }
 
-
-        // ====================================================
-        // UPDATE CART
-        // ====================================================
 
         if (data?.cart) {
 
@@ -1099,7 +1007,6 @@ export default function Cart() {
         } else {
 
           setCart([]);
-
 
           setManualQuantities({});
 
@@ -1228,20 +1135,43 @@ export default function Cart() {
 
           <Ionicons
             name="arrow-back"
-            size={23}
-            color="#000000"
+            size={22}
+            color="#171717"
           />
 
         </Pressable>
 
 
-        <Text
+        <View
           style={
-            styles.title
+            styles.headerTextContainer
           }
         >
-          Your Cart
-        </Text>
+
+          <Text
+            style={
+              styles.title
+            }
+          >
+            Your Cart
+          </Text>
+
+          {cart.length > 0 && (
+
+            <Text
+              style={
+                styles.itemCount
+              }
+            >
+              {cart.length}{' '}
+              {cart.length === 1
+                ? 'item'
+                : 'items'}
+            </Text>
+
+          )}
+
+        </View>
 
       </View>
 
@@ -1259,11 +1189,19 @@ export default function Cart() {
           }
         >
 
-          <Ionicons
-            name="cart-outline"
-            size={55}
-            color="#D4AF37"
-          />
+          <View
+            style={
+              styles.emptyIconContainer
+            }
+          >
+
+            <Ionicons
+              name="cart-outline"
+              size={48}
+              color="#E35B3F"
+            />
+
+          </View>
 
 
           <Text
@@ -1301,6 +1239,13 @@ export default function Cart() {
             >
               Continue Shopping
             </Text>
+
+
+            <Ionicons
+              name="arrow-forward"
+              size={18}
+              color="#FFFFFF"
+            />
 
           </Pressable>
 
@@ -1426,8 +1371,8 @@ export default function Cart() {
 
                         <Ionicons
                           name="cube-outline"
-                          size={40}
-                          color="#D4AF37"
+                          size={38}
+                          color="#E35B3F"
                         />
 
                       )}
@@ -1445,19 +1390,25 @@ export default function Cart() {
                       }
                     >
 
-                      {/* NAME */}
-
-                      <Text
+                      <View
                         style={
-                          styles.name
+                          styles.nameRow
                         }
-
-                        numberOfLines={2}
                       >
-                        {
-                          product.name
-                        }
-                      </Text>
+
+                        <Text
+                          style={
+                            styles.name
+                          }
+
+                          numberOfLines={2}
+                        >
+                          {
+                            product.name
+                          }
+                        </Text>
+
+                      </View>
 
 
                       {/* CATEGORY */}
@@ -1524,13 +1475,21 @@ export default function Cart() {
                       originalPrice >
                         cartPrice && (
 
-                        <Text
+                        <View
                           style={
-                            styles.discountText
+                            styles.discountBadge
                           }
                         >
-                          {discount}% OFF
-                        </Text>
+
+                          <Text
+                            style={
+                              styles.discountText
+                            }
+                          >
+                            {discount}% OFF
+                          </Text>
+
+                        </View>
 
                       )}
 
@@ -1565,13 +1524,11 @@ export default function Cart() {
                           }
                         >
 
-                          <Text
-                            style={
-                              styles.quantityButtonText
-                            }
-                          >
-                            −
-                          </Text>
+                          <Ionicons
+                            name="remove"
+                            size={17}
+                            color="#FFFFFF"
+                          />
 
                         </Pressable>
 
@@ -1641,13 +1598,11 @@ export default function Cart() {
                           }
                         >
 
-                          <Text
-                            style={
-                              styles.quantityButtonText
-                            }
-                          >
-                            +
-                          </Text>
+                          <Ionicons
+                            name="add"
+                            size={17}
+                            color="#FFFFFF"
+                          />
 
                         </Pressable>
 
@@ -1672,6 +1627,12 @@ export default function Cart() {
                         }
                       >
 
+                        <Ionicons
+                          name="trash-outline"
+                          size={14}
+                          color="#E35B3F"
+                        />
+
                         <Text
                           style={
                             styles.removeText
@@ -1691,10 +1652,6 @@ export default function Cart() {
               }
             )}
 
-
-            {/* ==================================================
-                BOTTOM SPACE
-            ================================================== */}
 
             <View
               style={
@@ -1717,124 +1674,191 @@ export default function Cart() {
               }
             >
 
-              {/* TOTAL ROW */}
-
               <View
                 style={
-                  styles.totalRow
+                  styles.totalCard
                 }
               >
 
-                <Text
-                  style={
-                    styles.totalLabel
-                  }
-                >
-                  Total
-                </Text>
-
-
-                <Text
-                  style={
-                    styles.totalPrice
-                  }
-                >
-                  {
-                    formatPrice(
-                      total
-                    )
-                  }
-                </Text>
-
-              </View>
-
-
-              {/* MINIMUM ORDER */}
-
-              {!canCheckout && (
+                {/* TOTAL ROW */}
 
                 <View
                   style={
-                    styles.minimumBox
+                    styles.totalRow
                   }
                 >
 
-                  <Text
-                    style={
-                      styles.minimumText
-                    }
-                  >
-                    Minimum order:{' '}
-                    {
-                      formatPrice(
-                        MINIMUM_ORDER
-                      )
-                    }
-                  </Text>
+                  <View>
+
+                    <Text
+                      style={
+                        styles.totalLabel
+                      }
+                    >
+                      Total
+                    </Text>
+
+                    <Text
+                      style={
+                        styles.totalItems
+                      }
+                    >
+                      {cart.length}{' '}
+                      {cart.length === 1
+                        ? 'product'
+                        : 'products'}
+                    </Text>
+
+                  </View>
 
 
                   <Text
                     style={
-                      styles.remainingText
+                      styles.totalPrice
                     }
                   >
-                    Add{' '}
                     {
                       formatPrice(
-                        remainingAmount
+                        total
                       )
-                    }{' '}
-                    more to checkout
+                    }
                   </Text>
 
                 </View>
 
-              )}
+
+                {/* MINIMUM ORDER */}
+
+                {!canCheckout && (
+
+                  <View
+                    style={
+                      styles.minimumBox
+                    }
+                  >
+
+                    <View
+                      style={
+                        styles.minimumIcon
+                      }
+                    >
+
+                      <Ionicons
+                        name="information-circle-outline"
+                        size={20}
+                        color="#E35B3F"
+                      />
+
+                    </View>
 
 
-              {/* READY */}
+                    <View
+                      style={
+                        styles.minimumContent
+                      }
+                    >
 
-              {canCheckout && (
+                      <Text
+                        style={
+                          styles.minimumText
+                        }
+                      >
+                        Minimum order:{' '}
+                        {
+                          formatPrice(
+                            MINIMUM_ORDER
+                          )
+                        }
+                      </Text>
 
-                <Text
-                  style={
-                    styles.readyText
+
+                      <Text
+                        style={
+                          styles.remainingText
+                        }
+                      >
+                        Add{' '}
+                        {
+                          formatPrice(
+                            remainingAmount
+                          )
+                        }{' '}
+                        more to checkout
+                      </Text>
+
+                    </View>
+
+                  </View>
+
+                )}
+
+
+                {/* READY */}
+
+                {canCheckout && (
+
+                  <View
+                    style={
+                      styles.readyBox
+                    }
+                  >
+
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={19}
+                      color="#E35B3F"
+                    />
+
+                    <Text
+                      style={
+                        styles.readyText
+                      }
+                    >
+                      Minimum order reached
+                    </Text>
+
+                  </View>
+
+                )}
+
+
+                {/* CHECKOUT */}
+
+                <Pressable
+                  style={[
+                    styles.checkoutButton,
+
+                    !canCheckout &&
+                      styles.checkoutButtonDisabled,
+                  ]}
+
+                  onPress={
+                    handleCheckout
+                  }
+
+                  disabled={
+                    !canCheckout
                   }
                 >
-                  Minimum order reached ✓
-                </Text>
 
-              )}
+                  <Text
+                    style={
+                      styles.checkoutButtonText
+                    }
+                  >
+                    Checkout
+                  </Text>
 
 
-              {/* CHECKOUT */}
+                  <Ionicons
+                    name="arrow-forward"
+                    size={19}
+                    color="#FFFFFF"
+                  />
 
-              <Pressable
-                style={[
-                  styles.checkoutButton,
+                </Pressable>
 
-                  !canCheckout &&
-                    styles.checkoutButtonDisabled,
-                ]}
-
-                onPress={
-                  handleCheckout
-                }
-
-                disabled={
-                  !canCheckout
-                }
-              >
-
-                <Text
-                  style={
-                    styles.checkoutButtonText
-                  }
-                >
-                  Checkout
-                </Text>
-
-              </Pressable>
+              </View>
 
             </View>
 
@@ -1864,8 +1888,8 @@ const styles =
 
   container: {
     flex: 1,
-    backgroundColor: '#F7F7F7',
-    paddingHorizontal: 20,
+    backgroundColor: '#F7F3EC',
+    paddingHorizontal: 18,
     paddingTop: 40,
   },
 
@@ -1877,27 +1901,50 @@ const styles =
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 18,
   },
 
 
   backButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 46,
+    height: 46,
+    borderRadius: 16,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#E7DED1',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 13,
+
+    shadowColor: '#171717',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+
+
+  headerTextContainer: {
+    justifyContent: 'center',
   },
 
 
   title: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#000000',
+    fontSize: 29,
+    fontWeight: '900',
+    color: '#171717',
+    letterSpacing: -0.8,
+  },
+
+
+  itemCount: {
+    marginTop: 2,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#817B71',
   },
 
 
@@ -1913,34 +1960,70 @@ const styles =
   },
 
 
+  emptyIconContainer: {
+    width: 92,
+    height: 92,
+    borderRadius: 26,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E7DED1',
+    alignItems: 'center',
+    justifyContent: 'center',
+
+    shadowColor: '#171717',
+    shadowOffset: {
+      width: 0,
+      height: 5,
+    },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+
+
   emptyTitle: {
-    marginTop: 16,
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#000000',
+    marginTop: 19,
+    fontSize: 21,
+    fontWeight: '900',
+    color: '#171717',
+    letterSpacing: -0.3,
   },
 
 
   emptySubtitle: {
     marginTop: 7,
     fontSize: 13,
-    color: '#888888',
+    fontWeight: '500',
+    color: '#817B71',
   },
 
 
   shopButton: {
     marginTop: 22,
-    backgroundColor: '#000000',
+    minHeight: 48,
     paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 12,
+    borderRadius: 16,
+    backgroundColor: '#171717',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+
+    shadowColor: '#171717',
+    shadowOffset: {
+      width: 0,
+      height: 5,
+    },
+    shadowOpacity: 0.12,
+    shadowRadius: 9,
+    elevation: 3,
   },
 
 
   shopButtonText: {
     color: '#FFFFFF',
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '800',
+    marginRight: 9,
   },
 
 
@@ -1949,7 +2032,7 @@ const styles =
   // ==========================================================
 
   scrollContent: {
-    paddingBottom: 15,
+    paddingBottom: 8,
   },
 
 
@@ -1964,12 +2047,22 @@ const styles =
 
   productCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 13,
+    borderRadius: 21,
+    padding: 12,
     flexDirection: 'row',
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#E7DED1',
     marginBottom: 13,
+    position: 'relative',
+
+    shadowColor: '#171717',
+    shadowOffset: {
+      width: 0,
+      height: 5,
+    },
+    shadowOpacity: 0.07,
+    shadowRadius: 9,
+    elevation: 2,
   },
 
 
@@ -1978,10 +2071,10 @@ const styles =
   // ==========================================================
 
   image: {
-    width: 100,
-    height: 100,
-    borderRadius: 14,
-    backgroundColor: '#FFFFFF',
+    width: 108,
+    height: 108,
+    borderRadius: 17,
+    backgroundColor: '#F8F2EA',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -2000,23 +2093,33 @@ const styles =
 
   info: {
     flex: 1,
-    marginLeft: 14,
+    marginLeft: 13,
     justifyContent: 'center',
     minWidth: 0,
   },
 
 
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+
+
   name: {
+    flex: 1,
     fontSize: 16,
-    fontWeight: '700',
-    color: '#000000',
+    fontWeight: '900',
+    color: '#171717',
+    lineHeight: 20,
+    letterSpacing: -0.2,
   },
 
 
   category: {
     marginTop: 4,
     fontSize: 12,
-    color: '#888888',
+    fontWeight: '600',
+    color: '#817B71',
   },
 
 
@@ -2032,25 +2135,37 @@ const styles =
 
 
   price: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#000000',
+    fontSize: 17,
+    fontWeight: '900',
+    color: '#171717',
   },
 
 
   oldPrice: {
     marginLeft: 8,
     fontSize: 12,
-    color: '#999999',
+    fontWeight: '600',
+    color: '#9A9186',
     textDecorationLine: 'line-through',
   },
 
 
+  discountBadge: {
+    alignSelf: 'flex-start',
+    marginTop: 5,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 7,
+    backgroundColor: '#FFF7F3',
+    borderWidth: 1,
+    borderColor: '#F0CFC4',
+  },
+
+
   discountText: {
-    marginTop: 3,
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#D4AF37',
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#E35B3F',
   },
 
 
@@ -2066,40 +2181,32 @@ const styles =
 
 
   quantityButton: {
-    width: 31,
-    height: 31,
-    borderRadius: 16,
-    backgroundColor: '#000000',
+    width: 32,
+    height: 32,
+    borderRadius: 11,
+    backgroundColor: '#171717',
     alignItems: 'center',
     justifyContent: 'center',
   },
 
 
   quantityButtonDisabled: {
-    opacity: 0.55,
-  },
-
-
-  quantityButtonText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    lineHeight: 20,
+    opacity: 0.5,
   },
 
 
   quantityInput: {
     width: 50,
-    height: 35,
-    marginHorizontal: 8,
+    height: 34,
+    marginHorizontal: 7,
     borderWidth: 1,
-    borderColor: '#D8D8D8',
-    borderRadius: 9,
-    backgroundColor: '#FFFFFF',
+    borderColor: '#E6DED2',
+    borderRadius: 11,
+    backgroundColor: '#F8F2EA',
     textAlign: 'center',
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#000000',
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#171717',
     paddingVertical: 0,
     paddingHorizontal: 5,
   },
@@ -2112,28 +2219,53 @@ const styles =
   removeButton: {
     marginTop: 8,
     alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 
 
   removeText: {
-    color: '#888888',
+    marginLeft: 4,
+    color: '#E35B3F',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
   },
 
 
   // ==========================================================
-  // TOTAL
+  // TOTAL CONTAINER
   // ==========================================================
 
   totalContainer: {
-    paddingTop: 16,
+    marginHorizontal: -18,
+    paddingHorizontal: 18,
+    paddingTop: 10,
     paddingBottom: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
-    backgroundColor: '#F7F7F7',
+    backgroundColor: '#F7F3EC',
   },
 
+
+  totalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 21,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E7DED1',
+
+    shadowColor: '#171717',
+    shadowOffset: {
+      width: 0,
+      height: 5,
+    },
+    shadowOpacity: 0.07,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+
+
+  // ==========================================================
+  // TOTAL ROW
+  // ==========================================================
 
   totalRow: {
     flexDirection: 'row',
@@ -2144,15 +2276,25 @@ const styles =
 
   totalLabel: {
     fontSize: 20,
-    fontWeight: '800',
-    color: '#000000',
+    fontWeight: '900',
+    color: '#171717',
+    letterSpacing: -0.3,
+  },
+
+
+  totalItems: {
+    marginTop: 2,
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#9A9186',
   },
 
 
   totalPrice: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#000000',
+    fontSize: 25,
+    fontWeight: '900',
+    color: '#171717',
+    letterSpacing: -0.5,
   },
 
 
@@ -2161,37 +2303,66 @@ const styles =
   // ==========================================================
 
   minimumBox: {
-    marginTop: 12,
-    padding: 12,
-    borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    marginTop: 13,
+    padding: 11,
+    borderRadius: 15,
+    backgroundColor: '#FFF7F3',
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#F0CFC4',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+
+  minimumIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 11,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 9,
+  },
+
+
+  minimumContent: {
+    flex: 1,
   },
 
 
   minimumText: {
-    textAlign: 'center',
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#000000',
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#24221E',
   },
 
 
   remainingText: {
-    marginTop: 5,
-    textAlign: 'center',
-    fontSize: 13,
-    color: '#888888',
+    marginTop: 3,
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#817B71',
+  },
+
+
+  // ==========================================================
+  // READY
+  // ==========================================================
+
+  readyBox: {
+    marginTop: 12,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
 
   readyText: {
-    marginTop: 12,
-    textAlign: 'center',
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#D4AF37',
+    marginLeft: 6,
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#E35B3F',
   },
 
 
@@ -2200,23 +2371,37 @@ const styles =
   // ==========================================================
 
   checkoutButton: {
-    marginTop: 16,
-    backgroundColor: '#D4AF37',
-    paddingVertical: 15,
-    borderRadius: 14,
+    marginTop: 14,
+    minHeight: 52,
+    backgroundColor: '#E35B3F',
+    borderRadius: 16,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+
+    shadowColor: '#E35B3F',
+    shadowOffset: {
+      width: 0,
+      height: 5,
+    },
+    shadowOpacity: 0.18,
+    shadowRadius: 9,
+    elevation: 3,
   },
 
 
   checkoutButtonDisabled: {
-    backgroundColor: '#D0D0D0',
+    backgroundColor: '#D8D3CB',
+    shadowOpacity: 0,
+    elevation: 0,
   },
 
 
   checkoutButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 15,
+    fontWeight: '900',
+    marginRight: 9,
   },
 
 });

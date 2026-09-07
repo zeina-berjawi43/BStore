@@ -1,8 +1,8 @@
 import {
   View,
   Text,
-  StyleSheet,
   Pressable,
+  StyleSheet,
   ScrollView,
   Image,
 } from 'react-native';
@@ -72,7 +72,6 @@ const getFinalPrice = (
   const discount =
     Number(product.discount) || 0;
 
-
   if (
     product.discountedPrice !== undefined &&
     product.discountedPrice !== null
@@ -84,7 +83,6 @@ const getFinalPrice = (
 
   }
 
-
   if (
     discount <= 0
   ) {
@@ -94,7 +92,6 @@ const getFinalPrice = (
     );
 
   }
-
 
   return Number(
     (
@@ -139,19 +136,14 @@ const getImageUrl = (
 
   }
 
-
   let value =
     image.trim();
-
 
   if (!value) {
 
     return '';
 
   }
-
-
-  // Complete external URL
 
   if (
     value.startsWith('http://') ||
@@ -162,17 +154,11 @@ const getImageUrl = (
 
   }
 
-
-  // Remove leading slash
-
   value =
     value.replace(
       /^\/+/,
       ''
     );
-
-
-  // Old uploads path
 
   if (
     value.startsWith('uploads/')
@@ -181,9 +167,6 @@ const getImageUrl = (
     return `${API_URL}/${value}`;
 
   }
-
-
-  // Windows uploads path
 
   if (
     value.startsWith('uploads\\')
@@ -199,9 +182,6 @@ const getImageUrl = (
 
   }
 
-
-  // Default old format
-
   return `${API_URL}/uploads/${value}`;
 
 };
@@ -213,7 +193,6 @@ const getImageUrl = (
 
 export default function Favorites() {
 
-
   // =======================================================
   // STATE
   // =======================================================
@@ -223,44 +202,20 @@ export default function Favorites() {
     setFavorites,
   ] = useState<FavoriteProduct[]>([]);
 
-
   const [
     isLoggedIn,
     setIsLoggedIn,
   ] = useState(false);
-
 
   const [
     updatingProduct,
     setUpdatingProduct,
   ] = useState<string | null>(null);
 
-
-  /*
-   * Important:
-   *
-   * This is NOT a loading screen.
-   *
-   * It only tells us whether the first
-   * favorites request has finished.
-   *
-   * We use it so "No favorites yet"
-   * does not appear before the backend
-   * response arrives.
-   */
-
   const [
     initialLoadFinished,
     setInitialLoadFinished,
   ] = useState(false);
-
-
-  /*
-   * Keep the latest token in memory.
-   *
-   * This avoids reading AsyncStorage
-   * repeatedly during the same screen session.
-   */
 
   const accessTokenRef =
     useRef<string | null>(null);
@@ -282,7 +237,6 @@ export default function Favorites() {
 
         }
 
-
         try {
 
           const token =
@@ -290,10 +244,8 @@ export default function Favorites() {
               'accessToken'
             );
 
-
           accessTokenRef.current =
             token;
-
 
           return token;
 
@@ -326,18 +278,15 @@ export default function Favorites() {
           const accessToken =
             await getAccessToken();
 
-
           const savedUser =
             await AsyncStorage.getItem(
               'user'
             );
 
-
           const loginStatus =
             await AsyncStorage.getItem(
               'isLoggedIn'
             );
-
 
           const loggedIn =
             !!accessToken &&
@@ -346,11 +295,9 @@ export default function Favorites() {
               !!savedUser
             );
 
-
           setIsLoggedIn(
             loggedIn
           );
-
 
           return loggedIn;
 
@@ -361,11 +308,9 @@ export default function Favorites() {
             error
           );
 
-
           setIsLoggedIn(
             false
           );
-
 
           return false;
 
@@ -391,7 +336,6 @@ export default function Favorites() {
           const accessToken =
             await getAccessToken();
 
-
           if (!accessToken) {
 
             setFavorites([]);
@@ -408,7 +352,6 @@ export default function Favorites() {
 
           }
 
-
           const response =
             await fetch(
               `${API_URL}/favorites`,
@@ -424,7 +367,6 @@ export default function Favorites() {
                 },
               }
             );
-
 
           const data =
             await response.json();
@@ -468,12 +410,6 @@ export default function Favorites() {
               data
             );
 
-            /*
-             * We do NOT immediately show
-             * the empty state as if there
-             * are no favorites.
-             */
-
             return;
 
           }
@@ -508,7 +444,6 @@ export default function Favorites() {
 
                   const product =
                     favorite.product;
-
 
                   return {
 
@@ -566,13 +501,6 @@ export default function Favorites() {
 
         } finally {
 
-          /*
-           * First request is finished.
-           *
-           * Only now are we allowed to decide
-           * whether the favorites list is empty.
-           */
-
           setInitialLoadFinished(
             true
           );
@@ -596,14 +524,8 @@ export default function Favorites() {
       let active =
         true;
 
-
       const refresh =
         async () => {
-
-          /*
-           * Do not show an empty state while
-           * the first request is happening.
-           */
 
           if (
             !initialLoadFinished
@@ -615,10 +537,8 @@ export default function Favorites() {
 
           }
 
-
           const loggedIn =
             await checkLogin();
-
 
           if (
             !active
@@ -627,7 +547,6 @@ export default function Favorites() {
             return;
 
           }
-
 
           if (
             loggedIn
@@ -682,12 +601,10 @@ export default function Favorites() {
 
       }
 
-
       try {
 
         const accessToken =
           await getAccessToken();
-
 
         if (!accessToken) {
 
@@ -699,11 +616,9 @@ export default function Favorites() {
 
         }
 
-
         setUpdatingProduct(
           productId
         );
-
 
         const response =
           await fetch(
@@ -728,7 +643,6 @@ export default function Favorites() {
                 }),
             }
           );
-
 
         const data =
           await response.json();
@@ -830,7 +744,6 @@ export default function Favorites() {
 
       }
 
-
       if (
         product.availability ===
         false
@@ -839,7 +752,6 @@ export default function Favorites() {
         return;
 
       }
-
 
       if (
         updatingProduct ===
@@ -850,12 +762,10 @@ export default function Favorites() {
 
       }
 
-
       try {
 
         const accessToken =
           await getAccessToken();
-
 
         if (!accessToken) {
 
@@ -867,11 +777,9 @@ export default function Favorites() {
 
         }
 
-
         setUpdatingProduct(
           product.id
         );
-
 
         const response =
           await fetch(
@@ -902,7 +810,6 @@ export default function Favorites() {
                 }),
             }
           );
-
 
         const data =
           await response.json();
@@ -1050,19 +957,35 @@ export default function Favorites() {
           <Ionicons
             name="arrow-back"
             size={23}
-            color="#000000"
+            color="#171717"
           />
 
         </Pressable>
 
 
-        <Text
+        <View
           style={
-            styles.title
+            styles.headerText
           }
         >
-          My Favorites
-        </Text>
+
+          <Text
+            style={
+              styles.title
+            }
+          >
+            My Favorites
+          </Text>
+
+          <Text
+            style={
+              styles.subtitle
+            }
+          >
+            Your saved products
+          </Text>
+
+        </View>
 
       </View>
 
@@ -1072,17 +995,6 @@ export default function Favorites() {
       ================================================= */}
 
       {!initialLoadFinished ? (
-
-        /*
-         * IMPORTANT:
-         *
-         * No ActivityIndicator.
-         * No loading text.
-         * No loading page.
-         *
-         * We simply keep the content area blank
-         * until the first backend request finishes.
-         */
 
         <View
           style={
@@ -1111,7 +1023,7 @@ export default function Favorites() {
             <Ionicons
               name="heart-outline"
               size={42}
-              color="#D4AF37"
+              color="#E35B3F"
             />
 
           </View>
@@ -1179,21 +1091,35 @@ export default function Favorites() {
           }
         >
 
-          <Text
+          <View
             style={
-              styles.countText
+              styles.countContainer
             }
           >
 
-            {favorites.length}{' '}
+            <Ionicons
+              name="heart"
+              size={16}
+              color="#E35B3F"
+            />
 
-            {
-              favorites.length === 1
-                ? 'favorite'
-                : 'favorites'
-            }
+            <Text
+              style={
+                styles.countText
+              }
+            >
 
-          </Text>
+              {favorites.length}{' '}
+
+              {
+                favorites.length === 1
+                  ? 'favorite'
+                  : 'favorites'
+              }
+
+            </Text>
+
+          </View>
 
 
           {favorites.map(
@@ -1203,30 +1129,25 @@ export default function Favorites() {
                 updatingProduct ===
                 product.id;
 
-
               const originalPrice =
                 Number(
                   product.price
                 ) || 0;
-
 
               const discount =
                 Number(
                   product.discount
                 ) || 0;
 
-
               const finalPrice =
                 getFinalPrice(
                   product
                 );
 
-
               const hasDiscount =
                 discount > 0 &&
                 originalPrice >
                   finalPrice;
-
 
               const outOfStock =
                 product.availability ===
@@ -1281,7 +1202,7 @@ export default function Favorites() {
                       <Ionicons
                         name="cube-outline"
                         size={42}
-                        color="#D4AF37"
+                        color="#E35B3F"
                       />
 
                     )}
@@ -1480,7 +1401,6 @@ export default function Favorites() {
 
                           event.stopPropagation();
 
-
                           if (
                             !itemUpdating
                           ) {
@@ -1500,14 +1420,6 @@ export default function Favorites() {
                       >
 
                         {itemUpdating ? (
-
-                          /*
-                           * No ActivityIndicator.
-                           *
-                           * We use a simple disabled
-                           * state instead of displaying
-                           * a loading spinner.
-                           */
 
                           <Text
                             style={
@@ -1553,7 +1465,6 @@ export default function Favorites() {
 
                           event.stopPropagation();
 
-
                           if (
                             !itemUpdating
                           ) {
@@ -1574,7 +1485,7 @@ export default function Favorites() {
                         <Ionicons
                           name="heart"
                           size={18}
-                          color="#B85C4A"
+                          color="#E35B3F"
                         />
 
                       </Pressable>
@@ -1617,10 +1528,10 @@ const styles =
       flex: 1,
 
       backgroundColor:
-        '#F7F7F7',
+        '#F7F3EC',
 
       paddingHorizontal:
-        20,
+        18,
 
       paddingTop:
         40,
@@ -1641,21 +1552,20 @@ const styles =
         'center',
 
       marginBottom:
-        20,
+        18,
 
     },
-
 
     backButton: {
 
       width:
-        42,
+        46,
 
       height:
-        42,
+        46,
 
       borderRadius:
-        21,
+        15,
 
       backgroundColor:
         '#FFFFFF',
@@ -1664,7 +1574,7 @@ const styles =
         1,
 
       borderColor:
-        '#E0E0E0',
+        '#E7DED1',
 
       alignItems:
         'center',
@@ -1673,21 +1583,62 @@ const styles =
         'center',
 
       marginRight:
-        12,
+        13,
+
+      shadowColor:
+        '#171717',
+
+      shadowOffset: {
+        width: 0,
+        height: 3,
+      },
+
+      shadowOpacity:
+        0.07,
+
+      shadowRadius:
+        7,
+
+      elevation:
+        2,
 
     },
 
+    headerText: {
+
+      flex: 1,
+
+    },
 
     title: {
 
       fontSize:
-        27,
+        29,
 
       fontWeight:
-        '800',
+        '900',
 
       color:
-        '#000000',
+        '#171717',
+
+      letterSpacing:
+        -0.8,
+
+    },
+
+    subtitle: {
+
+      marginTop:
+        4,
+
+      fontSize:
+        13,
+
+      color:
+        '#817B71',
+
+      lineHeight:
+        18,
 
     },
 
@@ -1695,14 +1646,6 @@ const styles =
     // =======================================================
     // INITIAL LOAD
     // =======================================================
-
-    /*
-     * Empty space only.
-     *
-     * No spinner.
-     * No loading text.
-     * No "No favorites yet".
-     */
 
     initialLoadSpace: {
 
@@ -1717,22 +1660,66 @@ const styles =
 
     scrollContent: {
 
+      paddingTop:
+        2,
+
       paddingBottom:
         35,
 
     },
 
 
+    // =======================================================
+    // COUNT
+    // =======================================================
+
+    countContainer: {
+
+      alignSelf:
+        'flex-start',
+
+      flexDirection:
+        'row',
+
+      alignItems:
+        'center',
+
+      backgroundColor:
+        '#FFF7F3',
+
+      borderWidth:
+        1,
+
+      borderColor:
+        '#F0CFC4',
+
+      borderRadius:
+        12,
+
+      paddingHorizontal:
+        11,
+
+      paddingVertical:
+        7,
+
+      marginBottom:
+        14,
+
+      gap:
+        6,
+
+    },
+
     countText: {
 
       fontSize:
-        13,
+        12,
+
+      fontWeight:
+        '800',
 
       color:
-        '#888888',
-
-      marginBottom:
-        12,
+        '#E35B3F',
 
     },
 
@@ -1755,30 +1742,29 @@ const styles =
         25,
 
       paddingBottom:
-        80,
+        65,
 
     },
-
 
     emptyIcon: {
 
       width:
-        82,
+        84,
 
       height:
-        82,
+        84,
 
       borderRadius:
-        41,
+        24,
 
       backgroundColor:
-        '#FFFFFF',
+        '#FFF7F3',
 
       borderWidth:
         1,
 
       borderColor:
-        '#E0E0E0',
+        '#F0CFC4',
 
       alignItems:
         'center',
@@ -1789,22 +1775,37 @@ const styles =
       marginBottom:
         18,
 
-    },
+      shadowColor:
+        '#171717',
 
+      shadowOffset: {
+        width: 0,
+        height: 4,
+      },
+
+      shadowOpacity:
+        0.06,
+
+      shadowRadius:
+        8,
+
+      elevation:
+        2,
+
+    },
 
     emptyTitle: {
 
       fontSize:
-        20,
+        21,
 
       fontWeight:
-        '800',
+        '900',
 
       color:
-        '#000000',
+        '#171717',
 
     },
-
 
     emptyText: {
 
@@ -1818,30 +1819,29 @@ const styles =
         20,
 
       color:
-        '#888888',
+        '#777168',
 
       textAlign:
         'center',
 
     },
 
-
     shopButton: {
 
       marginTop:
         20,
 
-      backgroundColor:
-        '#000000',
+      minHeight:
+        50,
 
       paddingHorizontal:
-        18,
-
-      paddingVertical:
-        12,
+        21,
 
       borderRadius:
-        12,
+        15,
+
+      backgroundColor:
+        '#171717',
 
       flexDirection:
         'row',
@@ -1849,11 +1849,30 @@ const styles =
       alignItems:
         'center',
 
+      justifyContent:
+        'center',
+
       gap:
         8,
 
-    },
+      shadowColor:
+        '#171717',
 
+      shadowOffset: {
+        width: 0,
+        height: 4,
+      },
+
+      shadowOpacity:
+        0.14,
+
+      shadowRadius:
+        7,
+
+      elevation:
+        3,
+
+    },
 
     shopButtonText: {
 
@@ -1861,10 +1880,10 @@ const styles =
         '#FFFFFF',
 
       fontSize:
-        13,
+        14,
 
       fontWeight:
-        '700',
+        '900',
 
     },
 
@@ -1879,7 +1898,7 @@ const styles =
         '#FFFFFF',
 
       borderRadius:
-        17,
+        21,
 
       padding:
         12,
@@ -1891,13 +1910,30 @@ const styles =
         1,
 
       borderColor:
-        '#E0E0E0',
+        '#E7DED1',
 
       marginBottom:
         13,
 
       position:
         'relative',
+
+      shadowColor:
+        '#171717',
+
+      shadowOffset: {
+        width: 0,
+        height: 5,
+      },
+
+      shadowOpacity:
+        0.07,
+
+      shadowRadius:
+        9,
+
+      elevation:
+        2,
 
     },
 
@@ -1909,16 +1945,22 @@ const styles =
     productImage: {
 
       width:
-        105,
+        108,
 
       height:
-        115,
+        116,
 
       borderRadius:
-        14,
+        17,
 
       backgroundColor:
         '#FFFFFF',
+
+      borderWidth:
+        1,
+
+      borderColor:
+        '#EEE4D7',
 
       alignItems:
         'center',
@@ -1930,7 +1972,6 @@ const styles =
         'hidden',
 
     },
-
 
     productImageActual: {
 
@@ -1959,22 +2000,21 @@ const styles =
         17,
 
       backgroundColor:
-        '#C62828',
+        '#E35B3F',
 
       paddingHorizontal:
-        7,
+        8,
 
       paddingVertical:
         4,
 
       borderRadius:
-        7,
+        8,
 
       zIndex:
         5,
 
     },
-
 
     discountBadgeText: {
 
@@ -1985,7 +2025,7 @@ const styles =
         9,
 
       fontWeight:
-        '800',
+        '900',
 
     },
 
@@ -2009,20 +2049,18 @@ const styles =
 
     },
 
-
     name: {
 
       fontSize:
         16,
 
       fontWeight:
-        '800',
+        '900',
 
       color:
-        '#000000',
+        '#171717',
 
     },
-
 
     brand: {
 
@@ -2033,13 +2071,12 @@ const styles =
         11,
 
       fontWeight:
-        '700',
+        '800',
 
       color:
-        '#1A1A1A',
+        '#E35B3F',
 
     },
-
 
     category: {
 
@@ -2049,11 +2086,13 @@ const styles =
       fontSize:
         12,
 
+      fontWeight:
+        '600',
+
       color:
-        '#888888',
+        '#9A9186',
 
     },
-
 
     outOfStock: {
 
@@ -2064,10 +2103,10 @@ const styles =
         11,
 
       fontWeight:
-        '700',
+        '800',
 
       color:
-        '#D32F2F',
+        '#D93025',
 
     },
 
@@ -2083,14 +2122,13 @@ const styles =
 
     },
 
-
     oldPrice: {
 
       fontSize:
         11,
 
       color:
-        '#999999',
+        '#9C968D',
 
       textDecorationLine:
         'line-through',
@@ -2103,20 +2141,18 @@ const styles =
 
     },
 
-
     price: {
 
       fontSize:
-        16,
+        17,
 
       fontWeight:
-        '800',
+        '900',
 
       color:
-        '#000000',
+        '#171717',
 
     },
-
 
     noPrice: {
 
@@ -2130,7 +2166,7 @@ const styles =
         '600',
 
       color:
-        '#888888',
+        '#9A9186',
 
     },
 
@@ -2152,19 +2188,18 @@ const styles =
 
     },
 
-
     addToCartButton: {
 
       flex: 1,
 
       backgroundColor:
-        '#000000',
+        '#171717',
 
       minHeight:
-        36,
+        38,
 
       borderRadius:
-        10,
+        11,
 
       flexDirection:
         'row',
@@ -2180,14 +2215,12 @@ const styles =
 
     },
 
-
     disabledButton: {
 
       backgroundColor:
-        '#A0A0A0',
+        '#B7B0A6',
 
     },
-
 
     addToCartText: {
 
@@ -2198,27 +2231,32 @@ const styles =
         12,
 
       fontWeight:
-        '700',
+        '800',
 
     },
-
 
     removeButton: {
 
       width:
-        38,
+        40,
 
       height:
-        36,
+        38,
 
       borderRadius:
-        10,
+        11,
 
       marginLeft:
         7,
 
       backgroundColor:
-        '#FFF5F2',
+        '#FFF7F3',
+
+      borderWidth:
+        1,
+
+      borderColor:
+        '#F0CFC4',
 
       alignItems:
         'center',

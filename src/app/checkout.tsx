@@ -21,12 +21,14 @@ import {
   useFocusEffect,
 } from "expo-router";
 
+
 // ============================================================
 // API
 // ============================================================
 
 const API_URL =
   "https://mystore-backend-u6ey.onrender.com";
+
 
 // ============================================================
 // TYPES
@@ -51,17 +53,20 @@ type BackendProduct = {
   availability?: boolean;
 };
 
+
 type CartItem = {
   product: BackendProduct;
   quantity: number;
   price: number;
 };
 
+
 type CartResponse = {
   _id: string;
   user: string;
   items: CartItem[];
 };
+
 
 type User = {
   firstName?: string;
@@ -72,6 +77,7 @@ type User = {
   address?: string;
 };
 
+
 // ============================================================
 // GET ACCESS TOKEN
 // ============================================================
@@ -80,6 +86,7 @@ const getAccessToken = async () => {
   return await AsyncStorage.getItem("accessToken");
 };
 
+
 // ============================================================
 // READ JSON
 // ============================================================
@@ -87,12 +94,19 @@ const getAccessToken = async () => {
 const readJsonResponse = async (
   response: Response
 ) => {
+
   try {
+
     return await response.json();
+
   } catch {
+
     return {};
+
   }
+
 };
+
 
 // ============================================================
 // COMPONENT
@@ -103,14 +117,18 @@ export default function Checkout() {
   const [user, setUser] =
     useState<User | null>(null);
 
+
   const [cart, setCart] =
     useState<CartItem[]>([]);
+
 
   const [loading, setLoading] =
     useState(true);
 
+
   const [placingOrder, setPlacingOrder] =
     useState(false);
+
 
   // ==========================================================
   // DISPLAY NAME
@@ -126,6 +144,7 @@ export default function Checkout() {
         )
       : "";
 
+
   // ==========================================================
   // LOAD USER
   // ==========================================================
@@ -137,25 +156,31 @@ export default function Checkout() {
       const storedUser =
         await AsyncStorage.getItem("user");
 
+
       console.log(
         "CHECKOUT STORED USER:",
         storedUser
       );
+
 
       if (!storedUser) {
 
         setUser(null);
 
         return;
+
       }
+
 
       const parsedUser =
         JSON.parse(storedUser);
+
 
       console.log(
         "CHECKOUT USER:",
         parsedUser
       );
+
 
       setUser(parsedUser);
 
@@ -166,9 +191,13 @@ export default function Checkout() {
         error
       );
 
+
       setUser(null);
+
     }
+
   };
+
 
   // ==========================================================
   // LOAD CART
@@ -181,10 +210,12 @@ export default function Checkout() {
       const token =
         await getAccessToken();
 
+
       console.log(
         "CHECKOUT TOKEN EXISTS:",
         !!token
       );
+
 
       if (!token) {
 
@@ -193,7 +224,9 @@ export default function Checkout() {
         router.replace("/login");
 
         return;
+
       }
+
 
       const response =
         await fetch(
@@ -211,16 +244,19 @@ export default function Checkout() {
           }
         );
 
+
       const data =
         await readJsonResponse(
           response
         );
+
 
       console.log(
         "GET CART RESPONSE:",
         response.status,
         data
       );
+
 
       // ======================================================
       // TOKEN EXPIRED
@@ -238,10 +274,13 @@ export default function Checkout() {
           "isLoggedIn",
         ]);
 
+
         router.replace("/login");
 
         return;
+
       }
+
 
       if (!response.ok) {
 
@@ -251,10 +290,13 @@ export default function Checkout() {
             "Unable to load your cart."
         );
 
+
         setCart([]);
 
         return;
+
       }
+
 
       // ======================================================
       // CART
@@ -265,15 +307,18 @@ export default function Checkout() {
         const cartData =
           data.cart as CartResponse;
 
+
         const items =
           Array.isArray(cartData.items)
             ? cartData.items
             : [];
 
+
         console.log(
           "CHECKOUT CART ITEMS:",
           items.length
         );
+
 
         setCart(items);
 
@@ -283,7 +328,9 @@ export default function Checkout() {
           "CHECKOUT: NO CART"
         );
 
+
         setCart([]);
+
       }
 
     } catch (error) {
@@ -293,14 +340,19 @@ export default function Checkout() {
         error
       );
 
+
       Alert.alert(
         "Connection Error",
         "Unable to connect to the server."
       );
 
+
       setCart([]);
+
     }
+
   };
+
 
   // ==========================================================
   // LOAD DATA
@@ -311,6 +363,7 @@ export default function Checkout() {
     try {
 
       setLoading(true);
+
 
       await Promise.all([
         loadUser(),
@@ -327,8 +380,11 @@ export default function Checkout() {
     } finally {
 
       setLoading(false);
+
     }
+
   };
+
 
   // ==========================================================
   // RELOAD SCREEN
@@ -342,6 +398,7 @@ export default function Checkout() {
     }, [])
   );
 
+
   // ==========================================================
   // ITEM TOTAL
   // ==========================================================
@@ -353,8 +410,10 @@ export default function Checkout() {
     const price =
       Number(item.price);
 
+
     const quantity =
       Number(item.quantity);
+
 
     if (
       !Number.isFinite(price) ||
@@ -362,10 +421,14 @@ export default function Checkout() {
     ) {
 
       return 0;
+
     }
 
+
     return price * quantity;
+
   };
+
 
   // ==========================================================
   // TOTAL
@@ -379,8 +442,10 @@ export default function Checkout() {
       0
     );
 
+
   const formattedTotal =
     totalPrice.toFixed(2);
+
 
   // ==========================================================
   // EDIT INFORMATION
@@ -390,7 +455,9 @@ export default function Checkout() {
     () => {
 
       router.push("/edit-account");
+
     };
+
 
   // ==========================================================
   // PLACE ORDER
@@ -402,45 +469,45 @@ export default function Checkout() {
       "================================"
     );
 
+
     console.log(
       "PLACE ORDER BUTTON PRESSED"
     );
+
 
     console.log(
       "USER:",
       user
     );
 
+
     console.log(
       "DISPLAY NAME:",
       displayName
     );
+
 
     console.log(
       "CART LENGTH:",
       cart.length
     );
 
+
     console.log(
       "PLACING ORDER:",
       placingOrder
     );
 
+
     console.log(
       "================================"
     );
 
-    // ========================================================
-    // PREVENT DOUBLE CLICK
-    // ========================================================
 
     if (placingOrder) {
       return;
     }
 
-    // ========================================================
-    // EMPTY CART
-    // ========================================================
 
     if (cart.length === 0) {
 
@@ -449,12 +516,11 @@ export default function Checkout() {
         "Please add products to your cart first."
       );
 
+
       return;
+
     }
 
-    // ========================================================
-    // USER
-    // ========================================================
 
     if (!user) {
 
@@ -474,12 +540,11 @@ export default function Checkout() {
         ]
       );
 
+
       return;
+
     }
 
-    // ========================================================
-    // USER INFORMATION
-    // ========================================================
 
     if (
       !displayName ||
@@ -503,24 +568,26 @@ export default function Checkout() {
         ]
       );
 
+
       return;
+
     }
 
-    // ========================================================
-    // START
-    // ========================================================
 
     try {
 
       setPlacingOrder(true);
 
+
       const token =
         await getAccessToken();
+
 
       console.log(
         "ACCESS TOKEN EXISTS:",
         !!token
       );
+
 
       if (!token) {
 
@@ -530,6 +597,7 @@ export default function Checkout() {
           "user",
           "isLoggedIn",
         ]);
+
 
         Alert.alert(
           "Login Required",
@@ -543,21 +611,22 @@ export default function Checkout() {
           ]
         );
 
+
         return;
+
       }
 
-      // ======================================================
-      // CREATE ORDER
-      // ======================================================
 
       console.log(
         "CREATING ORDER..."
       );
 
+
       console.log(
         "SHIPPING ADDRESS:",
         user.address
       );
+
 
       const response =
         await fetch(
@@ -584,10 +653,12 @@ export default function Checkout() {
           }
         );
 
+
       const data =
         await readJsonResponse(
           response
         );
+
 
       console.log(
         "CREATE ORDER RESPONSE:",
@@ -595,9 +666,6 @@ export default function Checkout() {
         data
       );
 
-      // ======================================================
-      // AUTH ERROR
-      // ======================================================
 
       if (
         response.status === 401 ||
@@ -611,6 +679,7 @@ export default function Checkout() {
           "isLoggedIn",
         ]);
 
+
         Alert.alert(
           "Session Expired",
           "Please login again.",
@@ -623,12 +692,11 @@ export default function Checkout() {
           ]
         );
 
+
         return;
+
       }
 
-      // ======================================================
-      // CART ERROR
-      // ======================================================
 
       if (
         response.status === 404
@@ -640,12 +708,11 @@ export default function Checkout() {
             "Your cart could not be found."
         );
 
+
         return;
+
       }
 
-      // ======================================================
-      // OTHER ERROR
-      // ======================================================
 
       if (!response.ok) {
 
@@ -656,12 +723,11 @@ export default function Checkout() {
             "Unable to place your order."
         );
 
+
         return;
+
       }
 
-      // ======================================================
-      // SUCCESS
-      // ======================================================
 
       if (
         response.status === 201 &&
@@ -673,13 +739,14 @@ export default function Checkout() {
           data.order
         );
 
-        // Clear local cart
+
         await AsyncStorage.removeItem(
           "cart"
         );
 
-        // Clear screen cart
+
         setCart([]);
+
 
         Alert.alert(
           "Order Placed 🎉",
@@ -693,18 +760,18 @@ export default function Checkout() {
           ]
         );
 
+
         return;
+
       }
 
-      // ======================================================
-      // FALLBACK
-      // ======================================================
 
       Alert.alert(
         "Order",
         data?.message ||
           "Order created successfully."
       );
+
 
     } catch (error) {
 
@@ -713,16 +780,21 @@ export default function Checkout() {
         error
       );
 
+
       Alert.alert(
         "Connection Error",
         "Could not connect to the server. Please check your internet connection and try again."
       );
 
+
     } finally {
 
       setPlacingOrder(false);
+
     }
+
   };
+
 
   // ==========================================================
   // LOADING
@@ -733,22 +805,40 @@ export default function Checkout() {
     return (
 
       <View
-        style={styles.loadingContainer}
+        style={
+          styles.loadingContainer
+        }
       >
 
-        <ActivityIndicator
-          size="large"
-        />
+        <View
+          style={
+            styles.loadingIconContainer
+          }
+        >
+
+          <Ionicons
+            name="bag-check-outline"
+            size={34}
+            color="#E35B3F"
+          />
+
+        </View>
+
 
         <Text
-          style={styles.loadingText}
+          style={
+            styles.loadingText
+          }
         >
           Loading checkout...
         </Text>
 
       </View>
+
     );
+
   }
+
 
   // ==========================================================
   // RENDER
@@ -757,77 +847,147 @@ export default function Checkout() {
   return (
 
     <View
-      style={styles.container}
+      style={
+        styles.container
+      }
     >
 
-      {/* HEADER */}
+      {/* ====================================================
+          HEADER
+      ==================================================== */}
 
       <View
-        style={styles.header}
+        style={
+          styles.header
+        }
       >
 
         <Pressable
           onPress={() =>
             router.back()
           }
-          style={styles.backButton}
+
+          style={
+            styles.backButton
+          }
         >
 
           <Ionicons
             name="arrow-back"
-            size={24}
-            color="#000"
+            size={22}
+            color="#171717"
           />
 
         </Pressable>
 
-        <Text
-          style={styles.headerTitle}
-        >
-          Checkout
-        </Text>
 
         <View
-          style={styles.headerSpacer}
+          style={
+            styles.headerTextContainer
+          }
+        >
+
+          <Text
+            style={
+              styles.headerTitle
+            }
+          >
+            Checkout
+          </Text>
+
+          <Text
+            style={
+              styles.headerSubtitle
+            }
+          >
+            Review your order
+          </Text>
+
+        </View>
+
+
+        <View
+          style={
+            styles.headerSpacer
+          }
         />
 
       </View>
 
-      {/* CONTENT */}
+
+      {/* ====================================================
+          CONTENT
+      ==================================================== */}
 
       <ScrollView
         contentContainerStyle={
           styles.content
         }
+
         showsVerticalScrollIndicator={
           false
         }
       >
 
-        {/* CUSTOMER INFORMATION */}
+        {/* ==================================================
+            CUSTOMER INFORMATION
+        ================================================== */}
 
         <View
-          style={styles.section}
+          style={
+            styles.section
+          }
         >
 
           <View
-            style={styles.sectionHeader}
+            style={
+              styles.sectionHeader
+            }
           >
 
-            <Text
-              style={styles.sectionTitle}
+            <View
+              style={
+                styles.sectionTitleRow
+              }
             >
-              Customer Information
-            </Text>
+
+              <View
+                style={
+                  styles.sectionAccent
+                }
+              />
+
+              <Text
+                style={
+                  styles.sectionTitle
+                }
+              >
+                Customer Information
+              </Text>
+
+            </View>
+
 
             <Pressable
               onPress={
                 handleEditInformation
               }
+
+              style={
+                styles.editButton
+              }
             >
 
+              <Ionicons
+                name="create-outline"
+                size={15}
+                color="#E35B3F"
+              />
+
               <Text
-                style={styles.editText}
+                style={
+                  styles.editText
+                }
               >
                 Edit
               </Text>
@@ -836,23 +996,37 @@ export default function Checkout() {
 
           </View>
 
+
           {user ? (
 
             <View
-              style={styles.infoCard}
+              style={
+                styles.infoCard
+              }
             >
 
               {/* NAME */}
 
               <View
-                style={styles.infoRow}
+                style={
+                  styles.infoRow
+                }
               >
 
-                <Ionicons
-                  name="person-outline"
-                  size={20}
-                  color="#555"
-                />
+                <View
+                  style={
+                    styles.infoIcon
+                  }
+                >
+
+                  <Ionicons
+                    name="person-outline"
+                    size={18}
+                    color="#E35B3F"
+                  />
+
+                </View>
+
 
                 <View
                   style={
@@ -881,17 +1055,29 @@ export default function Checkout() {
 
               </View>
 
+
               {/* PHONE */}
 
               <View
-                style={styles.infoRow}
+                style={
+                  styles.infoRow
+                }
               >
 
-                <Ionicons
-                  name="call-outline"
-                  size={20}
-                  color="#555"
-                />
+                <View
+                  style={
+                    styles.infoIcon
+                  }
+                >
+
+                  <Ionicons
+                    name="call-outline"
+                    size={18}
+                    color="#E35B3F"
+                  />
+
+                </View>
+
 
                 <View
                   style={
@@ -920,19 +1106,31 @@ export default function Checkout() {
 
               </View>
 
+
               {/* EMAIL */}
 
               {user.email ? (
 
                 <View
-                  style={styles.infoRow}
+                  style={
+                    styles.infoRow
+                  }
                 >
 
-                  <Ionicons
-                    name="mail-outline"
-                    size={20}
-                    color="#555"
-                  />
+                  <View
+                    style={
+                      styles.infoIcon
+                    }
+                  >
+
+                    <Ionicons
+                      name="mail-outline"
+                      size={18}
+                      color="#E35B3F"
+                    />
+
+                  </View>
+
 
                   <View
                     style={
@@ -962,17 +1160,30 @@ export default function Checkout() {
 
               ) : null}
 
+
               {/* ADDRESS */}
 
               <View
-                style={styles.infoRow}
+                style={[
+                  styles.infoRow,
+                  styles.infoRowLast,
+                ]}
               >
 
-                <Ionicons
-                  name="location-outline"
-                  size={20}
-                  color="#555"
-                />
+                <View
+                  style={
+                    styles.infoIcon
+                  }
+                >
+
+                  <Ionicons
+                    name="location-outline"
+                    size={18}
+                    color="#E35B3F"
+                  />
+
+                </View>
+
 
                 <View
                   style={
@@ -1006,19 +1217,40 @@ export default function Checkout() {
           ) : (
 
             <View
-              style={styles.emptyInfoCard}
+              style={
+                styles.emptyInfoCard
+              }
             >
 
+              <View
+                style={
+                  styles.emptyInfoIcon
+                }
+              >
+
+                <Ionicons
+                  name="person-outline"
+                  size={24}
+                  color="#E35B3F"
+                />
+
+              </View>
+
+
               <Text
-                style={styles.emptyInfoText}
+                style={
+                  styles.emptyInfoText
+                }
               >
                 Please login to continue.
               </Text>
+
 
               <Pressable
                 onPress={() =>
                   router.replace("/login")
                 }
+
                 style={
                   styles.loginButton
                 }
@@ -1032,6 +1264,13 @@ export default function Checkout() {
                   Login
                 </Text>
 
+
+                <Ionicons
+                  name="arrow-forward"
+                  size={17}
+                  color="#FFFFFF"
+                />
+
               </Pressable>
 
             </View>
@@ -1040,26 +1279,68 @@ export default function Checkout() {
 
         </View>
 
-        {/* ORDER ITEMS */}
+
+        {/* ==================================================
+            ORDER SUMMARY
+        ================================================== */}
 
         <View
-          style={styles.section}
+          style={
+            styles.section
+          }
         >
 
-          <Text
-            style={styles.sectionTitle}
+          <View
+            style={
+              styles.sectionTitleRow
+            }
           >
-            Order Summary
-          </Text>
+
+            <View
+              style={
+                styles.sectionAccent
+              }
+            />
+
+            <Text
+              style={
+                styles.sectionTitle
+              }
+            >
+              Order Summary
+            </Text>
+           
+
+          </View>
+
 
           {cart.length === 0 ? (
 
             <View
-              style={styles.emptyCartCard}
+              style={
+                styles.emptyCartCard
+              }
             >
 
+              <View
+                style={
+                  styles.emptyCartIcon
+                }
+              >
+
+                <Ionicons
+                  name="cart-outline"
+                  size={27}
+                  color="#E35B3F"
+                />
+
+              </View>
+
+
               <Text
-                style={styles.emptyCartText}
+                style={
+                  styles.emptyCartText
+                }
               >
                 Your cart is empty.
               </Text>
@@ -1069,10 +1350,14 @@ export default function Checkout() {
           ) : (
 
             cart.map(
-              (item, index) => {
+              (
+                item,
+                index
+              ) => {
 
                 const itemTotal =
                   getItemTotal(item);
+
 
                 return (
 
@@ -1080,8 +1365,26 @@ export default function Checkout() {
                     key={
                       `${item.product._id}-${index}`
                     }
-                    style={styles.itemCard}
+
+                    style={
+                      styles.itemCard
+                    }
                   >
+
+                    <View
+                      style={
+                        styles.itemIcon
+                      }
+                    >
+
+                      <Ionicons
+                        name="cube-outline"
+                        size={23}
+                        color="#E35B3F"
+                      />
+
+                    </View>
+
 
                     <View
                       style={
@@ -1098,28 +1401,45 @@ export default function Checkout() {
                         {item.product.name}
                       </Text>
 
-                      <Text
-                        style={
-                          styles.quantityText
-                        }
-                      >
-                        Quantity:{" "}
-                        {item.quantity}
-                      </Text>
 
-                      <Text
+                      <View
                         style={
-                          styles.unitPrice
+                          styles.itemMeta
                         }
                       >
-                        $
-                        {Number(
-                          item.price
-                        ).toFixed(2)}
-                        {" "}each
-                      </Text>
+
+                        <Text
+                          style={
+                            styles.quantityText
+                          }
+                        >
+                          Qty {item.quantity}
+                        </Text>
+
+
+                        <View
+                          style={
+                            styles.metaDot
+                          }
+                        />
+
+
+                        <Text
+                          style={
+                            styles.unitPrice
+                          }
+                        >
+                          $
+                          {Number(
+                            item.price
+                          ).toFixed(2)}
+                          {" "}each
+                        </Text>
+
+                      </View>
 
                     </View>
+
 
                     <Text
                       style={
@@ -1131,44 +1451,84 @@ export default function Checkout() {
                     </Text>
 
                   </View>
+
                 );
+
               }
             )
+
           )}
 
         </View>
 
-        {/* TOTAL */}
+
+        {/* ==================================================
+            TOTAL
+        ================================================== */}
 
         <View
-          style={styles.totalCard}
+          style={
+            styles.totalCard
+          }
         >
 
-          <Text
-            style={styles.totalLabel}
-          >
-            Total
-          </Text>
+          <View>
+
+            <Text
+              style={
+                styles.totalLabel
+              }
+            >
+              Total
+            </Text>
+
+
+            <Text
+              style={
+                styles.totalSubtext
+              }
+            >
+              Including all items
+            </Text>
+
+          </View>
+
 
           <Text
-            style={styles.totalValue}
+            style={
+              styles.totalValue
+            }
           >
             ${formattedTotal}
           </Text>
 
         </View>
 
-        {/* PAYMENT */}
+
+        {/* ==================================================
+            PAYMENT
+        ================================================== */}
 
         <View
-          style={styles.paymentCard}
+          style={
+            styles.paymentCard
+          }
         >
 
-          <Ionicons
-            name="cash-outline"
-            size={24}
-            color="#333"
-          />
+          <View
+            style={
+              styles.paymentIcon
+            }
+          >
+
+            <Ionicons
+              name="cash-outline"
+              size={24}
+              color="#E35B3F"
+            />
+
+          </View>
+
 
           <View
             style={
@@ -1184,6 +1544,7 @@ export default function Checkout() {
               Cash on Delivery
             </Text>
 
+
             <Text
               style={
                 styles.paymentSubtitle
@@ -1194,74 +1555,126 @@ export default function Checkout() {
 
           </View>
 
+
+          <View
+            style={
+              styles.paymentCheck
+            }
+          >
+
+            <Ionicons
+              name="checkmark"
+              size={16}
+              color="#E35B3F"
+            />
+
+          </View>
+
         </View>
+
 
       </ScrollView>
 
-      {/* PLACE ORDER */}
+
+      {/* ====================================================
+          PLACE ORDER
+      ==================================================== */}
 
       <View
-        style={styles.bottomContainer}
+        style={
+          styles.bottomContainer
+        }
       >
 
         <View
-          style={styles.bottomTotal}
+          style={
+            styles.bottomInner
+          }
         >
 
-          <Text
+          <View
             style={
-              styles.bottomTotalLabel
+              styles.bottomTotal
             }
           >
-            Total
-          </Text>
-
-          <Text
-            style={
-              styles.bottomTotalValue
-            }
-          >
-            ${formattedTotal}
-          </Text>
-
-        </View>
-
-        <Pressable
-          onPress={placeOrder}
-          disabled={placingOrder}
-          style={[
-            styles.placeOrderButton,
-            placingOrder &&
-              styles.placeOrderButtonDisabled,
-          ]}
-        >
-
-          {placingOrder ? (
-
-            <ActivityIndicator
-              size="small"
-              color="#fff"
-            />
-
-          ) : (
 
             <Text
               style={
-                styles.placeOrderText
+                styles.bottomTotalLabel
               }
             >
-              Place Order
+              Total
             </Text>
 
-          )}
 
-        </Pressable>
+            <Text
+              style={
+                styles.bottomTotalValue
+              }
+            >
+              ${formattedTotal}
+            </Text>
+
+          </View>
+
+
+          <Pressable
+            onPress={
+              placeOrder
+            }
+
+            disabled={
+              placingOrder
+            }
+
+            style={[
+              styles.placeOrderButton,
+
+              placingOrder &&
+                styles.placeOrderButtonDisabled,
+            ]}
+          >
+
+            {placingOrder ? (
+
+              <ActivityIndicator
+                size="small"
+                color="#FFFFFF"
+              />
+
+            ) : (
+
+              <>
+                <Text
+                  style={
+                    styles.placeOrderText
+                  }
+                >
+                  Place Order
+                </Text>
+
+
+                <Ionicons
+                  name="arrow-forward"
+                  size={19}
+                  color="#FFFFFF"
+                />
+              </>
+
+            )}
+
+          </Pressable>
+
+        </View>
 
       </View>
 
     </View>
+
   );
+
 }
+
 
 // ============================================================
 // STYLES
@@ -1270,281 +1683,650 @@ export default function Checkout() {
 const styles =
   StyleSheet.create({
 
+    // ========================================================
+    // CONTAINER
+    // ========================================================
+
     container: {
       flex: 1,
-      backgroundColor: "#F7F7F7",
+      backgroundColor: "#F7F3EC",
+      paddingHorizontal: 18,
+      paddingTop: 18,
     },
+
+
+    // ========================================================
+    // LOADING
+    // ========================================================
 
     loadingContainer: {
       flex: 1,
       justifyContent: "center",
       alignItems: "center",
-      backgroundColor: "#F7F7F7",
+      backgroundColor: "#F7F3EC",
     },
+
+
+    loadingIconContainer: {
+      width: 76,
+      height: 76,
+      borderRadius: 23,
+      backgroundColor: "#FFFFFF",
+      borderWidth: 1,
+      borderColor: "#E7DED1",
+      alignItems: "center",
+      justifyContent: "center",
+
+      shadowColor: "#171717",
+      shadowOffset: {
+        width: 0,
+        height: 5,
+      },
+      shadowOpacity: 0.06,
+      shadowRadius: 9,
+      elevation: 2,
+    },
+
 
     loadingText: {
-      marginTop: 10,
-      fontSize: 14,
-      color: "#555",
+      marginTop: 13,
+      fontSize: 13,
+      fontWeight: "700",
+      color: "#817B71",
     },
+
+
+    // ========================================================
+    // HEADER
+    // ========================================================
 
     header: {
-      height: 60,
-      backgroundColor: "#FFFFFF",
       flexDirection: "row",
       alignItems: "center",
-      justifyContent: "space-between",
-      paddingHorizontal: 16,
-      borderBottomWidth: 1,
-      borderBottomColor: "#E5E5E5",
+      marginBottom: 18,
     },
+
 
     backButton: {
-      width: 40,
-      height: 40,
-      justifyContent: "center",
+      width: 46,
+      height: 46,
+      borderRadius: 16,
+      backgroundColor: "#FFFFFF",
+      borderWidth: 1,
+      borderColor: "#E7DED1",
       alignItems: "center",
+      justifyContent: "center",
+      marginRight: 13,
+
+      shadowColor: "#171717",
+      shadowOffset: {
+        width: 0,
+        height: 4,
+      },
+      shadowOpacity: 0.06,
+      shadowRadius: 8,
+      elevation: 2,
     },
+
+
+    headerTextContainer: {
+      justifyContent: "center",
+    },
+
 
     headerTitle: {
-      fontSize: 20,
-      fontWeight: "700",
-      color: "#000000",
+      fontSize: 29,
+      fontWeight: "900",
+      color: "#171717",
+      letterSpacing: -0.8,
     },
+
+
+    headerSubtitle: {
+      marginTop: 2,
+      fontSize: 12,
+      fontWeight: "600",
+      color: "#817B71",
+    },
+
 
     headerSpacer: {
-      width: 40,
+      width: 46,
+      marginLeft: "auto",
     },
 
+
+    // ========================================================
+    // CONTENT
+    // ========================================================
+
     content: {
-      padding: 16,
-      paddingBottom: 140,
+      paddingBottom: 155,
     },
+
+
+    // ========================================================
+    // SECTION
+    // ========================================================
 
     section: {
       marginBottom: 20,
     },
 
+
     sectionHeader: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
-      marginBottom: 10,
+      marginBottom: 11,
     },
+
+
+    sectionTitleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      flex: 1,
+      paddingBottom:10,
+    },
+
+
+    sectionAccent: {
+      width: 5,
+      height: 22,
+      borderRadius: 3,
+      backgroundColor: "#E35B3F",
+      marginRight: 9,
+    },
+
 
     sectionTitle: {
-      fontSize: 18,
-      fontWeight: "700",
-      color: "#000000",
-      marginBottom: 10,
+      fontSize: 19,
+      fontWeight: "900",
+      color: "#171717",
+      letterSpacing: -0.3,
     },
 
-    editText: {
-      fontSize: 14,
-      fontWeight: "600",
-      color: "#8A6D1D",
+
+    // ========================================================
+    // EDIT
+    // ========================================================
+
+    editButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 9,
+      paddingVertical: 6,
+      borderRadius: 10,
+      backgroundColor: "#FFF7F3",
+      borderWidth: 1,
+      borderColor: "#F0CFC4",
     },
+
+
+    editText: {
+      marginLeft: 4,
+      fontSize: 12,
+      fontWeight: "800",
+      color: "#E35B3F",
+    },
+
+
+    // ========================================================
+    // CUSTOMER INFO
+    // ========================================================
 
     infoCard: {
       backgroundColor: "#FFFFFF",
-      borderRadius: 14,
-      padding: 16,
+      borderRadius: 21,
+      padding: 15,
+      borderWidth: 1,
+      borderColor: "#E7DED1",
+
+      shadowColor: "#171717",
+      shadowOffset: {
+        width: 0,
+        height: 5,
+      },
+      shadowOpacity: 0.07,
+      shadowRadius: 9,
+      elevation: 2,
     },
+
 
     infoRow: {
       flexDirection: "row",
       alignItems: "flex-start",
-      marginBottom: 16,
+      marginBottom: 14,
     },
+
+
+    infoRowLast: {
+      marginBottom: 0,
+    },
+
+
+    infoIcon: {
+      width: 38,
+      height: 38,
+      borderRadius: 12,
+      backgroundColor: "#FFF7F3",
+      borderWidth: 1,
+      borderColor: "#F0CFC4",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+
 
     infoTextContainer: {
       flex: 1,
-      marginLeft: 12,
+      marginLeft: 10,
+      paddingTop: 2,
     },
 
+
     infoLabel: {
-      fontSize: 12,
-      color: "#777",
+      fontSize: 11,
+      fontWeight: "700",
+      color: "#9A9186",
       marginBottom: 3,
     },
 
+
     infoValue: {
-      fontSize: 15,
-      color: "#111",
-      fontWeight: "500",
+      fontSize: 14,
+      fontWeight: "700",
+      color: "#24221E",
+      lineHeight: 19,
     },
+
+
+    // ========================================================
+    // EMPTY INFO
+    // ========================================================
 
     emptyInfoCard: {
       backgroundColor: "#FFFFFF",
-      borderRadius: 14,
+      borderRadius: 21,
       padding: 18,
       alignItems: "center",
+      borderWidth: 1,
+      borderColor: "#E7DED1",
+
+      shadowColor: "#171717",
+      shadowOffset: {
+        width: 0,
+        height: 5,
+      },
+      shadowOpacity: 0.06,
+      shadowRadius: 9,
+      elevation: 2,
     },
+
+
+    emptyInfoIcon: {
+      width: 58,
+      height: 58,
+      borderRadius: 17,
+      backgroundColor: "#FFF7F3",
+      borderWidth: 1,
+      borderColor: "#F0CFC4",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+
 
     emptyInfoText: {
-      fontSize: 14,
-      color: "#555",
-      marginBottom: 12,
+      marginTop: 10,
+      fontSize: 13,
+      fontWeight: "600",
+      color: "#817B71",
+      marginBottom: 13,
     },
 
+
     loginButton: {
-      backgroundColor: "#000000",
-      paddingHorizontal: 25,
-      paddingVertical: 10,
-      borderRadius: 8,
+      minHeight: 44,
+      paddingHorizontal: 20,
+      borderRadius: 14,
+      backgroundColor: "#171717",
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
     },
+
 
     loginButtonText: {
       color: "#FFFFFF",
-      fontSize: 14,
-      fontWeight: "600",
+      fontSize: 13,
+      fontWeight: "800",
+      marginRight: 8,
     },
+
+
+    // ========================================================
+    // ORDER ITEM
+    // ========================================================
 
     itemCard: {
       backgroundColor: "#FFFFFF",
-      borderRadius: 14,
-      padding: 15,
+      borderRadius: 18,
+      padding: 12,
       marginBottom: 10,
       flexDirection: "row",
-      justifyContent: "space-between",
       alignItems: "center",
+      borderWidth: 1,
+      borderColor: "#E7DED1",
+
+      shadowColor: "#171717",
+      shadowOffset: {
+        width: 0,
+        height: 4,
+      },
+      shadowOpacity: 0.05,
+      shadowRadius: 8,
+      elevation: 2,
     },
 
-    emptyCartCard: {
-      backgroundColor: "#FFFFFF",
+
+    itemIcon: {
+      width: 48,
+      height: 48,
       borderRadius: 14,
-      padding: 18,
+      backgroundColor: "#F8F2EA",
       alignItems: "center",
+      justifyContent: "center",
+      marginRight: 11,
     },
 
-    emptyCartText: {
-      fontSize: 14,
-      color: "#666",
-    },
 
     itemInfo: {
       flex: 1,
-      paddingRight: 15,
+      paddingRight: 8,
     },
+
 
     productName: {
-      fontSize: 15,
-      fontWeight: "600",
-      color: "#000000",
-      marginBottom: 6,
+      fontSize: 14,
+      fontWeight: "800",
+      color: "#171717",
+      lineHeight: 19,
+      marginBottom: 5,
     },
+
+
+    itemMeta: {
+      flexDirection: "row",
+      alignItems: "center",
+    },
+
 
     quantityText: {
-      fontSize: 13,
-      color: "#666",
-      marginBottom: 3,
+      fontSize: 11,
+      fontWeight: "700",
+      color: "#817B71",
     },
+
+
+    metaDot: {
+      width: 3,
+      height: 3,
+      borderRadius: 2,
+      backgroundColor: "#C9C0B5",
+      marginHorizontal: 6,
+    },
+
 
     unitPrice: {
-      fontSize: 13,
-      color: "#666",
+      fontSize: 11,
+      fontWeight: "600",
+      color: "#9A9186",
     },
 
+
     itemTotal: {
-      fontSize: 16,
-      fontWeight: "700",
-      color: "#000000",
+      fontSize: 15,
+      fontWeight: "900",
+      color: "#171717",
     },
+
+
+    // ========================================================
+    // EMPTY CART
+    // ========================================================
+
+    emptyCartCard: {
+      backgroundColor: "#FFFFFF",
+      borderRadius: 20,
+      padding: 20,
+      alignItems: "center",
+      borderWidth: 1,
+      borderColor: "#E7DED1",
+    },
+
+
+    emptyCartIcon: {
+      width: 58,
+      height: 58,
+      borderRadius: 17,
+      backgroundColor: "#FFF7F3",
+      borderWidth: 1,
+      borderColor: "#F0CFC4",
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 10,
+    },
+
+
+    emptyCartText: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: "#817B71",
+    },
+
+
+    // ========================================================
+    // TOTAL
+    // ========================================================
 
     totalCard: {
       backgroundColor: "#FFFFFF",
-      borderRadius: 14,
-      padding: 18,
+      borderRadius: 21,
+      padding: 17,
       flexDirection: "row",
       justifyContent: "space-between",
       alignItems: "center",
-      marginBottom: 15,
+      marginBottom: 13,
+      borderWidth: 1,
+      borderColor: "#E7DED1",
+
+      shadowColor: "#171717",
+      shadowOffset: {
+        width: 0,
+        height: 5,
+      },
+      shadowOpacity: 0.07,
+      shadowRadius: 9,
+      elevation: 2,
     },
+
 
     totalLabel: {
-      fontSize: 18,
-      fontWeight: "700",
-      color: "#000000",
+      fontSize: 19,
+      fontWeight: "900",
+      color: "#171717",
     },
 
-    totalValue: {
-      fontSize: 20,
-      fontWeight: "800",
-      color: "#000000",
+
+    totalSubtext: {
+      marginTop: 2,
+      fontSize: 11,
+      fontWeight: "600",
+      color: "#9A9186",
     },
+
+
+    totalValue: {
+      fontSize: 24,
+      fontWeight: "900",
+      color: "#E35B3F",
+      letterSpacing: -0.4,
+    },
+
+
+    // ========================================================
+    // PAYMENT
+    // ========================================================
 
     paymentCard: {
       backgroundColor: "#FFFFFF",
-      borderRadius: 14,
-      padding: 16,
+      borderRadius: 20,
+      padding: 14,
       flexDirection: "row",
       alignItems: "center",
+      borderWidth: 1,
+      borderColor: "#E7DED1",
+
+      shadowColor: "#171717",
+      shadowOffset: {
+        width: 0,
+        height: 5,
+      },
+      shadowOpacity: 0.06,
+      shadowRadius: 9,
+      elevation: 2,
     },
 
+
+    paymentIcon: {
+      width: 48,
+      height: 48,
+      borderRadius: 14,
+      backgroundColor: "#FFF7F3",
+      borderWidth: 1,
+      borderColor: "#F0CFC4",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+
+
     paymentTextContainer: {
-      marginLeft: 12,
+      marginLeft: 11,
       flex: 1,
     },
 
+
     paymentTitle: {
-      fontSize: 15,
-      fontWeight: "700",
-      color: "#000000",
+      fontSize: 14,
+      fontWeight: "900",
+      color: "#171717",
       marginBottom: 3,
     },
 
+
     paymentSubtitle: {
-      fontSize: 13,
-      color: "#666",
+      fontSize: 11,
+      fontWeight: "600",
+      color: "#817B71",
+      lineHeight: 16,
     },
+
+
+    paymentCheck: {
+      width: 27,
+      height: 27,
+      borderRadius: 10,
+      backgroundColor: "#FFF7F3",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+
+
+    // ========================================================
+    // BOTTOM
+    // ========================================================
 
     bottomContainer: {
       position: "absolute",
       bottom: 0,
       left: 0,
       right: 0,
-      backgroundColor: "#FFFFFF",
-      paddingHorizontal: 16,
-      paddingTop: 12,
-      paddingBottom: 25,
-      borderTopWidth: 1,
-      borderTopColor: "#E5E5E5",
+      backgroundColor: "#F7F3EC",
+      paddingHorizontal: 18,
+      paddingTop: 9,
+      paddingBottom: 14,
     },
+
+
+    bottomInner: {
+      backgroundColor: "#FFFFFF",
+      borderRadius: 21,
+      padding: 13,
+      borderWidth: 1,
+      borderColor: "#E7DED1",
+
+      shadowColor: "#171717",
+      shadowOffset: {
+        width: 0,
+        height: -2,
+      },
+      shadowOpacity: 0.06,
+      shadowRadius: 9,
+      elevation: 4,
+    },
+
 
     bottomTotal: {
       flexDirection: "row",
       justifyContent: "space-between",
       alignItems: "center",
-      marginBottom: 10,
+      marginBottom: 9,
+      paddingHorizontal: 3,
     },
 
+
     bottomTotalLabel: {
-      fontSize: 14,
-      color: "#666",
+      fontSize: 12,
+      fontWeight: "700",
+      color: "#817B71",
     },
+
 
     bottomTotalValue: {
       fontSize: 18,
-      fontWeight: "800",
-      color: "#000000",
+      fontWeight: "900",
+      color: "#171717",
     },
+
 
     placeOrderButton: {
       height: 52,
-      borderRadius: 12,
-      backgroundColor: "#000000",
-      justifyContent: "center",
+      borderRadius: 16,
+      backgroundColor: "#E35B3F",
+      flexDirection: "row",
       alignItems: "center",
+      justifyContent: "center",
+
+      shadowColor: "#E35B3F",
+      shadowOffset: {
+        width: 0,
+        height: 5,
+      },
+      shadowOpacity: 0.18,
+      shadowRadius: 9,
+      elevation: 3,
     },
 
+
     placeOrderButtonDisabled: {
-      opacity: 0.45,
+      opacity: 0.55,
     },
+
 
     placeOrderText: {
       color: "#FFFFFF",
-      fontSize: 16,
-      fontWeight: "700",
+      fontSize: 15,
+      fontWeight: "900",
+      marginRight: 9,
     },
 
   });

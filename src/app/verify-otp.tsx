@@ -232,6 +232,10 @@ export default function VerifyOTP() {
         }
       >
 
+        {/* =====================================================
+            HEADER
+        ===================================================== */}
+
         <View style={styles.header}>
 
           <Pressable
@@ -244,13 +248,17 @@ export default function VerifyOTP() {
 
             <Ionicons
               name="arrow-back"
-              size={23}
-              color="#000000"
+              size={22}
+              color="#171717"
             />
 
           </Pressable>
 
           <View style={styles.headerText}>
+
+            <Text style={styles.smallTitle}>
+              BStore
+            </Text>
 
             <Text style={styles.title}>
               Verify Phone
@@ -264,14 +272,18 @@ export default function VerifyOTP() {
 
         </View>
 
+        {/* =====================================================
+            VERIFICATION CARD
+        ===================================================== */}
+
         <View style={styles.card}>
 
           <View style={styles.iconCircle}>
 
             <Ionicons
               name="phone-portrait-outline"
-              size={30}
-              color="#D4AF37"
+              size={29}
+              color="#E35B3F"
             />
 
           </View>
@@ -285,9 +297,23 @@ export default function VerifyOTP() {
             verification of:
           </Text>
 
-          <Text style={styles.phone}>
-            {phone}
-          </Text>
+          <View style={styles.phoneBox}>
+
+            <Ionicons
+              name="call-outline"
+              size={16}
+              color="#E35B3F"
+            />
+
+            <Text style={styles.phone}>
+              {phone}
+            </Text>
+
+          </View>
+
+          {/* ===================================================
+              OTP INPUT
+          =================================================== */}
 
           <TextInput
             value={otp}
@@ -314,7 +340,7 @@ export default function VerifyOTP() {
             keyboardType="number-pad"
             maxLength={6}
             placeholder="000000"
-            placeholderTextColor="#BBBBBB"
+            placeholderTextColor="#B8AFA5"
             editable={!loading}
             textAlign="center"
             style={[
@@ -325,10 +351,24 @@ export default function VerifyOTP() {
           />
 
           {error ? (
-            <Text style={styles.errorText}>
-              {error}
-            </Text>
+            <View style={styles.errorBox}>
+
+              <Ionicons
+                name="alert-circle-outline"
+                size={17}
+                color="#C94C4C"
+              />
+
+              <Text style={styles.errorText}>
+                {error}
+              </Text>
+
+            </View>
           ) : null}
+
+          {/* ===================================================
+              VERIFY BUTTON
+          =================================================== */}
 
           <Pressable
             style={[
@@ -369,6 +409,10 @@ export default function VerifyOTP() {
 
           </Pressable>
 
+          {/* ===================================================
+              RESEND
+          =================================================== */}
+
           <Pressable
             style={styles.resendButton}
             onPress={
@@ -385,31 +429,59 @@ export default function VerifyOTP() {
 
               <ActivityIndicator
                 size="small"
-                color="#D4AF37"
+                color="#E35B3F"
               />
 
             ) : (
 
-              <Text
-                style={[
-                  styles.resendText,
-                  seconds > 0 &&
-                    styles.resendDisabled,
-                ]}
-              >
-                {seconds > 0
-                  ? `Resend code in ${seconds}s`
-                  : 'Resend Code'}
-              </Text>
+              <View style={styles.resendContent}>
+
+                <Ionicons
+                  name="refresh-outline"
+                  size={17}
+                  color={
+                    seconds > 0
+                      ? '#AFA79E'
+                      : '#E35B3F'
+                  }
+                />
+
+                <Text
+                  style={[
+                    styles.resendText,
+                    seconds > 0 &&
+                      styles.resendDisabled,
+                  ]}
+                >
+                  {seconds > 0
+                    ? `Resend code in ${seconds}s`
+                    : 'Resend Code'}
+                </Text>
+
+              </View>
 
             )}
 
           </Pressable>
 
-          <Text style={styles.note}>
-            The verification code expires after
-            90 minutes.
-          </Text>
+          {/* ===================================================
+              NOTE
+          =================================================== */}
+
+          <View style={styles.noteBox}>
+
+            <Ionicons
+              name="time-outline"
+              size={16}
+              color="#817B71"
+            />
+
+            <Text style={styles.note}>
+              The verification code expires after
+              90 minutes.
+            </Text>
+
+          </View>
 
         </View>
 
@@ -422,82 +494,132 @@ export default function VerifyOTP() {
 const styles =
   StyleSheet.create({
 
+    // =========================================================
+    // PAGE
+    // =========================================================
+
     container: {
       flex: 1,
+      paddingTop:20,
       backgroundColor:
-        '#F7F7F7',
-      paddingTop: 20,
+        '#F7F3EC',
     },
 
     scrollContent: {
-      paddingHorizontal: 20,
+      paddingHorizontal: 18,
       paddingTop: 18,
-      paddingBottom: 40,
+      paddingBottom: 45,
     },
+
+    // =========================================================
+    // HEADER
+    // =========================================================
 
     header: {
       flexDirection:
         'row',
       alignItems:
         'center',
-      marginBottom: 25,
+      marginBottom: 20,
     },
 
     backButton: {
-      width: 42,
-      height: 42,
-      borderRadius: 21,
+      width: 46,
+      height: 46,
+      borderRadius: 16,
       backgroundColor:
         '#FFFFFF',
       borderWidth: 1,
       borderColor:
-        '#E0E0E0',
+        '#E7DED1',
       alignItems:
         'center',
       justifyContent:
         'center',
       marginRight: 12,
+
+      shadowColor:
+        '#171717',
+      shadowOffset: {
+        width: 0,
+        height: 4,
+      },
+      shadowOpacity: 0.06,
+      shadowRadius: 8,
+      elevation: 2,
     },
 
     headerText: {
       flex: 1,
     },
 
-    title: {
-      fontSize: 28,
-      fontWeight: '800',
+    smallTitle: {
+      fontSize: 12,
+      fontWeight: '700',
       color:
-        '#000000',
+        '#817B71',
+      marginBottom: 2,
+      letterSpacing: 0.2,
+    },
+
+    title: {
+      fontSize: 29,
+      fontWeight: '900',
+      color:
+        '#171717',
+      letterSpacing: -0.8,
+      lineHeight: 34,
     },
 
     subtitle: {
-      marginTop: 4,
+      marginTop: 3,
       fontSize: 13,
+      fontWeight: '500',
       color:
-        '#888888',
+        '#817B71',
     },
+
+    // =========================================================
+    // CARD
+    // =========================================================
 
     card: {
       backgroundColor:
         '#FFFFFF',
-      borderRadius: 18,
+      borderRadius: 21,
       borderWidth: 1,
       borderColor:
-        '#E0E0E0',
-      padding: 20,
+        '#E7DED1',
+      paddingHorizontal: 20,
+      paddingTop: 24,
+      paddingBottom: 22,
       alignItems:
         'center',
+
+      shadowColor:
+        '#171717',
+      shadowOffset: {
+        width: 0,
+        height: 6,
+      },
+      shadowOpacity: 0.07,
+      shadowRadius: 10,
+      elevation: 3,
     },
 
+    // =========================================================
+    // ICON
+    // =========================================================
+
     iconCircle: {
-      width: 65,
-      height: 65,
-      borderRadius: 33,
+      width: 64,
+      height: 64,
+      borderRadius: 18,
       backgroundColor:
-        '#FFFBEF',
+        '#FFF7F3',
       borderWidth: 1,
       borderColor:
-        '#E8D89B',
+        '#F0CFC4',
       alignItems:
         'center',
       justifyContent:
@@ -507,9 +629,10 @@ const styles =
 
     cardTitle: {
       fontSize: 21,
-      fontWeight: '800',
+      fontWeight: '900',
       color:
-        '#000000',
+        '#171717',
+      letterSpacing: -0.3,
     },
 
     description: {
@@ -517,59 +640,115 @@ const styles =
       fontSize: 13,
       lineHeight: 19,
       color:
-        '#888888',
+        '#817B71',
       textAlign:
         'center',
+      maxWidth: 280,
+    },
+
+    // =========================================================
+    // PHONE
+    // =========================================================
+
+    phoneBox: {
+      marginTop: 10,
+      minHeight: 38,
+      paddingHorizontal: 13,
+      paddingVertical: 8,
+      borderRadius: 12,
+      backgroundColor:
+        '#FFF7F3',
+      borderWidth: 1,
+      borderColor:
+        '#F0CFC4',
+      flexDirection:
+        'row',
+      alignItems:
+        'center',
+      gap: 7,
     },
 
     phone: {
-      marginTop: 4,
       fontSize: 15,
-      fontWeight: '700',
+      fontWeight: '800',
       color:
-        '#1A1A1A',
+        '#24221E',
     },
+
+    // =========================================================
+    // OTP INPUT
+    // =========================================================
 
     otpInput: {
       width: '100%',
       height: 58,
-      marginTop: 22,
+      marginTop: 20,
       backgroundColor:
-        '#F7F7F7',
-      borderRadius: 14,
+        '#FFF7F3',
+      borderRadius: 15,
       borderWidth: 1,
       borderColor:
-        '#E0E0E0',
-      fontSize: 24,
-      fontWeight: '800',
+        '#F0CFC4',
+      fontSize: 25,
+      fontWeight: '900',
       letterSpacing: 8,
       color:
-        '#000000',
+        '#171717',
+      paddingLeft: 8,
     },
 
     otpInputError: {
       borderColor:
-        '#D93025',
+        '#C94C4C',
+      backgroundColor:
+        '#FFF4F2',
+    },
+
+    // =========================================================
+    // ERROR
+    // =========================================================
+
+    errorBox: {
+      width: '100%',
+      marginTop: 9,
+      paddingHorizontal: 11,
+      paddingVertical: 9,
+      borderRadius: 12,
+      backgroundColor:
+        '#FFF1F1',
+      borderWidth: 1,
+      borderColor:
+        '#F0CCCC',
+      flexDirection:
+        'row',
+      alignItems:
+        'center',
+      justifyContent:
+        'center',
+      gap: 6,
     },
 
     errorText: {
-      width: '100%',
+      flexShrink: 1,
       color:
-        '#D93025',
+        '#C94C4C',
       fontSize: 12,
-      marginTop: 8,
+      fontWeight: '600',
       textAlign:
         'center',
-      fontWeight: '500',
     },
+
+    // =========================================================
+    // VERIFY BUTTON
+    // =========================================================
 
     verifyButton: {
       width: '100%',
-      minHeight: 50,
-      marginTop: 18,
+      minHeight: 54,
+      marginTop: 17,
       backgroundColor:
-        '#D4AF37',
-      borderRadius: 25,
+        '#E35B3F',
+      borderRadius: 16,
       flexDirection:
         'row',
       alignItems:
@@ -577,43 +756,91 @@ const styles =
       justifyContent:
         'center',
       gap: 8,
+
+      shadowColor:
+        '#E35B3F',
+      shadowOffset: {
+        width: 0,
+        height: 5,
+      },
+      shadowOpacity: 0.20,
+      shadowRadius: 8,
+      elevation: 3,
     },
 
     disabledButton: {
-      opacity: 0.7,
+      opacity: 0.65,
     },
 
     verifyText: {
       color:
         '#FFFFFF',
       fontSize: 15,
-      fontWeight: '800',
+      fontWeight: '900',
     },
 
+    // =========================================================
+    // RESEND
+    // =========================================================
+
     resendButton: {
-      marginTop: 18,
+      marginTop: 17,
       paddingVertical: 7,
+      minHeight: 34,
+      alignItems:
+        'center',
+      justifyContent:
+        'center',
+    },
+
+    resendContent: {
+      flexDirection:
+        'row',
+      alignItems:
+        'center',
+      gap: 6,
     },
 
     resendText: {
       color:
-        '#D4AF37',
+        '#E35B3F',
       fontSize: 14,
-      fontWeight: '700',
+      fontWeight: '800',
     },
 
     resendDisabled: {
       color:
-        '#AAAAAA',
+        '#AFA79E',
+    },
+
+    // =========================================================
+    // NOTE
+    // =========================================================
+
+    noteBox: {
+      marginTop: 12,
+      paddingHorizontal: 12,
+      paddingVertical: 9,
+      borderRadius: 12,
+      backgroundColor:
+        '#F8F2EA',
+      flexDirection:
+        'row',
+      alignItems:
+        'center',
+      justifyContent:
+        'center',
+      gap: 6,
     },
 
     note: {
-      marginTop: 12,
       fontSize: 11,
       color:
-        '#999999',
+        '#817B71',
       textAlign:
         'center',
+      fontWeight: '500',
     },
 
   });
+

@@ -30,6 +30,23 @@ const API_URL =
 
 
 /* =========================================================
+   THEME
+========================================================= */
+
+const COLORS = {
+  background: '#F7F7F7',
+  surface: '#FFFFFF',
+  primary: '#E35B3F',
+  primarySoft: '#FFF0EC',
+  text: '#171717',
+  textSecondary: '#77736D',
+  textMuted: '#A09C96',
+  border: '#E9E6E2',
+  discount: '#C62828',
+};
+
+
+/* =========================================================
    TYPES
 ========================================================= */
 
@@ -522,8 +539,8 @@ export default function Search() {
 
             <Ionicons
               name="arrow-back"
-              size={23}
-              color="#000000"
+              size={21}
+              color={COLORS.text}
             />
 
           </Pressable>
@@ -550,11 +567,19 @@ export default function Search() {
           }
         >
 
-          <Ionicons
-            name="search-outline"
-            size={21}
-            color="#1A1A1A"
-          />
+          <View
+            style={
+              styles.searchIconContainer
+            }
+          >
+
+            <Ionicons
+              name="search-outline"
+              size={20}
+              color={COLORS.primary}
+            />
+
+          </View>
 
 
           <TextInput
@@ -568,7 +593,9 @@ export default function Search() {
 
             placeholder="Search products, categories or brands..."
 
-            placeholderTextColor="#888888"
+            placeholderTextColor={
+              COLORS.textMuted
+            }
 
             style={
               styles.searchInput
@@ -588,12 +615,16 @@ export default function Search() {
               onPress={() =>
                 setSearchText('')
               }
+
+              style={
+                styles.clearButton
+              }
             >
 
               <Ionicons
-                name="close-circle"
-                size={20}
-                color="#1A1A1A"
+                name="close"
+                size={17}
+                color={COLORS.textSecondary}
               />
 
             </Pressable>
@@ -623,8 +654,8 @@ export default function Search() {
 
               <Ionicons
                 name="search-outline"
-                size={34}
-                color="#D4AF37"
+                size={31}
+                color={COLORS.primary}
               />
 
             </View>
@@ -635,7 +666,7 @@ export default function Search() {
                 styles.startTitle
               }
             >
-              Search by product, category or brand
+              Find what you're looking for
             </Text>
 
 
@@ -644,7 +675,7 @@ export default function Search() {
                 styles.startText
               }
             >
-              Search for products, categories or brands
+              Search by product, category or brand
             </Text>
 
           </View>
@@ -672,21 +703,31 @@ export default function Search() {
               </Text>
 
 
-              <Text
+              <View
                 style={
-                  styles.resultsCount
+                  styles.resultsCountContainer
                 }
               >
 
-                {filteredProducts.length}{' '}
+                <Text
+                  style={
+                    styles.resultsCount
+                  }
+                >
 
-                {
-                  filteredProducts.length === 1
-                    ? 'product'
-                    : 'products'
-                }
+                  {filteredProducts.length}
 
-              </Text>
+                  {' '}
+
+                  {
+                    filteredProducts.length === 1
+                      ? 'product'
+                      : 'products'
+                  }
+
+                </Text>
+
+              </View>
 
             </View>
 
@@ -711,8 +752,8 @@ export default function Search() {
 
                   <Ionicons
                     name="search-outline"
-                    size={32}
-                    color="#D4AF37"
+                    size={30}
+                    color={COLORS.primary}
                   />
 
                 </View>
@@ -837,11 +878,19 @@ export default function Search() {
 
                           ) : (
 
-                            <Ionicons
-                              name="cube-outline"
-                              size={45}
-                              color="#D4AF37"
-                            />
+                            <View
+                              style={
+                                styles.imagePlaceholder
+                              }
+                            >
+
+                              <Ionicons
+                                name="cube-outline"
+                                size={38}
+                                color={COLORS.primary}
+                              />
+
+                            </View>
 
                           )}
 
@@ -871,75 +920,97 @@ export default function Search() {
                         )}
 
 
-                        {/* NAME */}
+                        {/* PRODUCT INFO */}
 
-                        <Text
+                        <View
                           style={
-                            styles.productName
+                            styles.productInfo
                           }
-
-                          numberOfLines={1}
                         >
-                          {product.name}
-                        </Text>
 
-
-                        {/* BRAND */}
-
-                        {brandName ? (
+                          {/* NAME */}
 
                           <Text
                             style={
-                              styles.productBrand
+                              styles.productName
                             }
 
                             numberOfLines={1}
                           >
-                            {brandName}
+                            {product.name}
                           </Text>
 
-                        ) : null}
 
+                          {/* BRAND */}
 
-                        {/* CATEGORY */}
+                          {brandName ? (
 
-                        {categoryName ? (
-
-                          <Text
-                            style={
-                              styles.productCategory
-                            }
-
-                            numberOfLines={1}
-                          >
-                            {categoryName}
-                          </Text>
-
-                        ) : null}
-
-
-                        {/* PRICE */}
-
-                        {product.price !== undefined && (
-
-                          hasDiscount ? (
-
-                            <View
+                            <Text
                               style={
-                                styles.priceContainer
+                                styles.productBrand
                               }
-                            >
 
-                              <Text
+                              numberOfLines={1}
+                            >
+                              {brandName}
+                            </Text>
+
+                          ) : null}
+
+
+                          {/* CATEGORY */}
+
+                          {categoryName ? (
+
+                            <Text
+                              style={
+                                styles.productCategory
+                              }
+
+                              numberOfLines={1}
+                            >
+                              {categoryName}
+                            </Text>
+
+                          ) : null}
+
+
+                          {/* PRICE */}
+
+                          {product.price !== undefined && (
+
+                            hasDiscount ? (
+
+                              <View
                                 style={
-                                  styles.oldPrice
+                                  styles.priceContainer
                                 }
                               >
-                                {formatUSD(
-                                  originalPrice
-                                )}
-                              </Text>
 
+                                <Text
+                                  style={
+                                    styles.oldPrice
+                                  }
+                                >
+                                  {formatUSD(
+                                    originalPrice
+                                  )}
+                                </Text>
+
+
+                                <Text
+                                  style={
+                                    styles.productPrice
+                                  }
+                                >
+                                  {formatUSD(
+                                    finalPrice
+                                  )}
+                                </Text>
+
+                              </View>
+
+                            ) : (
 
                               <Text
                                 style={
@@ -947,27 +1018,15 @@ export default function Search() {
                                 }
                               >
                                 {formatUSD(
-                                  finalPrice
+                                  originalPrice
                                 )}
                               </Text>
 
-                            </View>
+                            )
 
-                          ) : (
+                          )}
 
-                            <Text
-                              style={
-                                styles.productPrice
-                              }
-                            >
-                              {formatUSD(
-                                originalPrice
-                              )}
-                            </Text>
-
-                          )
-
-                        )}
+                        </View>
 
                       </Pressable>
 
@@ -996,7 +1055,6 @@ export default function Search() {
 /* =========================================================
    STYLES
 ========================================================= */
-
 const styles =
   StyleSheet.create({
 
@@ -1006,18 +1064,17 @@ const styles =
 
     container: {
       flex: 1,
-
+      paddingTop:20,
       backgroundColor:
-        '#F7F7F7',
+        '#F7F3EC',
     },
 
-
     scrollContent: {
-      paddingHorizontal: 20,
+      paddingHorizontal: 18,
 
-      paddingTop: 20,
+      paddingTop: 19,
 
-      paddingBottom: 30,
+      paddingBottom: 25,
     },
 
 
@@ -1030,16 +1087,15 @@ const styles =
 
       alignItems: 'center',
 
-      marginBottom: 20,
+      marginBottom: 19,
     },
 
-
     backButton: {
-      width: 42,
+      width: 44,
 
-      height: 42,
+      height: 44,
 
-      borderRadius: 21,
+      borderRadius: 14,
 
       backgroundColor:
         '#FFFFFF',
@@ -1047,23 +1103,38 @@ const styles =
       borderWidth: 1,
 
       borderColor:
-        '#E0E0E0',
+        '#E6DED2',
 
       alignItems: 'center',
 
       justifyContent:
         'center',
 
-      marginRight: 12,
-    },
+      marginRight: 13,
 
+      shadowColor: '#171717',
+
+      shadowOffset: {
+        width: 0,
+        height: 4,
+      },
+
+      shadowOpacity: 0.08,
+
+      shadowRadius: 8,
+
+      elevation: 3,
+    },
 
     title: {
       fontSize: 28,
 
-      fontWeight: '800',
+      fontWeight: '900',
 
-      color: '#000000',
+      color:
+        '#171717',
+
+      letterSpacing: -0.7,
     },
 
 
@@ -1072,36 +1143,88 @@ const styles =
     ===================================================== */
 
     searchContainer: {
-      height: 52,
+      height: 56,
 
       backgroundColor:
         '#FFFFFF',
 
-      borderRadius: 15,
+      borderRadius: 18,
 
       borderWidth: 1,
 
       borderColor:
-        '#E0E0E0',
+        '#E7DED1',
 
       flexDirection: 'row',
 
       alignItems: 'center',
 
-      paddingHorizontal: 15,
+      paddingHorizontal: 10,
+
+      shadowColor: '#171717',
+
+      shadowOffset: {
+        width: 0,
+        height: 4,
+      },
+
+      shadowOpacity: 0.07,
+
+      shadowRadius: 9,
+
+      elevation: 3,
     },
 
+    searchIconContainer: {
+      width: 39,
+
+      height: 39,
+
+      borderRadius: 13,
+
+      backgroundColor:
+        '#F8F2EA',
+
+      alignItems: 'center',
+
+      justifyContent:
+        'center',
+
+      borderWidth: 1,
+
+      borderColor:
+        '#EEE4D7',
+    },
 
     searchInput: {
       flex: 1,
 
-      height: 50,
+      height: 54,
 
       paddingHorizontal: 10,
 
-      color: '#000000',
+      color:
+        '#171717',
 
       fontSize: 14,
+
+      fontWeight: '600',
+    },
+
+    clearButton: {
+      width: 34,
+
+      height: 34,
+
+      borderRadius: 17,
+
+      backgroundColor:
+        '#F2EEE8',
+
+      alignItems: 'center',
+
+      justifyContent:
+        'center',
     },
 
 
@@ -1115,16 +1238,17 @@ const styles =
       justifyContent:
         'center',
 
-      paddingVertical: 90,
+      paddingHorizontal: 20,
+
+      paddingVertical: 95,
     },
 
-
     startIcon: {
-      width: 70,
+      width: 78,
 
-      height: 70,
+      height: 78,
 
-      borderRadius: 35,
+      borderRadius: 24,
 
       backgroundColor:
         '#FFFFFF',
@@ -1132,36 +1256,53 @@ const styles =
       borderWidth: 1,
 
       borderColor:
-        '#E0E0E0',
+        '#E6DED2',
 
       alignItems: 'center',
 
       justifyContent:
         'center',
 
-      marginBottom: 18,
-    },
+      marginBottom: 20,
 
+      shadowColor: '#171717',
+
+      shadowOffset: {
+        width: 0,
+        height: 5,
+      },
+
+      shadowOpacity: 0.07,
+
+      shadowRadius: 10,
+
+      elevation: 3,
+    },
 
     startTitle: {
       fontSize: 19,
 
-      fontWeight: '800',
+      fontWeight: '900',
 
-      color: '#000000',
+      color:
+        '#171717',
 
       textAlign: 'center',
+
+      letterSpacing: -0.3,
     },
 
-
     startText: {
-      marginTop: 6,
+      marginTop: 7,
 
       fontSize: 13,
 
-      color: '#888888',
+      color:
+        '#777168',
 
       textAlign: 'center',
+
+      lineHeight: 19,
     },
 
 
@@ -1177,25 +1318,45 @@ const styles =
       justifyContent:
         'space-between',
 
-      marginTop: 25,
+      marginTop: 27,
 
-      marginBottom: 13,
+      marginBottom: 14,
     },
-
 
     sectionTitle: {
       fontSize: 20,
 
-      fontWeight: '800',
+      fontWeight: '900',
 
-      color: '#000000',
+      color:
+        '#171717',
+
+      letterSpacing: -0.4,
     },
 
+    resultsCountContainer: {
+      paddingHorizontal: 10,
+
+      paddingVertical: 5,
+
+      borderRadius: 10,
+
+      backgroundColor:
+        '#F8F2EA',
+
+      borderWidth: 1,
+
+      borderColor:
+        '#EEE4D7',
+    },
 
     resultsCount: {
-      fontSize: 12,
+      fontSize: 11,
 
-      color: '#888888',
+      color:
+        '#E35B3F',
+
+      fontWeight: '900',
     },
 
 
@@ -1212,32 +1373,45 @@ const styles =
         'space-between',
     },
 
-
     productCard: {
       width: '48%',
 
-      marginBottom: 15,
+      marginBottom: 16,
 
       backgroundColor:
         '#FFFFFF',
 
-      borderRadius: 17,
+      borderRadius: 20,
 
       borderWidth: 1,
 
       borderColor:
-        '#E0E0E0',
+        '#E7DED1',
 
-      padding: 10,
+      overflow: 'hidden',
 
       position: 'relative',
+
+      shadowColor: '#171717',
+
+      shadowOffset: {
+        width: 0,
+        height: 6,
+      },
+
+      shadowOpacity: 0.08,
+
+      shadowRadius: 11,
+
+      elevation: 3,
     },
 
-
     productImage: {
-      height: 145,
+      height: 150,
 
-      borderRadius: 14,
+      margin: 8,
+
+      borderRadius: 16,
 
       backgroundColor:
         '#FFFFFF',
@@ -1250,13 +1424,32 @@ const styles =
       overflow: 'hidden',
     },
 
-
     image: {
-      width: '90%',
+      width: '91%',
 
-      height: '90%',
+      height: '91%',
     },
 
+    imagePlaceholder: {
+      width: 60,
+
+      height: 60,
+
+      borderRadius: 20,
+
+      backgroundColor:
+        '#F8F2EA',
+
+      borderWidth: 1,
+
+      borderColor:
+        '#EEE4D7',
+
+      alignItems: 'center',
+
+      justifyContent:
+        'center',
+    },
 
     discountBadge: {
       position: 'absolute',
@@ -1266,55 +1459,85 @@ const styles =
       left: 15,
 
       backgroundColor:
-        '#C62828',
+        '#E35B3F',
 
-      paddingHorizontal: 7,
+      paddingHorizontal: 8,
 
-      paddingVertical: 4,
+      paddingVertical: 6,
 
-      borderRadius: 7,
+      borderRadius: 8,
 
       zIndex: 5,
+
+      shadowColor: '#E35B3F',
+
+      shadowOffset: {
+        width: 0,
+        height: 3,
+      },
+
+      shadowOpacity: 0.16,
+
+      shadowRadius: 5,
+
+      elevation: 3,
+    },
+
+    discountBadgeText: {
+      color:
+        '#FFFFFF',
+
+      fontSize: 9,
+
+      fontWeight: '900',
+
+      letterSpacing: 0.2,
     },
 
 
-    discountBadgeText: {
-      color: '#FFFFFF',
+    /* =====================================================
+       PRODUCT INFO
+    ===================================================== */
 
-      fontSize: 9,
+    productInfo: {
+      paddingHorizontal: 11,
+
+      paddingTop: 3,
+
+      paddingBottom: 13,
+    },
+
+    productName: {
+      fontSize: 14,
+
+      fontWeight: '800',
+
+      color:
+        '#24221E',
+
+      lineHeight: 19,
+    },
+
+    productBrand: {
+      marginTop: 5,
+
+      fontSize: 11,
+
+      color:
+        '#E35B3F',
 
       fontWeight: '800',
     },
 
+    productCategory: {
+      marginTop: 3,
 
-    productName: {
-      marginTop: 11,
+      fontSize: 11,
 
-      fontSize: 15,
-
-      fontWeight: '700',
-
-      color: '#000000',
-    },
-
-
-    productBrand: {
-      marginTop: 4,
-
-      fontSize: 12,
-
-      color: '#D4AF37',
+      color:
+        '#9A9186',
 
       fontWeight: '600',
-    },
-
-
-    productCategory: {
-      marginTop: 4,
-
-      fontSize: 12,
-
-      color: '#888888',
     },
 
 
@@ -1323,14 +1546,14 @@ const styles =
     ===================================================== */
 
     priceContainer: {
-      marginTop: 8,
+      marginTop: 9,
     },
 
-
     oldPrice: {
-      fontSize: 11,
+      fontSize: 10,
 
-      color: '#999999',
+      color:
+        '#9C968D',
 
       textDecorationLine:
         'line-through',
@@ -1340,13 +1563,15 @@ const styles =
       marginBottom: 2,
     },
 
-
     productPrice: {
+      marginTop: 8,
+
       fontSize: 16,
 
-      fontWeight: '800',
+      fontWeight: '900',
 
-      color: '#000000',
+      color:
+        '#171717',
     },
 
 
@@ -1360,16 +1585,17 @@ const styles =
       justifyContent:
         'center',
 
-      paddingVertical: 70,
+      paddingHorizontal: 25,
+
+      paddingVertical: 75,
     },
 
-
     emptyIcon: {
-      width: 65,
+      width: 72,
 
-      height: 65,
+      height: 72,
 
-      borderRadius: 33,
+      borderRadius: 22,
 
       backgroundColor:
         '#FFFFFF',
@@ -1377,34 +1603,52 @@ const styles =
       borderWidth: 1,
 
       borderColor:
-        '#E0E0E0',
+        '#E6DED2',
 
       alignItems: 'center',
 
       justifyContent:
         'center',
-    },
 
+      marginBottom: 17,
+
+      shadowColor: '#171717',
+
+      shadowOffset: {
+        width: 0,
+        height: 5,
+      },
+
+      shadowOpacity: 0.07,
+
+      shadowRadius: 10,
+
+      elevation: 3,
+    },
 
     emptyTitle: {
-      marginTop: 15,
-
       fontSize: 18,
 
-      fontWeight: '700',
+      fontWeight: '900',
 
-      color: '#000000',
-    },
-
-
-    emptyText: {
-      marginTop: 6,
-
-      fontSize: 13,
-
-      color: '#888888',
+      color:
+        '#171717',
 
       textAlign: 'center',
     },
 
+    emptyText: {
+      marginTop: 7,
+
+      fontSize: 13,
+
+      color:
+        '#777168',
+
+      textAlign: 'center',
+
+      lineHeight: 19,
+    },
+
   });
+

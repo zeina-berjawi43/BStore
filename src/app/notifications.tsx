@@ -1,4 +1,3 @@
-
 import {
   View,
   Text,
@@ -168,7 +167,7 @@ export default function Notifications() {
             <Ionicons
               name="arrow-back"
               size={23}
-              color="#000000"
+              color="#171717"
             />
 
           </Pressable>
@@ -203,6 +202,33 @@ export default function Notifications() {
 
 
         {/* =================================================
+            SECTION TITLE
+        ================================================= */}
+
+        <View
+          style={
+            styles.sectionHeader
+          }
+        >
+
+          <View
+            style={
+              styles.sectionAccent
+            }
+          />
+
+          <Text
+            style={
+              styles.sectionTitle
+            }
+          >
+            Notification Preferences
+          </Text>
+
+        </View>
+
+
+        {/* =================================================
             NOTIFICATION CARD
         ================================================= */}
 
@@ -220,8 +246,8 @@ export default function Notifications() {
 
             <Ionicons
               name="notifications-outline"
-              size={22}
-              color="#D4AF37"
+              size={23}
+              color="#E35B3F"
             />
 
           </View>
@@ -280,6 +306,67 @@ export default function Notifications() {
 
         </View>
 
+
+        {/* =================================================
+            STATUS CARD
+        ================================================= */}
+
+        <View
+          style={
+            styles.statusCard
+          }
+        >
+
+          <View
+            style={
+              styles.statusIcon
+            }
+          >
+
+            <Ionicons
+              name={
+                notificationsEnabled
+                  ? 'checkmark-circle-outline'
+                  : 'notifications-off-outline'
+              }
+              size={21}
+              color="#E35B3F"
+            />
+
+          </View>
+
+
+          <View
+            style={
+              styles.statusTextContainer
+            }
+          >
+
+            <Text
+              style={
+                styles.statusTitle
+              }
+            >
+              {notificationsEnabled
+                ? 'Notifications are enabled'
+                : 'Notifications are disabled'}
+            </Text>
+
+
+            <Text
+              style={
+                styles.statusSubtitle
+              }
+            >
+              {notificationsEnabled
+                ? 'Stay updated with important updates from BStore.'
+                : 'You can turn them back on anytime.'}
+            </Text>
+
+          </View>
+
+        </View>
+
       </ScrollView>
 
     </View>
@@ -294,32 +381,37 @@ export default function Notifications() {
 const styles =
   StyleSheet.create({
 
-    /* CONTAINER */
+    // ===================================================
+    // CONTAINER
+    // ===================================================
 
     container: {
 
       flex: 1,
-
+      paddingTop:20,
       backgroundColor:
-        '#F7F7F7',
-
-      paddingTop: 20,
+        '#F7F3EC',
 
     },
 
 
     scrollContent: {
 
-      paddingHorizontal: 20,
+      paddingHorizontal:
+        18,
 
-      paddingTop: 18,
+      paddingTop:
+        18,
 
-      paddingBottom: 40,
+      paddingBottom:
+        40,
 
     },
 
 
-    /* HEADER */
+    // ===================================================
+    // HEADER
+    // ===================================================
 
     header: {
 
@@ -329,26 +421,31 @@ const styles =
       alignItems:
         'center',
 
-      marginBottom: 8,
+      marginBottom:
+        22,
 
     },
 
 
     backButton: {
 
-      width: 42,
+      width:
+        46,
 
-      height: 42,
+      height:
+        46,
 
-      borderRadius: 21,
+      borderRadius:
+        16,
 
       backgroundColor:
         '#FFFFFF',
 
-      borderWidth: 1,
+      borderWidth:
+        1,
 
       borderColor:
-        '#E0E0E0',
+        '#E7DED1',
 
       alignItems:
         'center',
@@ -356,7 +453,25 @@ const styles =
       justifyContent:
         'center',
 
-      marginRight: 12,
+      marginRight:
+        13,
+
+      shadowColor:
+        '#171717',
+
+      shadowOffset: {
+        width: 0,
+        height: 4,
+      },
+
+      shadowOpacity:
+        0.06,
+
+      shadowRadius:
+        8,
+
+      elevation:
+        2,
 
     },
 
@@ -370,50 +485,330 @@ const styles =
 
     title: {
 
-      fontSize: 28,
+      fontSize:
+        29,
 
       fontWeight:
-        '800',
+        '900',
 
       color:
-        '#000000',
+        '#171717',
+
+      letterSpacing:
+        -0.8,
 
     },
 
 
     subtitle: {
 
-      marginTop: 4,
+      marginTop:
+        4,
 
-      fontSize: 13,
+      fontSize:
+        13,
+
+      fontWeight:
+        '600',
 
       color:
-        '#888888',
+        '#817B71',
 
     },
 
 
-    /* CARD */
+    // ===================================================
+    // SECTION HEADER
+    // ===================================================
+
+    sectionHeader: {
+
+      flexDirection:
+        'row',
+
+      alignItems:
+        'center',
+
+      marginBottom:
+        12,
+
+    },
+
+
+    sectionAccent: {
+
+      width:
+        4,
+
+      height:
+        20,
+
+      borderRadius:
+        2,
+
+      backgroundColor:
+        '#E35B3F',
+
+      marginRight:
+        9,
+
+    },
+
+
+    sectionTitle: {
+
+      fontSize:
+        19,
+
+      fontWeight:
+        '900',
+
+      color:
+        '#171717',
+
+      letterSpacing:
+        -0.3,
+
+    },
+
+
+    // ===================================================
+    // NOTIFICATION CARD
+    // ===================================================
 
     card: {
 
-      marginTop: 22,
+      minHeight:
+        86,
 
-      minHeight: 80,
+      paddingHorizontal:
+        14,
 
-      paddingHorizontal: 15,
-
-      paddingVertical: 15,
+      paddingVertical:
+        14,
 
       backgroundColor:
         '#FFFFFF',
 
-      borderRadius: 18,
+      borderRadius:
+        21,
 
-      borderWidth: 1,
+      borderWidth:
+        1,
 
       borderColor:
-        '#E0E0E0',
+        '#E7DED1',
+
+      flexDirection:
+        'row',
+
+      alignItems:
+        'center',
+
+      shadowColor:
+        '#171717',
+
+      shadowOffset: {
+        width: 0,
+        height: 5,
+      },
+
+      shadowOpacity:
+        0.07,
+
+      shadowRadius:
+        9,
+
+      elevation:
+        2,
+
+    },
+
+
+    // ===================================================
+    // ICON
+    // ===================================================
+
+    iconContainer: {
+
+      width:
+        46,
+
+      height:
+        46,
+
+      borderRadius:
+        15,
+
+      backgroundColor:
+        '#FFF7F3',
+
+      borderWidth:
+        1,
+
+      borderColor:
+        '#F0CFC4',
+
+      alignItems:
+        'center',
+
+      justifyContent:
+        'center',
+
+    },
+
+
+    // ===================================================
+    // TEXT
+    // ===================================================
+
+    textContainer: {
+
+      flex: 1,
+
+      marginLeft:
+        13,
+
+      marginRight:
+        10,
+
+    },
+
+
+    rowTitle: {
+
+      fontSize:
+        15,
+
+      fontWeight:
+        '800',
+
+      color:
+        '#24221E',
+
+    },
+
+
+    rowSubtitle: {
+
+      marginTop:
+        5,
+
+      fontSize:
+        12,
+
+      lineHeight:
+        17,
+
+      fontWeight:
+        '600',
+
+      color:
+        '#817B71',
+
+    },
+
+
+    // ===================================================
+    // SWITCH
+    // ===================================================
+
+    switch: {
+
+      width:
+        52,
+
+      height:
+        30,
+
+      borderRadius:
+        15,
+
+      backgroundColor:
+        '#D8D2CA',
+
+      justifyContent:
+        'center',
+
+      paddingHorizontal:
+        3,
+
+    },
+
+
+    switchActive: {
+
+      backgroundColor:
+        '#E35B3F',
+
+    },
+
+
+    switchCircle: {
+
+      width:
+        24,
+
+      height:
+        24,
+
+      borderRadius:
+        12,
+
+      backgroundColor:
+        '#FFFFFF',
+
+      shadowColor:
+        '#171717',
+
+      shadowOffset: {
+        width: 0,
+        height: 2,
+      },
+
+      shadowOpacity:
+        0.12,
+
+      shadowRadius:
+        3,
+
+      elevation:
+        2,
+
+    },
+
+
+    switchCircleActive: {
+
+      alignSelf:
+        'flex-end',
+
+    },
+
+
+    // ===================================================
+    // STATUS CARD
+    // ===================================================
+
+    statusCard: {
+
+      marginTop:
+        13,
+
+      padding:
+        14,
+
+      backgroundColor:
+        '#FFF7F3',
+
+      borderRadius:
+        18,
+
+      borderWidth:
+        1,
+
+      borderColor:
+        '#F0CFC4',
 
       flexDirection:
         'row',
@@ -424,23 +819,25 @@ const styles =
     },
 
 
-    /* ICON */
+    statusIcon: {
 
-    iconContainer: {
+      width:
+        42,
 
-      width: 42,
+      height:
+        42,
 
-      height: 42,
-
-      borderRadius: 21,
+      borderRadius:
+        14,
 
       backgroundColor:
-        '#F7F7F7',
+        '#FFFFFF',
 
-      borderWidth: 1,
+      borderWidth:
+        1,
 
       borderColor:
-        '#E0E0E0',
+        '#F0CFC4',
 
       alignItems:
         'center',
@@ -451,89 +848,46 @@ const styles =
     },
 
 
-    /* TEXT */
-
-    textContainer: {
+    statusTextContainer: {
 
       flex: 1,
 
-      marginLeft: 12,
+      marginLeft:
+        12,
 
     },
 
 
-    rowTitle: {
+    statusTitle: {
 
-      fontSize: 15,
+      fontSize:
+        13,
 
       fontWeight:
-        '700',
+        '800',
 
       color:
-        '#1A1A1A',
+        '#24221E',
 
     },
 
 
-    rowSubtitle: {
+    statusSubtitle: {
 
-      marginTop: 5,
+      marginTop:
+        4,
 
-      fontSize: 12,
+      fontSize:
+        11.5,
+
+      lineHeight:
+        17,
+
+      fontWeight:
+        '600',
 
       color:
-        '#888888',
-
-    },
-
-
-    /* SWITCH */
-
-    switch: {
-
-      width: 52,
-
-      height: 30,
-
-      borderRadius: 15,
-
-      backgroundColor:
-        '#D8D8D8',
-
-      justifyContent:
-        'center',
-
-      paddingHorizontal: 3,
-
-    },
-
-
-    switchActive: {
-
-      backgroundColor:
-        '#D4AF37',
-
-    },
-
-
-    switchCircle: {
-
-      width: 24,
-
-      height: 24,
-
-      borderRadius: 12,
-
-      backgroundColor:
-        '#FFFFFF',
-
-    },
-
-
-    switchCircleActive: {
-
-      alignSelf:
-        'flex-end',
+        '#817B71',
 
     },
 

@@ -1,4 +1,3 @@
-
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const API_URL =
@@ -553,6 +552,246 @@ export const fetchCurrentUser =
   };
 
 // =========================================================
+// GET NOTIFICATION SETTING
+// =========================================================
+
+export const getNotificationSetting =
+  async (): Promise<boolean> => {
+
+    const accessToken =
+      await getValidAccessToken();
+
+    if (!accessToken) {
+
+      throw new Error(
+        'No access token found.'
+      );
+    }
+
+    const response =
+      await fetch(
+        `${API_URL}/users/me/notification-setting`,
+        {
+          method: 'GET',
+
+          headers: {
+            Authorization:
+              `Bearer ${accessToken}`,
+
+            Accept:
+              'application/json',
+          },
+        }
+      );
+
+    let data: any = {};
+
+    try {
+
+      data =
+        await response.json();
+
+    } catch {
+
+      data = {};
+
+    }
+
+    // =======================================================
+    // SESSION EXPIRED
+    // =======================================================
+
+    if (
+      response.status === 401 ||
+      response.status === 403
+    ) {
+
+      await logoutLocal();
+
+      throw new Error(
+        'Session expired.'
+      );
+    }
+
+    // =======================================================
+    // API ERROR
+    // =======================================================
+
+    if (!response.ok) {
+
+      throw new Error(
+        data.message ||
+          'Unable to load notification settings.'
+      );
+    }
+
+    // =======================================================
+    // GET SAVED VALUE
+    // =======================================================
+
+    const enabled =
+      Boolean(
+        data.notificationsEnabled
+      );
+
+    // =======================================================
+    // KEEP LOCAL USER UPDATED
+    // =======================================================
+
+    const currentUser =
+      await getSavedUser();
+
+    if (currentUser) {
+
+      const updatedUser = {
+        ...currentUser,
+
+        notificationsEnabled:
+          enabled,
+      };
+
+      await AsyncStorage.setItem(
+        'user',
+        JSON.stringify(
+          updatedUser
+        )
+      );
+    }
+
+    return enabled;
+  };
+
+// =========================================================
+// UPDATE NOTIFICATION SETTING
+// =========================================================
+
+export const updateNotificationSetting =
+  async (
+    enabled: boolean
+  ): Promise<boolean> => {
+
+    const accessToken =
+      await getValidAccessToken();
+
+    if (!accessToken) {
+
+      throw new Error(
+        'No access token found.'
+      );
+    }
+
+    const response =
+      await fetch(
+        `${API_URL}/users/me/notification-setting`,
+        {
+          method: 'PUT',
+
+          headers: {
+            'Content-Type':
+              'application/json',
+
+            Accept:
+              'application/json',
+
+            Authorization:
+              `Bearer ${accessToken}`,
+          },
+
+          body: JSON.stringify({
+            notificationsEnabled:
+              enabled,
+          }),
+        }
+      );
+
+    let data: any = {};
+
+    try {
+
+      data =
+        await response.json();
+
+    } catch {
+
+      data = {};
+
+    }
+
+    // =======================================================
+    // SESSION EXPIRED
+    // =======================================================
+
+    if (
+      response.status === 401 ||
+      response.status === 403
+    ) {
+
+      await logoutLocal();
+
+      throw new Error(
+        'Session expired.'
+      );
+    }
+
+    // =======================================================
+    // API ERROR
+    // =======================================================
+
+    if (!response.ok) {
+
+      throw new Error(
+        data.message ||
+          'Unable to update notification settings.'
+      );
+    }
+
+    // =======================================================
+    // GET SAVED VALUE
+    // =======================================================
+
+    const savedValue =
+      Boolean(
+        data.notificationsEnabled
+      );
+
+    // =======================================================
+    // UPDATE LOCAL USER
+    // =======================================================
+
+    const currentUser =
+      await getSavedUser();
+
+    if (currentUser) {
+
+      const updatedUser = {
+        ...currentUser,
+
+        notificationsEnabled:
+          savedValue,
+      };
+
+      await AsyncStorage.setItem(
+        'user',
+        JSON.stringify(
+          updatedUser
+        )
+      );
+
+    } else {
+
+      await AsyncStorage.setItem(
+        'user',
+        JSON.stringify({
+          notificationsEnabled:
+            savedValue,
+        })
+      );
+    }
+
+    return savedValue;
+  };
+
+// =========================================================
 // CHECK IF USER IS LOGGED IN
 // =========================================================
 
@@ -615,4 +854,6 @@ export const isAdmin =
 // API URL EXPORT
 // =========================================================
 
-export { API_URL };
+export {
+  API_URL
+};

@@ -1,4 +1,3 @@
-
 import {
   View,
   Text,
@@ -25,17 +24,17 @@ import {
 } from 'react';
 
 
-/* =========================================================
-   API
-========================================================= */
+// =========================================================
+// API
+// =========================================================
 
 const API_URL =
   'https://mystore-backend-u6ey.onrender.com';
 
 
-/* =========================================================
-   TYPES
-========================================================= */
+// =========================================================
+// TYPES
+// =========================================================
 
 type Product = {
   _id: string;
@@ -98,9 +97,9 @@ type BackendOrder = {
 };
 
 
-/* =========================================================
-   PRICE FORMATTER
-========================================================= */
+// =========================================================
+// PRICE FORMATTER
+// =========================================================
 
 const formatPrice = (
   amount: number
@@ -119,9 +118,9 @@ const formatPrice = (
 };
 
 
-/* =========================================================
-   DATE FORMATTER
-========================================================= */
+// =========================================================
+// DATE FORMATTER
+// =========================================================
 
 const formatOrderDate = (
   date?: string
@@ -153,9 +152,9 @@ const formatOrderDate = (
 };
 
 
-/* =========================================================
-   IMAGE URL
-========================================================= */
+// =========================================================
+// IMAGE URL
+// =========================================================
 
 const getImageUrl = (
   image?: string
@@ -178,9 +177,9 @@ const getImageUrl = (
 };
 
 
-/* =========================================================
-   STATUS STYLES
-========================================================= */
+// =========================================================
+// STATUS STYLES
+// =========================================================
 
 const getStatusStyles = (
   status: BackendOrder['status']
@@ -191,50 +190,50 @@ const getStatusStyles = (
     case 'Confirmed':
 
       return {
-        backgroundColor: '#EEF7EE',
-        borderColor: '#CFE5CF',
-        dotColor: '#4CAF50',
-        textColor: '#3D7A3D',
+        backgroundColor: '#EFFAF3',
+        borderColor: '#CFE8D8',
+        dotColor: '#3A8F5B',
+        textColor: '#317A4D',
       };
 
 
     case 'Preparing':
 
       return {
-        backgroundColor: '#FFF8E7',
-        borderColor: '#F1E3B5',
-        dotColor: '#D4AF37',
-        textColor: '#A47F00',
+        backgroundColor: '#FFF7F3',
+        borderColor: '#F0CFC4',
+        dotColor: '#E35B3F',
+        textColor: '#C94C35',
       };
 
 
     case 'Shipped':
 
       return {
-        backgroundColor: '#EEF5FF',
-        borderColor: '#D2E2F8',
-        dotColor: '#4A90E2',
-        textColor: '#3570B2',
+        backgroundColor: '#F1F6FC',
+        borderColor: '#D6E3F1',
+        dotColor: '#4A7FB8',
+        textColor: '#3D6B9D',
       };
 
 
     case 'Delivered':
 
       return {
-        backgroundColor: '#EEF8F2',
+        backgroundColor: '#EFFAF3',
         borderColor: '#CFE8D8',
-        dotColor: '#2E9B57',
-        textColor: '#287A46',
+        dotColor: '#3A8F5B',
+        textColor: '#317A4D',
       };
 
 
     case 'Cancelled':
 
       return {
-        backgroundColor: '#FFF0F0',
+        backgroundColor: '#FFF1F1',
         borderColor: '#F0CCCC',
-        dotColor: '#D9534F',
-        textColor: '#B33A37',
+        dotColor: '#C94C4C',
+        textColor: '#B33F3F',
       };
 
 
@@ -242,10 +241,10 @@ const getStatusStyles = (
     default:
 
       return {
-        backgroundColor: '#FFF8E7',
-        borderColor: '#F1E3B5',
-        dotColor: '#D4AF37',
-        textColor: '#D4AF37',
+        backgroundColor: '#FFF7F3',
+        borderColor: '#F0CFC4',
+        dotColor: '#E35B3F',
+        textColor: '#C94C35',
       };
 
   }
@@ -253,9 +252,9 @@ const getStatusStyles = (
 };
 
 
-/* =========================================================
-   COMPONENT
-========================================================= */
+// =========================================================
+// COMPONENT
+// =========================================================
 
 export default function OrderDetails() {
 
@@ -267,9 +266,9 @@ export default function OrderDetails() {
     }>();
 
 
-  /* =======================================================
-     STATE
-  ======================================================= */
+  // =======================================================
+  // STATE
+  // =======================================================
 
   const [
     order,
@@ -287,9 +286,9 @@ export default function OrderDetails() {
     useState(true);
 
 
-  /* =======================================================
-     GET ACCESS TOKEN
-  ======================================================= */
+  // =======================================================
+  // GET ACCESS TOKEN
+  // =======================================================
 
   const getAccessToken =
     async () => {
@@ -314,9 +313,9 @@ export default function OrderDetails() {
     };
 
 
-  /* =======================================================
-     LOAD ORDER
-  ======================================================= */
+  // =======================================================
+  // LOAD ORDER
+  // =======================================================
 
   const loadOrder =
     async () => {
@@ -326,9 +325,9 @@ export default function OrderDetails() {
         setLoading(true);
 
 
-        /* ================================================
-           CHECK ORDER ID
-        ================================================ */
+        // =================================================
+        // CHECK ORDER ID
+        // =================================================
 
         if (!orderId) {
 
@@ -339,9 +338,9 @@ export default function OrderDetails() {
         }
 
 
-        /* ================================================
-           TOKEN
-        ================================================ */
+        // =================================================
+        // TOKEN
+        // =================================================
 
         const accessToken =
           await getAccessToken();
@@ -358,9 +357,9 @@ export default function OrderDetails() {
         }
 
 
-        /* ================================================
-           GET ORDER
-        ================================================ */
+        // =================================================
+        // GET ORDER
+        // =================================================
 
         const response =
           await fetch(
@@ -392,9 +391,9 @@ export default function OrderDetails() {
         );
 
 
-        /* ================================================
-           TOKEN EXPIRED
-        ================================================ */
+        // =================================================
+        // TOKEN EXPIRED
+        // =================================================
 
         if (
           response.status === 401 ||
@@ -414,9 +413,9 @@ export default function OrderDetails() {
         }
 
 
-        /* ================================================
-           ERROR
-        ================================================ */
+        // =================================================
+        // ERROR
+        // =================================================
 
         if (!response.ok) {
 
@@ -432,9 +431,9 @@ export default function OrderDetails() {
         }
 
 
-        /* ================================================
-           SAVE ORDER
-        ================================================ */
+        // =================================================
+        // SAVE ORDER
+        // =================================================
 
         if (
           data.order
@@ -469,9 +468,9 @@ export default function OrderDetails() {
     };
 
 
-  /* =======================================================
-     REFRESH ON FOCUS
-  ======================================================= */
+  // =======================================================
+  // REFRESH ON FOCUS
+  // =======================================================
 
   useFocusEffect(
     useCallback(
@@ -485,9 +484,9 @@ export default function OrderDetails() {
   );
 
 
-  /* =======================================================
-     LOADING
-  ======================================================= */
+  // =======================================================
+  // LOADING
+  // =======================================================
 
   if (loading) {
 
@@ -499,10 +498,26 @@ export default function OrderDetails() {
         }
       >
 
+        <View
+          style={
+            styles.loadingIcon
+          }
+        >
+
+          <Ionicons
+            name="receipt-outline"
+            size={28}
+            color="#E35B3F"
+          />
+
+        </View>
+
+
         <ActivityIndicator
-          size="large"
-          color="#D4AF37"
+          size="small"
+          color="#E35B3F"
         />
+
 
         <Text
           style={
@@ -519,9 +534,9 @@ export default function OrderDetails() {
   }
 
 
-  /* =======================================================
-     ORDER NOT FOUND
-  ======================================================= */
+  // =======================================================
+  // ORDER NOT FOUND
+  // =======================================================
 
   if (!order) {
 
@@ -533,11 +548,19 @@ export default function OrderDetails() {
         }
       >
 
-        <Ionicons
-          name="receipt-outline"
-          size={60}
-          color="#D4AF37"
-        />
+        <View
+          style={
+            styles.emptyIconContainer
+          }
+        >
+
+          <Ionicons
+            name="receipt-outline"
+            size={48}
+            color="#E35B3F"
+          />
+
+        </View>
 
 
         <Text
@@ -546,6 +569,15 @@ export default function OrderDetails() {
           }
         >
           Order not found
+        </Text>
+
+
+        <Text
+          style={
+            styles.emptySubtitle
+          }
+        >
+          We couldn't find the order you're looking for.
         </Text>
 
 
@@ -559,6 +591,13 @@ export default function OrderDetails() {
             )
           }
         >
+
+          <Ionicons
+            name="arrow-back"
+            size={18}
+            color="#FFFFFF"
+          />
+
 
           <Text
             style={
@@ -577,9 +616,9 @@ export default function OrderDetails() {
   }
 
 
-  /* =======================================================
-     CUSTOMER
-  ======================================================= */
+  // =======================================================
+  // CUSTOMER
+  // =======================================================
 
   const customer =
     typeof order.user === 'object'
@@ -608,9 +647,9 @@ export default function OrderDetails() {
     '';
 
 
-  /* =======================================================
-     STATUS
-  ======================================================= */
+  // =======================================================
+  // STATUS
+  // =======================================================
 
   const statusStyles =
     getStatusStyles(
@@ -618,9 +657,9 @@ export default function OrderDetails() {
     );
 
 
-  /* =======================================================
-     TOTAL ITEMS
-  ======================================================= */
+  // =======================================================
+  // TOTAL ITEMS
+  // =======================================================
 
   const totalItems =
     Array.isArray(
@@ -645,9 +684,9 @@ export default function OrderDetails() {
       : 0;
 
 
-  /* =======================================================
-     ORDER TOTAL
-  ======================================================= */
+  // =======================================================
+  // ORDER TOTAL
+  // =======================================================
 
   const orderTotal =
     Array.isArray(
@@ -684,9 +723,9 @@ export default function OrderDetails() {
         ) || 0;
 
 
-  /* =======================================================
-     MAIN UI
-  ======================================================= */
+  // =======================================================
+  // MAIN UI
+  // =======================================================
 
   return (
 
@@ -726,27 +765,36 @@ export default function OrderDetails() {
 
             <Ionicons
               name="arrow-back"
-              size={23}
-              color="#000000"
+              size={22}
+              color="#171717"
             />
 
           </Pressable>
 
 
-          <Text
-            style={
-              styles.title
-            }
-          >
-            Order Details
-          </Text>
-
-
           <View
             style={
-              styles.headerSpace
+              styles.headerText
             }
-          />
+          >
+
+            <Text
+              style={
+                styles.title
+              }
+            >
+              Order Details
+            </Text>
+
+            <Text
+              style={
+                styles.subtitle
+              }
+            >
+              Review your order information
+            </Text>
+
+          </View>
 
         </View>
 
@@ -761,52 +809,75 @@ export default function OrderDetails() {
           }
         >
 
-          <View>
-
-            <Text
-              style={
-                styles.orderLabel
-              }
-            >
-              Order
-            </Text>
-
-
-            <Text
-              style={
-                styles.orderNumber
-              }
-              numberOfLines={1}
-            >
-              #{order._id}
-            </Text>
-
-
-            {/* =================================================
-                ORDER DATE
-            ================================================= */}
+          <View
+            style={
+              styles.orderHeaderLeft
+            }
+          >
 
             <View
               style={
-                styles.orderDateRow
+                styles.receiptIcon
               }
             >
 
               <Ionicons
-                name="calendar-outline"
-                size={15}
-                color="#A3948A"
+                name="receipt-outline"
+                size={23}
+                color="#E35B3F"
               />
+
+            </View>
+
+
+            <View
+              style={
+                styles.orderHeaderText
+              }
+            >
 
               <Text
                 style={
-                  styles.date
+                  styles.orderLabel
                 }
               >
-                {formatOrderDate(
-                  order.createdAt
-                )}
+                Order
               </Text>
+
+
+              <Text
+                style={
+                  styles.orderNumber
+                }
+                numberOfLines={1}
+              >
+                #{order._id}
+              </Text>
+
+
+              <View
+                style={
+                  styles.orderDateRow
+                }
+              >
+
+                <Ionicons
+                  name="calendar-outline"
+                  size={14}
+                  color="#9A9186"
+                />
+
+                <Text
+                  style={
+                    styles.date
+                  }
+                >
+                  {formatOrderDate(
+                    order.createdAt
+                  )}
+                </Text>
+
+              </View>
 
             </View>
 
@@ -860,13 +931,27 @@ export default function OrderDetails() {
             DELIVERY INFORMATION
         ================================================= */}
 
-        <Text
+        <View
           style={
-            styles.sectionTitle
+            styles.sectionHeader
           }
         >
-          Delivery Information
-        </Text>
+
+          <View
+            style={
+              styles.sectionAccent
+            }
+          />
+
+          <Text
+            style={
+              styles.sectionTitle
+            }
+          >
+            Delivery Information
+          </Text>
+
+        </View>
 
 
         <View
@@ -892,7 +977,7 @@ export default function OrderDetails() {
               <Ionicons
                 name="person-outline"
                 size={20}
-                color="#D4AF37"
+                color="#E35B3F"
               />
 
             </View>
@@ -943,7 +1028,7 @@ export default function OrderDetails() {
               <Ionicons
                 name="mail-outline"
                 size={20}
-                color="#D4AF37"
+                color="#E35B3F"
               />
 
             </View>
@@ -995,7 +1080,7 @@ export default function OrderDetails() {
               <Ionicons
                 name="call-outline"
                 size={20}
-                color="#D4AF37"
+                color="#E35B3F"
               />
 
             </View>
@@ -1048,7 +1133,7 @@ export default function OrderDetails() {
               <Ionicons
                 name="location-outline"
                 size={20}
-                color="#D4AF37"
+                color="#E35B3F"
               />
 
             </View>
@@ -1089,13 +1174,27 @@ export default function OrderDetails() {
             PRODUCTS
         ================================================= */}
 
-        <Text
+        <View
           style={
-            styles.sectionTitle
+            styles.sectionHeader
           }
         >
-          Products
-        </Text>
+
+          <View
+            style={
+              styles.sectionAccent
+            }
+          />
+
+          <Text
+            style={
+              styles.sectionTitle
+            }
+          >
+            Products
+          </Text>
+
+        </View>
 
 
         {order.items.map(
@@ -1168,7 +1267,7 @@ export default function OrderDetails() {
                     <Ionicons
                       name="cube-outline"
                       size={30}
-                      color="#D4AF37"
+                      color="#E35B3F"
                     />
 
                   )}
@@ -1313,7 +1412,7 @@ export default function OrderDetails() {
           <Ionicons
             name="arrow-back"
             size={18}
-            color="#5A3A2A"
+            color="#171717"
           />
 
 
@@ -1335,366 +1434,1019 @@ export default function OrderDetails() {
 }
 
 
-/* =========================================================
-   STYLES
-========================================================= */
+// =========================================================
+// STYLES
+// =========================================================
 
 const styles =
   StyleSheet.create({
 
+    // =====================================================
+    // CONTAINER
+    // =====================================================
+
     container: {
+
       flex: 1,
-      backgroundColor: '#FFFCF8',
+
+      backgroundColor:
+        '#F7F3EC',
+
     },
+
 
     scrollContent: {
-      paddingHorizontal: 20,
+
+      paddingHorizontal: 18,
+
       paddingTop: 18,
-      paddingBottom: 40,
+
+      paddingBottom: 45,
+
     },
 
 
-    /* =====================================================
-       HEADER
-    ===================================================== */
+    // =====================================================
+    // HEADER
+    // =====================================================
 
     header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 22,
+
+      flexDirection:
+        'row',
+
+      alignItems:
+        'center',
+
+      marginBottom: 20,
+
     },
+
 
     backButton: {
-      width: 42,
-      height: 42,
-      borderRadius: 21,
-      backgroundColor: '#FFFFFF',
+
+      width: 46,
+
+      height: 46,
+
+      borderRadius: 16,
+
+      backgroundColor:
+        '#FFFFFF',
+
       borderWidth: 1,
-      borderColor: '#F0E4DA',
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginRight: 12,
+
+      borderColor:
+        '#E7DED1',
+
+      alignItems:
+        'center',
+
+      justifyContent:
+        'center',
+
+      marginRight: 13,
+
+      shadowColor:
+        '#171717',
+
+      shadowOffset: {
+        width: 0,
+        height: 4,
+      },
+
+      shadowOpacity: 0.06,
+
+      shadowRadius: 8,
+
+      elevation: 2,
+
     },
+
+
+    headerText: {
+
+      flex: 1,
+
+    },
+
 
     title: {
-      fontSize: 28,
-      fontWeight: '800',
-      color: '#000000',
+
+      fontSize: 29,
+
+      fontWeight:
+        '900',
+
+      color:
+        '#171717',
+
+      letterSpacing:
+        -0.8,
+
     },
 
-    headerSpace: {
-      flex: 1,
+
+    subtitle: {
+
+      marginTop: 3,
+
+      fontSize: 12,
+
+      fontWeight:
+        '500',
+
+      color:
+        '#817B71',
+
     },
 
 
-    /* =====================================================
-       ORDER HEADER
-    ===================================================== */
+    // =====================================================
+    // ORDER HEADER
+    // =====================================================
 
     orderHeaderCard: {
-      backgroundColor: '#FFFFFF',
-      borderRadius: 18,
-      padding: 18,
+
+      backgroundColor:
+        '#FFFFFF',
+
+      borderRadius: 21,
+
+      padding: 16,
+
       borderWidth: 1,
-      borderColor: '#F0E4DA',
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
+
+      borderColor:
+        '#E7DED1',
+
+      flexDirection:
+        'row',
+
+      alignItems:
+        'center',
+
+      justifyContent:
+        'space-between',
+
+      shadowColor:
+        '#171717',
+
+      shadowOffset: {
+        width: 0,
+        height: 5,
+      },
+
+      shadowOpacity: 0.07,
+
+      shadowRadius: 9,
+
+      elevation: 2,
+
     },
+
+
+    orderHeaderLeft: {
+
+      flexDirection:
+        'row',
+
+      alignItems:
+        'center',
+
+      flex: 1,
+
+      marginRight: 10,
+
+    },
+
+
+    receiptIcon: {
+
+      width: 50,
+
+      height: 50,
+
+      borderRadius: 16,
+
+      backgroundColor:
+        '#FFF7F3',
+
+      borderWidth: 1,
+
+      borderColor:
+        '#F0CFC4',
+
+      alignItems:
+        'center',
+
+      justifyContent:
+        'center',
+
+    },
+
+
+    orderHeaderText: {
+
+      flex: 1,
+
+      marginLeft: 12,
+
+    },
+
 
     orderLabel: {
-      fontSize: 12,
-      color: '#A3948A',
+
+      fontSize: 11,
+
+      fontWeight:
+        '600',
+
+      color:
+        '#9A9186',
+
     },
+
 
     orderNumber: {
+
       marginTop: 3,
-      fontSize: 16,
-      fontWeight: '700',
-      color: '#5A3A2A',
-      maxWidth: 220,
+
+      fontSize: 15,
+
+      fontWeight:
+        '800',
+
+      color:
+        '#24221E',
+
+      maxWidth: 200,
+
     },
+
 
     orderDateRow: {
-      marginTop: 6,
-      flexDirection: 'row',
-      alignItems: 'center',
+
+      marginTop: 5,
+
+      flexDirection:
+        'row',
+
+      alignItems:
+        'center',
+
       gap: 5,
+
     },
+
 
     date: {
-      fontSize: 13,
-      color: '#A3948A',
+
+      fontSize: 11,
+
+      fontWeight:
+        '500',
+
+      color:
+        '#9A9186',
+
     },
 
 
-    /* =====================================================
-       STATUS
-    ===================================================== */
+    // =====================================================
+    // STATUS
+    // =====================================================
 
     statusContainer: {
-      paddingHorizontal: 12,
+
+      paddingHorizontal: 10,
+
       paddingVertical: 8,
-      borderRadius: 18,
+
+      borderRadius: 15,
+
       borderWidth: 1,
-      flexDirection: 'row',
-      alignItems: 'center',
+
+      flexDirection:
+        'row',
+
+      alignItems:
+        'center',
+
       gap: 6,
+
     },
+
 
     statusDot: {
-      width: 8,
-      height: 8,
+
+      width: 7,
+
+      height: 7,
+
       borderRadius: 4,
+
     },
+
 
     statusText: {
-      fontSize: 13,
-      fontWeight: '700',
+
+      fontSize: 11,
+
+      fontWeight:
+        '800',
+
     },
 
 
-    /* =====================================================
-       SECTIONS
-    ===================================================== */
+    // =====================================================
+    // SECTION HEADER
+    // =====================================================
+
+    sectionHeader: {
+
+      flexDirection:
+        'row',
+
+      alignItems:
+        'center',
+
+      marginTop: 25,
+
+      marginBottom: 11,
+
+      paddingLeft: 2,
+
+    },
+
+
+    sectionAccent: {
+
+      width: 4,
+
+      height: 21,
+
+      borderRadius: 3,
+
+      backgroundColor:
+        '#E35B3F',
+
+      marginRight: 9,
+
+    },
+
 
     sectionTitle: {
-      marginTop: 25,
-      marginBottom: 12,
+
       fontSize: 20,
-      fontWeight: '800',
-      color: '#000000',
+
+      fontWeight:
+        '900',
+
+      color:
+        '#171717',
+
+      letterSpacing:
+        -0.3,
+
     },
 
 
-    /* =====================================================
-       DELIVERY INFORMATION
-    ===================================================== */
+    // =====================================================
+    // DELIVERY INFORMATION
+    // =====================================================
 
     infoCard: {
-      backgroundColor: '#FFFFFF',
-      borderRadius: 18,
+
+      backgroundColor:
+        '#FFFFFF',
+
+      borderRadius: 21,
+
       padding: 16,
+
       borderWidth: 1,
-      borderColor: '#F0E4DA',
+
+      borderColor:
+        '#E7DED1',
+
+      shadowColor:
+        '#171717',
+
+      shadowOffset: {
+        width: 0,
+        height: 5,
+      },
+
+      shadowOpacity: 0.06,
+
+      shadowRadius: 9,
+
+      elevation: 2,
+
     },
+
 
     infoRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
+
+      flexDirection:
+        'row',
+
+      alignItems:
+        'center',
+
       marginBottom: 15,
+
     },
+
 
     infoRowLast: {
+
       marginBottom: 0,
+
     },
+
 
     infoIcon: {
-      width: 42,
-      height: 42,
-      borderRadius: 21,
-      backgroundColor: '#FFF8E7',
+
+      width: 44,
+
+      height: 44,
+
+      borderRadius: 14,
+
+      backgroundColor:
+        '#FFF7F3',
+
       borderWidth: 1,
-      borderColor: '#F0E4DA',
-      alignItems: 'center',
-      justifyContent: 'center',
+
+      borderColor:
+        '#F0CFC4',
+
+      alignItems:
+        'center',
+
+      justifyContent:
+        'center',
+
     },
+
 
     infoContent: {
+
       flex: 1,
+
       marginLeft: 12,
+
     },
+
 
     infoLabel: {
-      fontSize: 12,
-      color: '#A3948A',
+
+      fontSize: 11,
+
+      fontWeight:
+        '600',
+
+      color:
+        '#9A9186',
+
     },
+
 
     infoValue: {
+
       marginTop: 3,
-      fontSize: 15,
-      fontWeight: '600',
-      color: '#5A3A2A',
+
+      fontSize: 14,
+
+      fontWeight:
+        '700',
+
+      color:
+        '#24221E',
+
     },
 
 
-    /* =====================================================
-       PRODUCTS
-    ===================================================== */
+    // =====================================================
+    // PRODUCTS
+    // =====================================================
 
     productCard: {
-      backgroundColor: '#FFFFFF',
-      borderRadius: 18,
+
+      backgroundColor:
+        '#FFFFFF',
+
+      borderRadius: 20,
+
       padding: 12,
+
       marginBottom: 12,
+
       borderWidth: 1,
-      borderColor: '#F0E4DA',
-      flexDirection: 'row',
-      alignItems: 'center',
+
+      borderColor:
+        '#E7DED1',
+
+      flexDirection:
+        'row',
+
+      alignItems:
+        'center',
+
+      shadowColor:
+        '#171717',
+
+      shadowOffset: {
+        width: 0,
+        height: 4,
+      },
+
+      shadowOpacity: 0.05,
+
+      shadowRadius: 8,
+
+      elevation: 2,
+
     },
+
 
     productImage: {
-      width: 65,
-      height: 65,
-      paddingLeft:5,
-      paddingRight:5,
-      borderRadius: 13,
-      backgroundColor: '#FFFFFF',
+
+      width: 70,
+
+      height: 70,
+
+      paddingHorizontal: 5,
+
+      borderRadius: 15,
+
+      backgroundColor:
+        '#F8F2EA',
+
       borderWidth: 1,
-      borderColor: '#F0E4DA',
-      alignItems: 'center',
-      justifyContent: 'center',
-      overflow: 'hidden',
+
+      borderColor:
+        '#E7DED1',
+
+      alignItems:
+        'center',
+
+      justifyContent:
+        'center',
+
+      overflow:
+        'hidden',
+
     },
+
 
     realProductImage: {
+
       width: '100%',
+
       height: '100%',
+
     },
+
 
     productInfo: {
+
       flex: 1,
+
       marginLeft: 12,
+
+      paddingRight: 6,
+
     },
+
 
     productName: {
+
       fontSize: 15,
-      fontWeight: '700',
-      color: '#000000',
+
+      fontWeight:
+        '800',
+
+      color:
+        '#24221E',
+
     },
+
 
     productCategory: {
+
       marginTop: 3,
-      fontSize: 12,
-      color: '#A3948A',
+
+      fontSize: 11,
+
+      fontWeight:
+        '500',
+
+      color:
+        '#9A9186',
+
     },
+
 
     quantity: {
+
       marginTop: 5,
-      fontSize: 13,
-      color: '#A3948A',
+
+      fontSize: 12,
+
+      fontWeight:
+        '600',
+
+      color:
+        '#817B71',
+
     },
+
 
     productTotal: {
-      marginLeft: 8,
+
+      marginLeft: 5,
+
       fontSize: 15,
-      fontWeight: '800',
-      color: '#D4AF37',
-      maxWidth: 120,
-      textAlign: 'right',
+
+      fontWeight:
+        '900',
+
+      color:
+        '#E35B3F',
+
+      maxWidth: 100,
+
+      textAlign:
+        'right',
+
     },
 
 
-    /* =====================================================
-       TOTAL
-    ===================================================== */
+    // =====================================================
+    // TOTAL
+    // =====================================================
 
     totalCard: {
-      marginTop: 5,
+
+      marginTop: 4,
+
       padding: 18,
-      backgroundColor: '#FFF8E7',
-      borderRadius: 18,
+
+      backgroundColor:
+        '#FFFFFF',
+
+      borderRadius: 21,
+
       borderWidth: 1,
-      borderColor: '#F1E3B5',
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
+
+      borderColor:
+        '#E7DED1',
+
+      flexDirection:
+        'row',
+
+      alignItems:
+        'center',
+
+      justifyContent:
+        'space-between',
+
+      shadowColor:
+        '#171717',
+
+      shadowOffset: {
+        width: 0,
+        height: 5,
+      },
+
+      shadowOpacity: 0.06,
+
+      shadowRadius: 9,
+
+      elevation: 2,
+
     },
+
 
     totalLabel: {
+
       fontSize: 20,
-      fontWeight: '800',
-      color: '#5A3A2A',
+
+      fontWeight:
+        '900',
+
+      color:
+        '#171717',
+
     },
+
 
     totalItems: {
+
       marginTop: 3,
+
       fontSize: 11,
-      color: '#A3948A',
+
+      fontWeight:
+        '500',
+
+      color:
+        '#9A9186',
+
     },
+
 
     total: {
-      fontSize: 22,
-      fontWeight: '800',
-      color: '#D4AF37',
-      maxWidth: 190,
-      textAlign: 'right',
+
+      fontSize: 23,
+
+      fontWeight:
+        '900',
+
+      color:
+        '#E35B3F',
+
+      maxWidth: 170,
+
+      textAlign:
+        'right',
+
     },
 
 
-    /* =====================================================
-       BACK TO ORDERS
-    ===================================================== */
+    // =====================================================
+    // BACK TO ORDERS
+    // =====================================================
 
     backOrdersButton: {
-      marginTop: 20,
-      paddingVertical: 14,
-      borderRadius: 25,
-      backgroundColor: '#FFFFFF',
+
+      marginTop: 18,
+
+      minHeight: 52,
+
+      borderRadius: 16,
+
+      backgroundColor:
+        '#FFFFFF',
+
       borderWidth: 1,
-      borderColor: '#F0E4DA',
-      alignItems: 'center',
-      justifyContent: 'center',
-      flexDirection: 'row',
+
+      borderColor:
+        '#E7DED1',
+
+      alignItems:
+        'center',
+
+      justifyContent:
+        'center',
+
+      flexDirection:
+        'row',
+
       gap: 8,
+
+      shadowColor:
+        '#171717',
+
+      shadowOffset: {
+        width: 0,
+        height: 4,
+      },
+
+      shadowOpacity: 0.05,
+
+      shadowRadius: 8,
+
+      elevation: 2,
+
     },
+
 
     backOrdersText: {
-      fontSize: 15,
-      fontWeight: '600',
-      color: '#5A3A2A',
+
+      fontSize: 14,
+
+      fontWeight:
+        '800',
+
+      color:
+        '#171717',
+
     },
 
 
-    /* =====================================================
-       API LOADING
-    ===================================================== */
+    // =====================================================
+    // LOADING
+    // =====================================================
 
     loadingContainer: {
+
       flex: 1,
-      backgroundColor: '#FFFCF8',
-      alignItems: 'center',
-      justifyContent: 'center',
+
+      backgroundColor:
+        '#F7F3EC',
+
+      alignItems:
+        'center',
+
+      justifyContent:
+        'center',
+
     },
+
+
+    loadingIcon: {
+
+      width: 62,
+
+      height: 62,
+
+      borderRadius: 20,
+
+      backgroundColor:
+        '#FFFFFF',
+
+      borderWidth: 1,
+
+      borderColor:
+        '#E7DED1',
+
+      alignItems:
+        'center',
+
+      justifyContent:
+        'center',
+
+      marginBottom: 14,
+
+    },
+
 
     loadingText: {
-      marginTop: 12,
-      fontSize: 16,
-      color: '#A3948A',
+
+      marginTop: 10,
+
+      fontSize: 14,
+
+      fontWeight:
+        '600',
+
+      color:
+        '#817B71',
+
     },
 
 
-    /* =====================================================
-       EMPTY
-    ===================================================== */
+    // =====================================================
+    // EMPTY
+    // =====================================================
 
     emptyContainer: {
+
       flex: 1,
-      backgroundColor: '#FFFCF8',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: 30,
+
+      backgroundColor:
+        '#F7F3EC',
+
+      alignItems:
+        'center',
+
+      justifyContent:
+        'center',
+
+      paddingHorizontal: 30,
+
     },
+
+
+    emptyIconContainer: {
+
+      width: 88,
+
+      height: 88,
+
+      borderRadius: 25,
+
+      backgroundColor:
+        '#FFFFFF',
+
+      borderWidth: 1,
+
+      borderColor:
+        '#E7DED1',
+
+      alignItems:
+        'center',
+
+      justifyContent:
+        'center',
+
+      shadowColor:
+        '#171717',
+
+      shadowOffset: {
+        width: 0,
+        height: 5,
+      },
+
+      shadowOpacity: 0.06,
+
+      shadowRadius: 9,
+
+      elevation: 2,
+
+    },
+
 
     emptyTitle: {
+
       marginTop: 20,
-      fontSize: 22,
-      fontWeight: '800',
-      color: '#5A3A2A',
+
+      fontSize: 23,
+
+      fontWeight:
+        '900',
+
+      color:
+        '#171717',
+
     },
+
+
+    emptySubtitle: {
+
+      marginTop: 7,
+
+      fontSize: 13,
+
+      lineHeight: 19,
+
+      fontWeight:
+        '500',
+
+      color:
+        '#817B71',
+
+      textAlign:
+        'center',
+
+    },
+
 
     backHomeButton: {
-      marginTop: 25,
-      paddingHorizontal: 25,
-      paddingVertical: 13,
-      borderRadius: 25,
-      backgroundColor: '#D4AF37',
+
+      marginTop: 24,
+
+      minHeight: 50,
+
+      paddingHorizontal: 24,
+
+      borderRadius: 16,
+
+      backgroundColor:
+        '#171717',
+
+      alignItems:
+        'center',
+
+      justifyContent:
+        'center',
+
+      flexDirection:
+        'row',
+
+      gap: 8,
+
+      shadowColor:
+        '#171717',
+
+      shadowOffset: {
+        width: 0,
+        height: 5,
+      },
+
+      shadowOpacity: 0.16,
+
+      shadowRadius: 9,
+
+      elevation: 3,
+
     },
 
+
     backHomeText: {
-      color: '#FFFFFF',
-      fontSize: 15,
-      fontWeight: '700',
+
+      color:
+        '#FFFFFF',
+
+      fontSize: 14,
+
+      fontWeight:
+        '800',
+
     },
 
   });

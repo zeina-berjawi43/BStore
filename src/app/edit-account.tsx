@@ -1,4 +1,3 @@
-
 import {
   View,
   Text,
@@ -258,12 +257,6 @@ export default function EditAccount() {
           trimmedAddress,
       };
 
-      // =====================================================
-      // EMAIL IS OPTIONAL
-      //
-      // Only send email when the customer actually entered one.
-      // =====================================================
-
       if (trimmedEmail) {
         body.email =
           trimmedEmail;
@@ -406,9 +399,6 @@ export default function EditAccount() {
         return;
       }
 
-      // EMAIL IS OPTIONAL.
-      // NO VALIDATION HERE.
-
       if (!trimmedPhone) {
 
         Alert.alert(
@@ -502,9 +492,6 @@ export default function EditAccount() {
         // SAVE NORMAL PROFILE DATA FIRST
         //
         // Phone is intentionally excluded.
-        //
-        // If phone changed:
-        // the old phone remains in the database.
         // ===================================================
 
         const {
@@ -601,11 +588,6 @@ export default function EditAccount() {
             updatedProfileUser.address || ''
           );
 
-          // IMPORTANT:
-          // Do not replace phone with a new value here.
-          //
-          // If phone changed, backend still has old phone.
-          //
           setPhone(
             updatedProfileUser.phone ||
             originalPhone
@@ -615,9 +597,6 @@ export default function EditAccount() {
 
         // ===================================================
         // PHONE DID NOT CHANGE
-        //
-        // Save is complete.
-        // NO OTP required.
         // ===================================================
 
         if (!phoneChanged) {
@@ -644,10 +623,6 @@ export default function EditAccount() {
 
         // ===================================================
         // PHONE CHANGED
-        //
-        // DO NOT SAVE NEW PHONE.
-        //
-        // Request OTP first.
         // ===================================================
 
         const {
@@ -689,8 +664,6 @@ export default function EditAccount() {
 
         if (!phoneResponse.ok) {
 
-          // Keep old phone because it was NOT verified.
-
           setPhone(
             originalPhone
           );
@@ -718,9 +691,6 @@ export default function EditAccount() {
         setPhoneVerification(
           true
         );
-
-        // Show pending phone in the UI.
-        // It is NOT saved to user.phone yet.
 
         setPhone(
           trimmedPhone
@@ -896,9 +866,6 @@ export default function EditAccount() {
 
         // ===================================================
         // SAVE NEW ACCESS TOKEN
-        //
-        // The old token contained the old phone.
-        // Backend returns a fresh token after verification.
         // ===================================================
 
         if (
@@ -1063,7 +1030,7 @@ export default function EditAccount() {
 
         <ActivityIndicator
           size="large"
-          color="#D4AF37"
+          color="#E35B3F"
         />
 
         <Text
@@ -1115,8 +1082,8 @@ export default function EditAccount() {
 
             <Ionicons
               name="arrow-back"
-              size={23}
-              color="#000000"
+              size={22}
+              color="#171717"
             />
 
           </Pressable>
@@ -1147,13 +1114,19 @@ export default function EditAccount() {
 
         {/* SECTION */}
 
-        <Text
-          style={
-            styles.sectionTitle
-          }
-        >
-          Personal Information
-        </Text>
+        <View style={styles.sectionHeader}>
+
+          <View style={styles.sectionAccent} />
+
+          <Text
+            style={
+              styles.sectionTitle
+            }
+          >
+            Personal Information
+          </Text>
+
+        </View>
 
 
         <View style={styles.card}>
@@ -1172,7 +1145,7 @@ export default function EditAccount() {
 
             <TextInput
               placeholder="Full Name"
-              placeholderTextColor="#888888"
+              placeholderTextColor="#9A9186"
               value={name}
               onChangeText={
                 setName
@@ -1206,7 +1179,7 @@ export default function EditAccount() {
 
             <TextInput
               placeholder="Email (Optional)"
-              placeholderTextColor="#888888"
+              placeholderTextColor="#9A9186"
               value={email}
               onChangeText={
                 setEmail
@@ -1249,7 +1222,7 @@ export default function EditAccount() {
 
             <TextInput
               placeholder="Phone Number"
-              placeholderTextColor="#888888"
+              placeholderTextColor="#9A9186"
               value={phone}
               onChangeText={
                 setPhone
@@ -1276,11 +1249,19 @@ export default function EditAccount() {
                 }
               >
 
-                <Ionicons
-                  name="shield-checkmark-outline"
-                  size={20}
-                  color="#D4AF37"
-                />
+                <View
+                  style={
+                    styles.verificationIcon
+                  }
+                >
+
+                  <Ionicons
+                    name="shield-checkmark-outline"
+                    size={21}
+                    color="#E35B3F"
+                  />
+
+                </View>
 
 
                 <View
@@ -1342,7 +1323,7 @@ export default function EditAccount() {
 
               <TextInput
                 placeholder="Enter 6-digit code"
-                placeholderTextColor="#888888"
+                placeholderTextColor="#9A9186"
                 value={otp}
                 onChangeText={
                   (value) =>
@@ -1396,7 +1377,7 @@ export default function EditAccount() {
 
             <TextInput
               placeholder="Address"
-              placeholderTextColor="#888888"
+              placeholderTextColor="#9A9186"
               value={address}
               onChangeText={
                 setAddress
@@ -1553,100 +1534,148 @@ export default function EditAccount() {
 const styles =
   StyleSheet.create({
 
+    /* =====================================================
+       PAGE
+    ===================================================== */
+
     container: {
       flex: 1,
-      backgroundColor:
-        '#F7F7F7',
-      paddingTop: 20,
+      backgroundColor: '#F7F3EC',
+      paddingTop:20,
     },
 
     loadingContainer: {
       flex: 1,
-      backgroundColor:
-        '#F7F7F7',
-      alignItems:
-        'center',
-      justifyContent:
-        'center',
+      backgroundColor: '#F7F3EC',
+      alignItems: 'center',
+      justifyContent: 'center',
     },
 
     loadingText: {
       marginTop: 12,
       fontSize: 14,
-      color:
-        '#1A1A1A',
-      fontWeight:
-        '600',
+      color: '#817B71',
+      fontWeight: '600',
     },
 
     scrollContent: {
-      paddingHorizontal: 20,
+      paddingHorizontal: 18,
       paddingTop: 18,
-      paddingBottom: 40,
+      paddingBottom: 45,
     },
 
+
+    /* =====================================================
+       HEADER
+    ===================================================== */
+
     header: {
-      flexDirection:
-        'row',
-      alignItems:
-        'center',
-      marginBottom: 8,
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 20,
     },
 
     backButton: {
-      width: 42,
-      height: 42,
-      borderRadius: 21,
-      backgroundColor:
-        '#FFFFFF',
+      width: 46,
+      height: 46,
+      borderRadius: 16,
+      backgroundColor: '#FFFFFF',
       borderWidth: 1,
-      borderColor:
-        '#E0E0E0',
-      alignItems:
-        'center',
-      justifyContent:
-        'center',
+      borderColor: '#E7DED1',
+      alignItems: 'center',
+      justifyContent: 'center',
       marginRight: 12,
+
+      shadowColor: '#171717',
+      shadowOffset: {
+        width: 0,
+        height: 4,
+      },
+      shadowOpacity: 0.07,
+      shadowRadius: 8,
+      elevation: 2,
     },
 
     headerText: {
       flex: 1,
     },
 
+    smallTitle: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: '#817B71',
+      marginBottom: 2,
+      letterSpacing: 0.2,
+    },
+
     title: {
-      fontSize: 28,
-      fontWeight:
-        '800',
-      color:
-        '#000000',
+      fontSize: 29,
+      fontWeight: '900',
+      color: '#171717',
+      letterSpacing: -0.8,
     },
 
     subtitle: {
       marginTop: 4,
       fontSize: 13,
-      color:
-        '#888888',
+      fontWeight: '500',
+      color: '#817B71',
+    },
+
+
+    /* =====================================================
+       SECTION
+    ===================================================== */
+
+    sectionHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 11,
+      paddingLeft: 2,
+    },
+
+    sectionAccent: {
+      width: 4,
+      height: 21,
+      borderRadius: 2,
+      backgroundColor: '#E35B3F',
+      marginRight: 9,
     },
 
     sectionTitle: {
-      marginTop: 25,
-      marginBottom: 10,
-      fontSize: 15,
-      fontWeight:
-        '700',
-      color:
-        '#1A1A1A',
+      flex: 1,
+      fontSize: 19,
+      fontWeight: '900',
+      color: '#171717',
+      letterSpacing: -0.3,
     },
 
+
+    /* =====================================================
+       MAIN CARD
+    ===================================================== */
+
     card: {
-      backgroundColor:
-        '#FFFFFF',
-      borderRadius: 18,
+      backgroundColor: '#FFFFFF',
+      borderRadius: 21,
       borderWidth: 1,
-      borderColor:
-        '#E0E0E0',
-      padding: 15,
+      borderColor: '#E7DED1',
+      padding: 16,
+
+      shadowColor: '#171717',
+      shadowOffset: {
+        width: 0,
+        height: 5,
+      },
+      shadowOpacity: 0.07,
+      shadowRadius: 9,
+      elevation: 2,
     },
+
+
+    /* =====================================================
+       FIELDS
+    ===================================================== */
 
     field: {
       marginBottom: 18,
@@ -1659,150 +1688,165 @@ const styles =
     label: {
       marginBottom: 7,
       fontSize: 13,
-      fontWeight:
-        '700',
-      color:
-        '#1A1A1A',
+      fontWeight: '800',
+      color: '#24221E',
     },
 
     input: {
-      minHeight: 50,
-      backgroundColor:
-        '#F7F7F7',
-      borderRadius: 12,
+      minHeight: 54,
+      backgroundColor: '#FFF7F3',
+      borderRadius: 15,
       borderWidth: 1,
-      borderColor:
-        '#E0E0E0',
+      borderColor: '#F0CFC4',
       paddingHorizontal: 15,
       paddingVertical: 13,
       fontSize: 14,
-      color:
-        '#1A1A1A',
+      fontWeight: '600',
+      color: '#24221E',
     },
 
     optionalText: {
       marginTop: 5,
       fontSize: 11,
-      color:
-        '#888888',
+      fontWeight: '600',
+      color: '#9A9186',
     },
 
     addressInput: {
-      height: 85,
+      height: 88,
       paddingTop: 14,
-      textAlignVertical:
-        'top',
+      textAlignVertical: 'top',
     },
 
     otpInput: {
-      textAlign:
-        'center',
-      fontSize: 20,
-      fontWeight:
-        '700',
-      letterSpacing:
-        5,
+      textAlign: 'center',
+      fontSize: 21,
+      fontWeight: '800',
+      letterSpacing: 5,
+      backgroundColor: '#FFF7F3',
+      borderColor: '#E35B3F',
     },
 
     otpHint: {
       marginTop: 7,
       fontSize: 11,
-      color:
-        '#888888',
+      fontWeight: '500',
+      color: '#9A9186',
     },
 
+
+    /* =====================================================
+       PHONE VERIFICATION
+    ===================================================== */
+
     verificationNotice: {
-      marginTop: 10,
+      marginTop: 11,
       padding: 12,
-      borderRadius: 12,
-      backgroundColor:
-        '#FFF9E8',
+      borderRadius: 15,
+      backgroundColor: '#FFF7F3',
       borderWidth: 1,
-      borderColor:
-        '#E8D58A',
-      flexDirection:
-        'row',
-      alignItems:
-        'flex-start',
+      borderColor: '#F0CFC4',
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+    },
+
+    verificationIcon: {
+      width: 40,
+      height: 40,
+      borderRadius: 13,
+      backgroundColor: '#FFFFFF',
+      borderWidth: 1,
+      borderColor: '#F0CFC4',
+      alignItems: 'center',
+      justifyContent: 'center',
     },
 
     verificationNoticeText: {
       flex: 1,
       marginLeft: 10,
+      paddingTop: 1,
     },
 
     verificationTitle: {
       fontSize: 13,
-      fontWeight:
-        '800',
-      color:
-        '#1A1A1A',
+      fontWeight: '900',
+      color: '#24221E',
     },
 
     verificationDescription: {
       marginTop: 3,
       fontSize: 12,
-      color:
-        '#666666',
+      fontWeight: '500',
+      color: '#817B71',
     },
 
     pendingPhoneText: {
       marginTop: 4,
       fontSize: 14,
-      fontWeight:
-        '800',
-      color:
-        '#1A1A1A',
+      fontWeight: '900',
+      color: '#E35B3F',
     },
+
+
+    /* =====================================================
+       BUTTONS
+    ===================================================== */
 
     saveButton: {
       marginTop: 20,
-      height: 52,
-      borderRadius: 26,
-      backgroundColor:
-        '#D4AF37',
-      flexDirection:
-        'row',
-      alignItems:
-        'center',
-      justifyContent:
-        'center',
+      height: 54,
+      borderRadius: 16,
+      backgroundColor: '#E35B3F',
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
       gap: 8,
+
+      shadowColor: '#E35B3F',
+      shadowOffset: {
+        width: 0,
+        height: 5,
+      },
+      shadowOpacity: 0.20,
+      shadowRadius: 9,
+      elevation: 3,
     },
 
     disabledButton: {
-      opacity: 0.7,
+      opacity: 0.65,
     },
 
     saveText: {
-      color:
-        '#FFFFFF',
+      color: '#FFFFFF',
       fontSize: 15,
-      fontWeight:
-        '700',
+      fontWeight: '800',
     },
 
     cancelButton: {
       marginTop: 12,
-      height: 50,
-      borderRadius: 25,
-      backgroundColor:
-        '#FFFFFF',
+      height: 52,
+      borderRadius: 16,
+      backgroundColor: '#FFFFFF',
       borderWidth: 1,
-      borderColor:
-        '#E0E0E0',
-      alignItems:
-        'center',
-      justifyContent:
-        'center',
+      borderColor: '#E7DED1',
+      alignItems: 'center',
+      justifyContent: 'center',
+
+      shadowColor: '#171717',
+      shadowOffset: {
+        width: 0,
+        height: 3,
+      },
+      shadowOpacity: 0.05,
+      shadowRadius: 7,
+      elevation: 1,
     },
 
     cancelText: {
-      color:
-        '#1A1A1A',
+      color: '#24221E',
       fontSize: 15,
-      fontWeight:
-        '600',
+      fontWeight: '800',
     },
 
   });
+

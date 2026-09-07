@@ -18,7 +18,9 @@ export default function Privacy() {
         contentContainerStyle={styles.content}
       >
 
-        {/* HEADER */}
+        {/* =================================================
+            HEADER
+        ================================================= */}
 
         <View style={styles.header}>
 
@@ -26,45 +28,103 @@ export default function Privacy() {
             style={styles.backButton}
             onPress={() => router.push('/settings')}
           >
+
             <Ionicons
               name="arrow-back"
-              size={23}
-              color="#000000"
+              size={22}
+              color="#171717"
             />
+
           </Pressable>
 
-          <Text style={styles.title}>
-            Privacy Policy
-          </Text>
+
+          <View style={styles.headerText}>
+
+            <Text style={styles.title}>
+              Privacy Policy
+            </Text>
+
+            <Text style={styles.subtitle}>
+              Last updated: August 2026
+            </Text>
+
+          </View>
 
         </View>
 
-        {/* UPDATED */}
 
-        <Text style={styles.updated}>
-          Last updated: August 2026
-        </Text>
+        {/* =================================================
+            PRIVACY INTRO
+        ================================================= */}
 
-        {/* YOUR PRIVACY */}
+        <View style={styles.introCard}>
+
+          <View style={styles.introIcon}>
+
+            <Ionicons
+              name="shield-checkmark-outline"
+              size={25}
+              color="#E35B3F"
+            />
+
+          </View>
+
+          <View style={styles.introTextContainer}>
+
+            <Text style={styles.introTitle}>
+              Your Privacy Matters
+            </Text>
+
+            <Text style={styles.introText}>
+              We respect your privacy and are committed
+              to protecting your personal information.
+            </Text>
+
+          </View>
+
+        </View>
+
+
+        {/* =================================================
+            YOUR PRIVACY
+        ================================================= */}
 
         <View style={styles.card}>
-          <Text style={styles.heading}>
-            Your Privacy
-          </Text>
+
+          <View style={styles.headingRow}>
+
+            <View style={styles.headingAccent} />
+
+            <Text style={styles.heading}>
+              Your Privacy
+            </Text>
+
+          </View>
 
           <Text style={styles.text}>
             We respect your privacy
             and are committed to protecting your
             personal information.
           </Text>
+
         </View>
 
-        {/* INFORMATION WE COLLECT */}
+
+        {/* =================================================
+            INFORMATION WE COLLECT
+        ================================================= */}
 
         <View style={styles.card}>
-          <Text style={styles.heading}>
-            Information We Collect
-          </Text>
+
+          <View style={styles.headingRow}>
+
+            <View style={styles.headingAccent} />
+
+            <Text style={styles.heading}>
+              Information We Collect
+            </Text>
+
+          </View>
 
           <Text style={styles.text}>
             We may collect information such as
@@ -72,14 +132,25 @@ export default function Privacy() {
             shipping information, and order details
             when you use our app.
           </Text>
+
         </View>
 
-        {/* HOW WE USE */}
+
+        {/* =================================================
+            HOW WE USE
+        ================================================= */}
 
         <View style={styles.card}>
-          <Text style={styles.heading}>
-            How We Use Your Information
-          </Text>
+
+          <View style={styles.headingRow}>
+
+            <View style={styles.headingAccent} />
+
+            <Text style={styles.heading}>
+              How We Use Your Information
+            </Text>
+
+          </View>
 
           <Text style={styles.text}>
             Your information may be used to process
@@ -87,14 +158,25 @@ export default function Privacy() {
             our services, and provide you with a
             better shopping experience.
           </Text>
+
         </View>
 
-        {/* DATA PROTECTION */}
+
+        {/* =================================================
+            DATA PROTECTION
+        ================================================= */}
 
         <View style={styles.card}>
-          <Text style={styles.heading}>
-            Data Protection
-          </Text>
+
+          <View style={styles.headingRow}>
+
+            <View style={styles.headingAccent} />
+
+            <Text style={styles.heading}>
+              Data Protection
+            </Text>
+
+          </View>
 
           <Text style={styles.text}>
             We take reasonable steps to protect
@@ -102,41 +184,73 @@ export default function Privacy() {
             unauthorized access, modification,
             or disclosure.
           </Text>
+
         </View>
 
-        {/* YOUR RIGHTS */}
+
+        {/* =================================================
+            YOUR RIGHTS
+        ================================================= */}
 
         <View style={styles.card}>
-          <Text style={styles.heading}>
-            Your Rights
-          </Text>
+
+          <View style={styles.headingRow}>
+
+            <View style={styles.headingAccent} />
+
+            <Text style={styles.heading}>
+              Your Rights
+            </Text>
+
+          </View>
 
           <Text style={styles.text}>
             You may request access to, correction
             of, or deletion of your personal
             information where applicable.
           </Text>
+
         </View>
 
-        {/* CONTACT */}
+
+        {/* =================================================
+            CONTACT
+        ================================================= */}
 
         <View style={styles.card}>
-          <Text style={styles.heading}>
-            Contact Us
-          </Text>
+
+          <View style={styles.headingRow}>
+
+            <View style={styles.headingAccent} />
+
+            <Text style={styles.heading}>
+              Contact Us
+            </Text>
+
+          </View>
 
           <Text style={styles.text}>
             If you have any questions about this
             Privacy Policy, please contact our
-           support team.
+            support team.
           </Text>
+
         </View>
 
-        {/* FOOTER */}
 
-        <Text style={styles.footer}>
-          BStore v1.0.0
-        </Text>
+        {/* =================================================
+            FOOTER
+        ================================================= */}
+
+        <View style={styles.footerContainer}>
+
+          <View style={styles.footerDot} />
+
+          <Text style={styles.footer}>
+            BStore v1.0.0
+          </Text>
+
+        </View>
 
       </ScrollView>
 
@@ -144,85 +258,385 @@ export default function Privacy() {
   );
 }
 
+
+// =========================================================
+// STYLES
+// =========================================================
+
 const styles = StyleSheet.create({
 
+  // =======================================================
+  // CONTAINER
+  // =======================================================
+
   container: {
+
     flex: 1,
-    backgroundColor: '#FFFCF8',
     paddingTop:20,
+    backgroundColor:
+      '#F7F3EC',
+
   },
+
 
   content: {
-    paddingHorizontal: 20,
+
+    paddingHorizontal: 18,
+
     paddingTop: 18,
-    paddingBottom: 40,
+
+    paddingBottom: 45,
+
   },
 
-  /* HEADER */
+
+  // =======================================================
+  // HEADER
+  // =======================================================
 
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
+
+    flexDirection:
+      'row',
+
+    alignItems:
+      'center',
+
+    marginBottom: 20,
+
   },
+
 
   backButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: '#FFFFFF',
+
+    width: 46,
+
+    height: 46,
+
+    borderRadius: 16,
+
+    backgroundColor:
+      '#FFFFFF',
+
     borderWidth: 1,
-    borderColor: '#E0E0E0',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
+
+    borderColor:
+      '#E7DED1',
+
+    alignItems:
+      'center',
+
+    justifyContent:
+      'center',
+
+    marginRight: 13,
+
+    shadowColor:
+      '#171717',
+
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+
+    shadowOpacity: 0.06,
+
+    shadowRadius: 8,
+
+    elevation: 2,
+
   },
+
+
+  headerText: {
+
+    flex: 1,
+
+  },
+
 
   title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#000000',
+
+    fontSize: 29,
+
+    fontWeight:
+      '900',
+
+    color:
+      '#171717',
+
+    letterSpacing:
+      -0.8,
+
   },
 
-  /* UPDATED */
 
-  updated: {
-    marginLeft: 54,
-    fontSize: 13,
-    color: '#A3948A',
+  subtitle: {
+
+    marginTop: 4,
+
+    fontSize: 12,
+
+    fontWeight:
+      '600',
+
+    color:
+      '#817B71',
+
   },
 
-  /* CARDS */
+
+  // =======================================================
+  // INTRO CARD
+  // =======================================================
+
+  introCard: {
+
+    flexDirection:
+      'row',
+
+    alignItems:
+      'center',
+
+    backgroundColor:
+      '#FFF7F3',
+
+    borderRadius: 20,
+
+    borderWidth: 1,
+
+    borderColor:
+      '#F0CFC4',
+
+    padding: 16,
+
+    marginBottom: 3,
+
+  },
+
+
+  introIcon: {
+
+    width: 52,
+
+    height: 52,
+
+    borderRadius: 17,
+
+    backgroundColor:
+      '#FFFFFF',
+
+    borderWidth: 1,
+
+    borderColor:
+      '#F0CFC4',
+
+    alignItems:
+      'center',
+
+    justifyContent:
+      'center',
+
+  },
+
+
+  introTextContainer: {
+
+    flex: 1,
+
+    marginLeft: 13,
+
+  },
+
+
+  introTitle: {
+
+    fontSize: 16,
+
+    fontWeight:
+      '900',
+
+    color:
+      '#24221E',
+
+    marginBottom: 4,
+
+  },
+
+
+  introText: {
+
+    fontSize: 12,
+
+    lineHeight: 18,
+
+    fontWeight:
+      '500',
+
+    color:
+      '#817B71',
+
+  },
+
+
+  // =======================================================
+  // CONTENT CARDS
+  // =======================================================
 
   card: {
-    marginTop: 20,
-    padding: 20,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
+
+    marginTop: 15,
+
+    padding: 18,
+
+    backgroundColor:
+      '#FFFFFF',
+
+    borderRadius: 21,
+
     borderWidth: 1,
-    borderColor: '#F0E4DA',
+
+    borderColor:
+      '#E7DED1',
+
+    shadowColor:
+      '#171717',
+
+    shadowOffset: {
+      width: 0,
+      height: 5,
+    },
+
+    shadowOpacity: 0.06,
+
+    shadowRadius: 9,
+
+    elevation: 2,
+
   },
+
+
+  // =======================================================
+  // HEADING
+  // =======================================================
+
+  headingRow: {
+
+    flexDirection:
+      'row',
+
+    alignItems:
+      'center',
+
+    marginBottom: 10,
+
+  },
+
+
+  headingAccent: {
+
+    width: 4,
+
+    height: 20,
+
+    borderRadius: 3,
+
+    backgroundColor:
+      '#E35B3F',
+
+    marginRight: 9,
+
+  },
+
 
   heading: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#5A3A2A',
-    marginBottom: 10,
+
+    flex: 1,
+
+    fontSize: 17,
+
+    fontWeight:
+      '900',
+
+    color:
+      '#24221E',
+
+    letterSpacing:
+      -0.2,
+
   },
+
+
+  // =======================================================
+  // TEXT
+  // =======================================================
 
   text: {
+
     fontSize: 14,
+
     lineHeight: 22,
-    color: '#7A6A60',
+
+    fontWeight:
+      '500',
+
+    color:
+      '#777168',
+
   },
 
-  /* FOOTER */
+
+  // =======================================================
+  // FOOTER
+  // =======================================================
+
+  footerContainer: {
+
+    flexDirection:
+      'row',
+
+    alignItems:
+      'center',
+
+    justifyContent:
+      'center',
+
+    marginTop: 30,
+
+  },
+
+
+  footerDot: {
+
+    width: 5,
+
+    height: 5,
+
+    borderRadius: 3,
+
+    backgroundColor:
+      '#E35B3F',
+
+    marginRight: 7,
+
+    opacity: 0.75,
+
+  },
+
 
   footer: {
-    textAlign: 'center',
-    marginTop: 30,
-    fontSize: 13,
-    color: '#C9A894',
+
+    fontSize: 12,
+
+    fontWeight:
+      '600',
+
+    color:
+      '#9A9186',
+
+    letterSpacing:
+      0.2,
+
   },
 
 });

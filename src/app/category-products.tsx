@@ -19,7 +19,9 @@ import {
 } from 'expo-router';
 
 import {
+  memo,
   useCallback,
+  useEffect,
   useRef,
   useState,
 } from 'react';
@@ -93,10 +95,6 @@ const getImageUrl = (
   }
 
 
-  /* =======================================================
-     COMPLETE URL
-  ======================================================= */
-
   if (
     value.startsWith('http://') ||
     value.startsWith('https://')
@@ -107,19 +105,11 @@ const getImageUrl = (
   }
 
 
-  /* =======================================================
-     NORMALIZE PATH
-  ======================================================= */
-
   value =
     value
       .replace(/\\/g, '/')
       .replace(/^\/+/, '');
 
-
-  /* =======================================================
-     OLD LOCAL UPLOAD PATH
-  ======================================================= */
 
   if (
     value.startsWith('uploads/')
@@ -130,10 +120,6 @@ const getImageUrl = (
   }
 
 
-  /* =======================================================
-     SUPABASE STORAGE PATH
-  ======================================================= */
-
   if (
     value.startsWith('product-images/')
   ) {
@@ -142,10 +128,6 @@ const getImageUrl = (
 
   }
 
-
-  /* =======================================================
-     OLD IMAGE FORMAT
-  ======================================================= */
 
   return `${API_URL}/uploads/${value}`;
 
@@ -168,10 +150,6 @@ const getFinalPrice = (
     Number(product.discount) || 0;
 
 
-  /* =======================================================
-     BACKEND DISCOUNTED PRICE
-  ======================================================= */
-
   if (
     product.discountedPrice !== undefined &&
     product.discountedPrice !== null
@@ -184,10 +162,6 @@ const getFinalPrice = (
   }
 
 
-  /* =======================================================
-     NO DISCOUNT
-  ======================================================= */
-
   if (
     discount <= 0
   ) {
@@ -198,10 +172,6 @@ const getFinalPrice = (
 
   }
 
-
-  /* =======================================================
-     CALCULATE DISCOUNT
-  ======================================================= */
 
   const finalPrice =
     originalPrice -
@@ -245,6 +215,477 @@ const formatPrice = (
 
 
 /* =========================================================
+   FAVORITE BUTTON
+========================================================= */
+
+type FavoriteButtonProps = {
+  productId: string;
+  initialFavorite: boolean;
+  isLoggedIn: boolean;
+
+  /*
+   * The PAGE owns the favorite alert.
+   * This button only reports whether the
+   * favorite was added or removed.
+   */
+  onFavoriteChange: (
+    type: 'added' | 'removed'
+  ) => void;
+};
+
+
+const FavoriteButton = memo(
+  ({
+    productId,
+    initialFavorite,
+    isLoggedIn,
+    onFavoriteChange,
+  }: FavoriteButtonProps) => {
+
+    const [
+      isFavorite,
+      setIsFavorite,
+    ] = useState(
+      initialFavorite
+    );
+
+
+    const [
+      isRequesting,
+      setIsRequesting,
+    ] = useState(false);
+
+
+    const pendingRef =
+      useRef(false);
+
+
+    const favoriteRef =
+      useRef(
+        initialFavorite
+      );
+
+
+    /*
+     * Keep local state synchronized with
+     * the server favorite state.
+     *
+     * Never overwrite the local optimistic
+     * state while a request is running.
+     */
+
+    useEffect(() => {
+
+      if (
+        pendingRef.current
+      ) {
+
+        return;
+
+      }
+
+
+      favoriteRef.current =
+        initialFavorite;
+
+
+      setIsFavorite(
+        initialFavorite
+      );
+
+    }, [
+      initialFavorite,
+    ]);
+
+
+    const handlePress = (
+      event: any
+    ) => {
+
+      event.stopPropagation();
+
+
+      if (!isLoggedIn) {
+
+        router.push(
+          '/login'
+        );
+
+        return;
+
+      }
+
+
+      /*
+       * Prevent double taps while
+       * the request is running.
+       */
+
+      if (
+        pendingRef.current
+      ) {
+
+        return;
+
+      }
+
+
+      const previousFavorite =
+        favoriteRef.current;
+
+
+      const nextFavorite =
+        !previousFavorite;
+
+
+      /*
+       * ===================================================
+       * OPTIMISTIC UI
+       *
+       * THE HEART CHANGES FIRST.
+       *
+       * No await.
+       * No AsyncStorage.
+       * No API.
+       *
+       * The alert is intentionally NOT triggered
+       * at the same time.
+       * ===================================================
+       */
+
+      favoriteRef.current =
+        nextFavorite;
+
+
+      setIsFavorite(
+        nextFavorite
+      );
+
+
+      pendingRef.current =
+        true;
+
+
+      setIsRequesting(
+        true
+      );
+
+
+      /*
+       * ===================================================
+       * SHOW FAVORITE ALERT AFTER THE HEART UI UPDATE
+       *
+       * requestAnimationFrame allows React Native
+       * to render the new heart state first.
+       *
+       * HEART:
+       *   ❤️ changes first
+       *
+       * THEN:
+       *   🔔 favorite alert appears
+       * ===================================================
+       */
+
+      requestAnimationFrame(() => {
+
+        onFavoriteChange(
+          nextFavorite
+            ? 'added'
+            : 'removed'
+        );
+
+      });
+
+
+      /*
+       * ===================================================
+       * API RUNS IN THE BACKGROUND
+       * ===================================================
+       */
+
+      (async () => {
+
+        try {
+
+          const accessToken =
+            await AsyncStorage.getItem(
+              'accessToken'
+            );
+
+
+          if (!accessToken) {
+
+            /*
+             * Rollback if session is missing.
+             */
+
+            favoriteRef.current =
+              previousFavorite;
+
+
+            setIsFavorite(
+              previousFavorite
+            );
+
+
+            pendingRef.current =
+              false;
+
+
+            setIsRequesting(
+              false
+            );
+
+
+            router.push(
+              '/login'
+            );
+
+            return;
+
+          }
+
+
+          const endpoint =
+            nextFavorite
+              ? `${API_URL}/favorites/add`
+              : `${API_URL}/favorites/remove`;
+
+
+          const method =
+            nextFavorite
+              ? 'POST'
+              : 'DELETE';
+
+
+          const response =
+            await fetch(
+              endpoint,
+              {
+                method,
+
+                headers: {
+
+                  Accept:
+                    'application/json',
+
+                  'Content-Type':
+                    'application/json',
+
+                  Authorization:
+                    `Bearer ${accessToken}`,
+
+                },
+
+                body:
+                  JSON.stringify({
+
+                    productId,
+
+                  }),
+
+              }
+            );
+
+
+          let data:
+            any = null;
+
+
+          try {
+
+            data =
+              await response.json();
+
+          } catch {
+
+            data =
+              null;
+
+          }
+
+
+          /*
+           * =================================================
+           * SESSION EXPIRED
+           * =================================================
+           */
+
+          if (
+            response.status === 401 ||
+            response.status === 403
+          ) {
+
+            favoriteRef.current =
+              previousFavorite;
+
+
+            setIsFavorite(
+              previousFavorite
+            );
+
+
+            pendingRef.current =
+              false;
+
+
+            setIsRequesting(
+              false
+            );
+
+
+            router.push(
+              '/login'
+            );
+
+            return;
+
+          }
+
+
+          /*
+           * =================================================
+           * API FAILED
+           * =================================================
+           */
+
+          if (!response.ok) {
+
+            console.log(
+              'UPDATE FAVORITES ERROR:',
+              data
+            );
+
+
+            /*
+             * Rollback only if this action
+             * is still the current local state.
+             */
+
+            if (
+              favoriteRef.current ===
+              nextFavorite
+            ) {
+
+              favoriteRef.current =
+                previousFavorite;
+
+
+              setIsFavorite(
+                previousFavorite
+              );
+
+            }
+
+
+            return;
+
+          }
+
+
+          /*
+           * =================================================
+           * SUCCESS
+           *
+           * DO NOTHING.
+           *
+           * The optimistic state is already correct.
+           *
+           * We intentionally DO NOT call loadFavorites().
+           * =================================================
+           */
+
+        } catch (error) {
+
+          console.log(
+            'TOGGLE FAVORITE ERROR:',
+            error
+          );
+
+
+          /*
+           * NETWORK ERROR
+           */
+
+          if (
+            favoriteRef.current ===
+            nextFavorite
+          ) {
+
+            favoriteRef.current =
+              previousFavorite;
+
+
+            setIsFavorite(
+              previousFavorite
+            );
+
+          }
+
+        } finally {
+
+          pendingRef.current =
+            false;
+
+
+          setIsRequesting(
+            false
+          );
+
+        }
+
+      })();
+
+    };
+
+
+    return (
+
+      <Pressable
+        style={[
+          styles.favoriteButton,
+
+          isRequesting &&
+            styles.favoriteButtonActive,
+        ]}
+
+        onPress={
+          handlePress
+        }
+
+        hitSlop={5}
+
+        disabled={
+          isRequesting
+        }
+      >
+
+        <Ionicons
+          name={
+            isFavorite
+              ? 'heart'
+              : 'heart-outline'
+          }
+
+          size={20}
+
+          color={
+            isFavorite
+              ? '#E35B3F'
+              : '#171717'
+          }
+
+        />
+
+      </Pressable>
+
+    );
+
+  }
+);
+
+
+/* =========================================================
    CATEGORY PRODUCTS
 ========================================================= */
 
@@ -272,16 +713,6 @@ export default function CategoryProducts() {
   ] = useState<Product[]>([]);
 
 
-  /*
-   * IMPORTANT:
-   *
-   * This loading state is only true when we have
-   * NO products yet.
-   *
-   * When the page comes back into focus and products
-   * already exist, they remain visible.
-   */
-
   const [
     loadingProducts,
     setLoadingProducts,
@@ -306,14 +737,8 @@ export default function CategoryProducts() {
   ] = useState(0);
 
 
-  const [
-    updatingFavorite,
-    setUpdatingFavorite,
-  ] = useState<string | null>(null);
-
-
   /* =======================================================
-     ALERT
+     CART ALERT
   ======================================================= */
 
   const [
@@ -341,7 +766,39 @@ export default function CategoryProducts() {
 
 
   /* =======================================================
-     SHOW ALERT
+     FAVORITE ALERT
+
+     SAME AS PRODUCT DETAILS
+  ======================================================= */
+
+  const [
+    favoriteAlertVisible,
+    setFavoriteAlertVisible,
+  ] = useState(false);
+
+
+  const [
+    favoriteAlertType,
+    setFavoriteAlertType,
+  ] = useState<
+    'added' | 'removed'
+  >('added');
+
+
+  const favoriteAlertOpacity =
+    useRef(
+      new Animated.Value(0)
+    ).current;
+
+
+  const favoriteAlertTranslateY =
+    useRef(
+      new Animated.Value(-40)
+    ).current;
+
+
+  /* =======================================================
+     SHOW CART ALERT
   ======================================================= */
 
   const showAlert = (
@@ -428,6 +885,98 @@ export default function CategoryProducts() {
 
 
   /* =======================================================
+     SHOW FAVORITE ALERT
+
+     SAME AS PRODUCT DETAILS
+  ======================================================= */
+
+  const showFavoriteAlert = useCallback(
+    (
+      type: 'added' | 'removed'
+    ) => {
+
+      setFavoriteAlertType(
+        type
+      );
+
+
+      setFavoriteAlertVisible(
+        true
+      );
+
+
+      favoriteAlertOpacity.setValue(
+        0
+      );
+
+
+      favoriteAlertTranslateY.setValue(
+        -40
+      );
+
+
+      Animated.parallel([
+
+        Animated.timing(
+          favoriteAlertOpacity,
+          {
+            toValue: 1,
+            duration: 220,
+            useNativeDriver: true,
+          }
+        ),
+
+        Animated.spring(
+          favoriteAlertTranslateY,
+          {
+            toValue: 0,
+            friction: 7,
+            tension: 70,
+            useNativeDriver: true,
+          }
+        ),
+
+      ]).start();
+
+
+      setTimeout(() => {
+
+        Animated.parallel([
+
+          Animated.timing(
+            favoriteAlertOpacity,
+            {
+              toValue: 0,
+              duration: 220,
+              useNativeDriver: true,
+            }
+          ),
+
+          Animated.timing(
+            favoriteAlertTranslateY,
+            {
+              toValue: -25,
+              duration: 220,
+              useNativeDriver: true,
+            }
+          ),
+
+        ]).start(() => {
+
+          setFavoriteAlertVisible(
+            false
+          );
+
+        });
+
+      }, 2200);
+
+    },
+    []
+  );
+
+
+  /* =======================================================
      CHECK LOGIN
   ======================================================= */
 
@@ -490,24 +1039,11 @@ export default function CategoryProducts() {
 
   /* =======================================================
      LOAD PRODUCTS
-     
-     IMPORTANT:
-     
-     This function DOES NOT reset products to [] while
-     refreshing.
-     
-     It also DOES NOT show loading if products already
-     exist.
   ======================================================= */
 
   const loadProducts = async () => {
 
     try {
-
-      /*
-       * Only show the loading screen when there are
-       * currently no products.
-       */
 
       if (products.length === 0) {
 
@@ -562,15 +1098,6 @@ export default function CategoryProducts() {
           data
         );
 
-        /*
-         * IMPORTANT:
-         *
-         * Do NOT erase old products here.
-         *
-         * If the refresh fails, the user can still
-         * see the products already loaded.
-         */
-
         return;
 
       }
@@ -592,11 +1119,6 @@ export default function CategoryProducts() {
       );
 
 
-      /*
-       * Replace data only after the complete response
-       * has arrived.
-       */
-
       setProducts(
         receivedProducts
       );
@@ -608,13 +1130,6 @@ export default function CategoryProducts() {
         'LOAD PRODUCTS ERROR:',
         error
       );
-
-      /*
-       * IMPORTANT:
-       *
-       * Don't clear existing products when a refresh
-       * fails.
-       */
 
     } finally {
 
@@ -821,7 +1336,6 @@ export default function CategoryProducts() {
           data
         );
 
-
         return;
 
       }
@@ -858,20 +1372,9 @@ export default function CategoryProducts() {
 
   /* =======================================================
      LOAD EVERYTHING
-     
-     IMPORTANT:
-     
-     All independent requests start together.
   ======================================================= */
 
   const loadData = async () => {
-
-    /*
-     * Don't wait for checkLogin before starting
-     * the products request.
-     *
-     * This saves unnecessary time.
-     */
 
     const loginPromise =
       checkLogin();
@@ -901,11 +1404,6 @@ export default function CategoryProducts() {
 
   /* =======================================================
      PAGE FOCUS
-     
-     Every time the page gets focus:
-     
-     - Existing products stay visible.
-     * New data is fetched in background.
   ======================================================= */
 
   useFocusEffect(
@@ -919,10 +1417,6 @@ export default function CategoryProducts() {
 
   /* =======================================================
      FILTER + SORT PRODUCTS
-     
-     Highest price → Lowest price
-     
-     Uses final price after discount.
   ======================================================= */
 
   const filteredProducts =
@@ -960,197 +1454,6 @@ export default function CategoryProducts() {
           getFinalPrice(b) -
           getFinalPrice(a)
       );
-
-
-  /* =======================================================
-     TOGGLE FAVORITE
-  ======================================================= */
-
-  const toggleFavorite = async (
-    product: Product
-  ) => {
-
-    if (!isLoggedIn) {
-
-      router.push(
-        '/login'
-      );
-
-      return;
-
-    }
-
-
-    try {
-
-      const accessToken =
-        await AsyncStorage.getItem(
-          'accessToken'
-        );
-
-
-      if (!accessToken) {
-
-        router.push(
-          '/login'
-        );
-
-        return;
-
-      }
-
-
-      const alreadyFavorite =
-        favorites.includes(
-          product._id
-        );
-
-
-      setUpdatingFavorite(
-        product._id
-      );
-
-
-      const endpoint =
-        alreadyFavorite
-          ? `${API_URL}/favorites/remove`
-          : `${API_URL}/favorites/add`;
-
-
-      const method =
-        alreadyFavorite
-          ? 'DELETE'
-          : 'POST';
-
-
-      const response =
-        await fetch(
-          endpoint,
-          {
-            method,
-
-            headers: {
-
-              Accept:
-                'application/json',
-
-              'Content-Type':
-                'application/json',
-
-              Authorization:
-                `Bearer ${accessToken}`,
-
-            },
-
-            body:
-              JSON.stringify({
-
-                productId:
-                  product._id,
-
-              }),
-
-          }
-        );
-
-
-      const data =
-        await response.json();
-
-
-      if (
-        response.status === 401 ||
-        response.status === 403
-      ) {
-
-        setIsLoggedIn(
-          false
-        );
-
-
-        setFavorites(
-          []
-        );
-
-
-        router.push(
-          '/login'
-        );
-
-
-        return;
-
-      }
-
-
-      if (!response.ok) {
-
-        showAlert(
-          data?.message ||
-          'Could not update favorites.'
-        );
-
-
-        return;
-
-      }
-
-
-      if (alreadyFavorite) {
-
-        setFavorites(
-          previous =>
-            previous.filter(
-              id =>
-                id !== product._id
-            )
-        );
-
-
-        showAlert(
-          `${product.name} removed from favorites.`
-        );
-
-      } else {
-
-        setFavorites(
-          previous => [
-
-            ...previous,
-
-            product._id,
-
-          ]
-        );
-
-
-        showAlert(
-          `${product.name} added to favorites.`
-        );
-
-      }
-
-    } catch (error) {
-
-      console.log(
-        'TOGGLE FAVORITE ERROR:',
-        error
-      );
-
-
-      showAlert(
-        'Could not update favorites.'
-      );
-
-    } finally {
-
-      setUpdatingFavorite(
-        null
-      );
-
-    }
-
-  };
 
 
   /* =======================================================
@@ -1385,9 +1688,9 @@ export default function CategoryProducts() {
       }
     >
 
-      {/* ===================================================
-          ALERT
-      =================================================== */}
+      {/* =================================================
+          CART ALERT
+      ================================================= */}
 
       {alertVisible && (
 
@@ -1459,8 +1762,116 @@ export default function CategoryProducts() {
           <Ionicons
             name="heart-outline"
             size={21}
-            color="#D4AF37"
+            color="#E35B3F"
           />
+
+        </Animated.View>
+
+      )}
+
+
+      {/* =================================================
+          FAVORITE ALERT
+
+          ONE PAGE-LEVEL ALERT ONLY
+      ================================================= */}
+
+      {favoriteAlertVisible && (
+
+        <Animated.View
+          style={[
+            styles.favoriteAlert,
+
+            {
+              opacity:
+                favoriteAlertOpacity,
+
+              transform: [
+
+                {
+                  translateY:
+                    favoriteAlertTranslateY,
+                },
+
+              ],
+
+            },
+
+          ]}
+        >
+
+          <View
+            style={
+              styles.favoriteAlertIcon
+            }
+          >
+
+            <Ionicons
+              name={
+                favoriteAlertType === 'added'
+                  ? 'heart'
+                  : 'heart-outline'
+              }
+
+              size={21}
+
+              color="#FFFFFF"
+            />
+
+          </View>
+
+
+          <View
+            style={
+              styles.favoriteAlertContent
+            }
+          >
+
+            <Text
+              style={
+                styles.favoriteAlertTitle
+              }
+            >
+              {favoriteAlertType === 'added'
+                ? 'Added to Favorites'
+                : 'Removed from Favorites'}
+            </Text>
+
+
+            <Text
+              style={
+                styles.favoriteAlertMessage
+              }
+
+              numberOfLines={2}
+            >
+              {favoriteAlertType === 'added'
+                ? 'Product has been added to your favorites.'
+                : 'Product has been removed from your favorites.'}
+            </Text>
+
+          </View>
+
+
+          <View
+            style={
+              styles.favoriteAlertBadge
+            }
+          >
+
+            <Ionicons
+              name={
+                favoriteAlertType === 'added'
+                  ? 'heart'
+                  : 'heart-outline'
+              }
+
+              size={19}
+
+              color="#E35B3F"
+            />
+
+          </View>
 
         </Animated.View>
 
@@ -1499,8 +1910,8 @@ export default function CategoryProducts() {
 
             <Ionicons
               name="arrow-back"
-              size={23}
-              color="#000000"
+              size={22}
+              color="#171717"
             />
 
           </Pressable>
@@ -1511,14 +1922,6 @@ export default function CategoryProducts() {
               styles.headerText
             }
           >
-
-            <Text
-              style={
-                styles.smallTitle
-              }
-            >
-              Category
-            </Text>
 
 
             <Text
@@ -1560,8 +1963,8 @@ export default function CategoryProducts() {
 
             <Ionicons
               name="cart-outline"
-              size={23}
-              color="#000000"
+              size={22}
+              color="#171717"
             />
 
 
@@ -1601,25 +2004,47 @@ export default function CategoryProducts() {
           }
         >
 
-          <Text
+          <View
             style={
-              styles.resultsTitle
+              styles.resultsTitleWrap
             }
           >
-            Products
-          </Text>
+
+            <View
+              style={
+                styles.resultsAccent
+              }
+            />
+
+            <Text
+              style={
+                styles.resultsTitle
+              }
+            >
+              Products
+            </Text>
+
+          </View>
 
 
           {!loadingProducts && (
 
-            <Text
+            <View
               style={
-                styles.resultsCount
+                styles.resultsCountChip
               }
             >
-              {filteredProducts.length}{' '}
-              products
-            </Text>
+
+              <Text
+                style={
+                  styles.resultsCount
+                }
+              >
+                {filteredProducts.length}{' '}
+                products
+              </Text>
+
+            </View>
 
           )}
 
@@ -1659,21 +2084,25 @@ export default function CategoryProducts() {
         ) : filteredProducts.length ===
           0 ? (
 
-          /* =================================================
-             EMPTY
-          ================================================= */
-
           <View
             style={
               styles.emptyContainer
             }
           >
 
-            <Ionicons
-              name="cube-outline"
-              size={55}
-              color="#D4AF37"
-            />
+            <View
+              style={
+                styles.emptyIconBox
+              }
+            >
+
+              <Ionicons
+                name="cube-outline"
+                size={45}
+                color="#E35B3F"
+              />
+
+            </View>
 
 
             <Text
@@ -1697,10 +2126,6 @@ export default function CategoryProducts() {
           </View>
 
         ) : (
-
-          /* =================================================
-             PRODUCTS GRID
-          ================================================= */
 
           <View
             style={
@@ -1750,11 +2175,6 @@ export default function CategoryProducts() {
                   discount > 0 &&
                   originalPrice >
                     finalPrice;
-
-
-                const favoriteUpdating =
-                  updatingFavorite ===
-                  product._id;
 
 
                 return (
@@ -1820,7 +2240,7 @@ export default function CategoryProducts() {
                           <Ionicons
                             name="cube-outline"
                             size={45}
-                            color="#D4AF37"
+                            color="#E35B3F"
                           />
 
                         </View>
@@ -1855,61 +2275,23 @@ export default function CategoryProducts() {
 
                     {/* FAVORITE */}
 
-                    <Pressable
-                      style={
-                        styles.favoriteButton
+                    <FavoriteButton
+                      productId={
+                        product._id
                       }
 
-                      onPress={(event) => {
+                      initialFavorite={
+                        favorite
+                      }
 
-                        event.stopPropagation();
+                      isLoggedIn={
+                        isLoggedIn
+                      }
 
-
-                        if (
-                          !favoriteUpdating
-                        ) {
-
-                          toggleFavorite(
-                            product
-                          );
-
-                        }
-
-                      }}
-
-                      hitSlop={5}
-                    >
-
-                      {favoriteUpdating ? (
-
-                        <View
-                          style={
-                            styles.favoriteLoading
-                          }
-                        />
-
-                      ) : (
-
-                        <Ionicons
-                          name={
-                            favorite
-                              ? 'heart'
-                              : 'heart-outline'
-                          }
-
-                          size={21}
-
-                          color={
-                            favorite
-                              ? '#D4AF37'
-                              : '#000000'
-                          }
-
-                        />
-
-                      )}
-
-                    </Pressable>
+                      onFavoriteChange={
+                        showFavoriteAlert
+                      }
+                    />
 
 
                     {/* NAME */}
@@ -2134,44 +2516,49 @@ export default function CategoryProducts() {
 const styles =
   StyleSheet.create({
 
+  /* =======================================================
+     MAIN
+  ======================================================= */
+
   container: {
     flex: 1,
-    backgroundColor: '#F7F7F7',
+    paddingTop: 20,
+    backgroundColor: '#F7F3EC',
   },
 
 
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingHorizontal: 18,
+    paddingTop: 18,
     paddingBottom: 30,
   },
 
 
   /* =======================================================
-     ALERT
+     CART ALERT
   ======================================================= */
 
   homeAlert: {
     position: 'absolute',
-    top: 55,
+    top: 58,
     left: 18,
     right: 18,
     zIndex: 9999,
     minHeight: 68,
     backgroundColor: '#FFFFFF',
-    borderRadius: 18,
+    borderRadius: 19,
     paddingVertical: 11,
     paddingHorizontal: 13,
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E5E5E5',
-    shadowColor: '#000000',
+    borderColor: '#E7DED1',
+    shadowColor: '#171717',
     shadowOffset: {
       width: 0,
       height: 6,
     },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.12,
     shadowRadius: 14,
     elevation: 10,
   },
@@ -2180,8 +2567,8 @@ const styles =
   homeAlertIcon: {
     width: 42,
     height: 42,
-    borderRadius: 21,
-    backgroundColor: '#4CAF50',
+    borderRadius: 15,
+    backgroundColor: '#E35B3F',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2197,15 +2584,92 @@ const styles =
   homeAlertTitle: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#1A1A1A',
+    color: '#24221E',
     marginBottom: 3,
   },
 
 
   homeAlertMessage: {
     fontSize: 11.5,
-    color: '#777777',
+    color: '#817B71',
     lineHeight: 16,
+  },
+
+
+  /* =======================================================
+     FAVORITE ALERT
+
+     SAME DESIGN AS PRODUCT DETAILS
+  ======================================================= */
+
+  favoriteAlert: {
+    position: 'absolute',
+    top: 55,
+    left: 18,
+    right: 18,
+    zIndex: 10000,
+    minHeight: 70,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    paddingVertical: 11,
+    paddingHorizontal: 13,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E7DED1',
+    shadowColor: '#171717',
+    shadowOffset: {
+      width: 0,
+      height: 6,
+    },
+    shadowOpacity: 0.12,
+    shadowRadius: 14,
+    elevation: 10,
+  },
+
+
+  favoriteAlertIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: '#E35B3F',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+
+  favoriteAlertContent: {
+    flex: 1,
+    marginLeft: 12,
+    marginRight: 10,
+  },
+
+
+  favoriteAlertTitle: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#24221E',
+    marginBottom: 3,
+  },
+
+
+  favoriteAlertMessage: {
+    fontSize: 11.5,
+    color: '#817B71',
+    lineHeight: 16,
+    fontWeight: '600',
+  },
+
+
+  favoriteAlertBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: '#FFF7F3',
+    borderWidth: 1,
+    borderColor: '#F0CFC4',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
 
@@ -2221,15 +2685,23 @@ const styles =
 
 
   backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 46,
+    height: 46,
+    borderRadius: 16,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#E7DED1',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 13,
+    marginRight: 12,
+    shadowColor: '#171717',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
   },
 
 
@@ -2240,29 +2712,40 @@ const styles =
 
   smallTitle: {
     fontSize: 12,
-    color: '#888888',
+    color: '#817B71',
+    fontWeight: '600',
     marginBottom: 2,
   },
 
 
   title: {
-    fontSize: 27,
-    fontWeight: '800',
-    color: '#000000',
+    fontSize: 28,
+    lineHeight: 32,
+    fontWeight: '900',
+    color: '#171717',
+    letterSpacing: -0.7,
   },
 
 
   headerCartButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 46,
+    height: 46,
+    borderRadius: 16,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#E7DED1',
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 10,
     position: 'relative',
+    shadowColor: '#171717',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
   },
 
 
@@ -2270,20 +2753,22 @@ const styles =
     position: 'absolute',
     top: -5,
     right: -5,
-    minWidth: 17,
-    height: 17,
-    borderRadius: 9,
-    backgroundColor: '#000000',
+    minWidth: 19,
+    height: 19,
+    borderRadius: 10,
+    backgroundColor: '#E35B3F',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 3,
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: '#F7F3EC',
   },
 
 
   headerCartBadgeText: {
     color: '#FFFFFF',
     fontSize: 9,
-    fontWeight: '700',
+    fontWeight: '900',
   },
 
 
@@ -2299,16 +2784,43 @@ const styles =
   },
 
 
+  resultsTitleWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+
+  resultsAccent: {
+    width: 4,
+    height: 20,
+    borderRadius: 3,
+    backgroundColor: '#E35B3F',
+    marginRight: 9,
+  },
+
+
   resultsTitle: {
     fontSize: 20,
-    fontWeight: '800',
-    color: '#000000',
+    fontWeight: '900',
+    color: '#171717',
+    letterSpacing: -0.3,
+  },
+
+
+  resultsCountChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 11,
+    backgroundColor: '#FFF7F3',
+    borderWidth: 1,
+    borderColor: '#F0CFC4',
   },
 
 
   resultsCount: {
-    fontSize: 12,
-    color: '#888888',
+    fontSize: 11,
+    color: '#817B71',
+    fontWeight: '700',
   },
 
 
@@ -2324,19 +2836,20 @@ const styles =
 
 
   loadingSpinner: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     borderWidth: 3,
-    borderColor: '#E5E5E5',
-    borderTopColor: '#000000',
+    borderColor: '#E7DED1',
+    borderTopColor: '#E35B3F',
   },
 
 
   loadingText: {
-    marginTop: 12,
+    marginTop: 13,
     fontSize: 12,
-    color: '#888888',
+    color: '#817B71',
+    fontWeight: '600',
   },
 
 
@@ -2352,20 +2865,28 @@ const styles =
 
 
   productCard: {
-    width: '48%',
+    width: '48.2%',
     marginBottom: 15,
     backgroundColor: '#FFFFFF',
-    borderRadius: 17,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
-    padding: 10,
+    borderColor: '#E7DED1',
+    padding: 11,
     position: 'relative',
+    shadowColor: '#171717',
+    shadowOffset: {
+      width: 0,
+      height: 5,
+    },
+    shadowOpacity: 0.06,
+    shadowRadius: 9,
+    elevation: 2,
   },
 
 
   productImage: {
     height: 145,
-    borderRadius: 14,
+    borderRadius: 15,
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
@@ -2395,10 +2916,10 @@ const styles =
     position: 'absolute',
     top: 17,
     left: 17,
-    backgroundColor: '#C62828',
+    backgroundColor: '#E35B3F',
     paddingHorizontal: 8,
     paddingVertical: 5,
-    borderRadius: 8,
+    borderRadius: 9,
     zIndex: 4,
   },
 
@@ -2406,7 +2927,7 @@ const styles =
   discountBadgeText: {
     color: '#FFFFFF',
     fontSize: 10,
-    fontWeight: '800',
+    fontWeight: '900',
   },
 
 
@@ -2420,22 +2941,26 @@ const styles =
     right: 17,
     width: 35,
     height: 35,
-    borderRadius: 18,
+    borderRadius: 50,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#E7DED1',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 5,
+    shadowColor: '#171717',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 1,
   },
 
 
-  favoriteLoading: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: '#D4AF37',
+  favoriteButtonActive: {
+    opacity: 0.98,
   },
 
 
@@ -2444,25 +2969,27 @@ const styles =
   ======================================================= */
 
   productName: {
-    marginTop: 11,
+    marginTop: 12,
     fontSize: 15,
-    fontWeight: '700',
-    color: '#000000',
+    fontWeight: '800',
+    color: '#24221E',
+    letterSpacing: -0.1,
   },
 
 
   productCategory: {
     marginTop: 5,
     fontSize: 12,
-    color: '#888888',
+    color: '#817B71',
+    fontWeight: '600',
   },
 
 
   outOfStockText: {
     marginTop: 7,
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#D32F2F',
+    fontSize: 11.5,
+    fontWeight: '800',
+    color: '#C94C4C',
   },
 
 
@@ -2471,7 +2998,7 @@ const styles =
   ======================================================= */
 
   productBottom: {
-    marginTop: 9,
+    marginTop: 10,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -2491,7 +3018,7 @@ const styles =
 
   oldPrice: {
     fontSize: 11,
-    color: '#999999',
+    color: '#9A9186',
     textDecorationLine: 'line-through',
     fontWeight: '600',
     marginBottom: 2,
@@ -2499,16 +3026,18 @@ const styles =
 
 
   productPrice: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#000000',
+    fontSize: 17,
+    fontWeight: '900',
+    color: '#171717',
+    letterSpacing: -0.2,
   },
 
 
   loginPrice: {
     fontSize: 11,
-    fontWeight: '600',
-    color: '#1A1A1A',
+    fontWeight: '700',
+    color: '#817B71',
+    lineHeight: 15,
   },
 
 
@@ -2517,17 +3046,17 @@ const styles =
   ======================================================= */
 
   addButton: {
-    width: 31,
-    height: 31,
-    borderRadius: 16,
-    backgroundColor: '#000000',
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    backgroundColor: '#171717',
     alignItems: 'center',
     justifyContent: 'center',
   },
 
 
   addButtonDisabled: {
-    backgroundColor: '#A0A0A0',
+    backgroundColor: '#B8B2A9',
   },
 
 
@@ -2538,22 +3067,44 @@ const styles =
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 80,
+    paddingVertical: 75,
+    paddingHorizontal: 25,
+  },
+
+
+  emptyIconBox: {
+    width: 82,
+    height: 82,
+    borderRadius: 22,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E7DED1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#171717',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
 
 
   emptyTitle: {
-    marginTop: 15,
-    fontSize: 19,
-    fontWeight: '700',
-    color: '#000000',
+    marginTop: 17,
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#171717',
   },
 
 
   emptyText: {
     marginTop: 7,
     fontSize: 13,
-    color: '#888888',
+    lineHeight: 19,
+    color: '#817B71',
     textAlign: 'center',
   },
 

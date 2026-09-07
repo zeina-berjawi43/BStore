@@ -1,4 +1,3 @@
-
 import {
   View,
   Text,
@@ -157,8 +156,8 @@ export default function Login() {
 
             <Ionicons
               name="arrow-back"
-              size={23}
-              color="#000000"
+              size={22}
+              color="#171717"
             />
 
           </Pressable>
@@ -195,7 +194,7 @@ export default function Login() {
 
           <TextInput
             placeholder="Phone Number"
-            placeholderTextColor="#888888"
+            placeholderTextColor="#9A9186"
             value={phone}
             onChangeText={(text) => {
 
@@ -240,11 +239,15 @@ export default function Login() {
             }
           >
 
-            <Ionicons
-              name="chatbubble-ellipses-outline"
-              size={21}
-              color="#D4AF37"
-            />
+            <View style={styles.infoIcon}>
+
+              <Ionicons
+                name="chatbubble-ellipses-outline"
+                size={19}
+                color="#E35B3F"
+              />
+
+            </View>
 
             <Text
               style={
@@ -295,6 +298,7 @@ export default function Login() {
             ) : (
 
               <>
+
                 <Text
                   style={
                     styles.loginText
@@ -308,6 +312,7 @@ export default function Login() {
                   size={18}
                   color="#FFFFFF"
                 />
+
               </>
 
             )}
@@ -355,7 +360,7 @@ export default function Login() {
             <Ionicons
               name="arrow-forward"
               size={17}
-              color="#D4AF37"
+              color="#E35B3F"
             />
 
           </Pressable>
@@ -375,38 +380,73 @@ export default function Login() {
 const styles =
   StyleSheet.create({
 
+    /* =====================================================
+       MAIN
+    ===================================================== */
+
     container: {
       flex: 1,
+
       backgroundColor:
-        '#F7F7F7',
-      paddingTop: 20,
+        '#F7F3EC',
+
+      paddingTop: 18,
     },
 
     scrollContent: {
-      paddingHorizontal: 20,
-      paddingTop: 18,
-      paddingBottom: 40,
+      paddingHorizontal: 18,
+
+      paddingTop: 8,
+
+      paddingBottom: 35,
     },
+
+
+    /* =====================================================
+       HEADER
+    ===================================================== */
 
     header: {
       flexDirection: 'row',
+
       alignItems: 'center',
-      marginBottom: 25,
+
+      marginBottom: 20,
     },
 
     backButton: {
-      width: 42,
-      height: 42,
-      borderRadius: 21,
+      width: 46,
+      height: 46,
+
+      borderRadius: 16,
+
       backgroundColor:
         '#FFFFFF',
+
       borderWidth: 1,
+
       borderColor:
-        '#E0E0E0',
+        '#E7DED1',
+
       alignItems: 'center',
-      justifyContent:
-        'center',
+
+      justifyContent: 'center',
+
       marginRight: 12,
+
+      shadowColor:
+        '#171717',
+
+      shadowOffset: {
+        width: 0,
+        height: 4,
+      },
+
+      shadowOpacity: 0.07,
+
+      shadowRadius: 8,
+
+      elevation: 3,
     },
 
     headerText: {
@@ -414,159 +454,327 @@ const styles =
     },
 
     title: {
-      fontSize: 28,
-      fontWeight: '800',
-      color: '#000000',
+      fontSize: 29,
+
+      fontWeight: '900',
+
+      color:
+        '#171717',
+
+      letterSpacing: -0.8,
     },
 
     subtitle: {
       marginTop: 4,
+
       fontSize: 13,
-      color: '#888888',
+
+      color:
+        '#817B71',
+
+      lineHeight: 18,
+
+      fontWeight: '500',
     },
+
+
+    /* =====================================================
+       CARD
+    ===================================================== */
 
     card: {
       backgroundColor:
         '#FFFFFF',
-      borderRadius: 18,
+
+      borderRadius: 21,
+
       borderWidth: 1,
+
       borderColor:
-        '#E0E0E0',
-      padding: 18,
+        '#E7DED1',
+
+      padding: 19,
+
+      shadowColor:
+        '#171717',
+
+      shadowOffset: {
+        width: 0,
+        height: 6,
+      },
+
+      shadowOpacity: 0.08,
+
+      shadowRadius: 11,
+
+      elevation: 3,
     },
 
+
+    /* =====================================================
+       FORM
+    ===================================================== */
+
     label: {
-      marginBottom: 7,
+      marginBottom: 8,
+
+      marginTop: 1,
+
       fontSize: 14,
-      fontWeight: '700',
-      color: '#1A1A1A',
+
+      fontWeight: '800',
+
+      color:
+        '#24221E',
     },
 
     input: {
-      height: 52,
+      height: 54,
+
       backgroundColor:
-        '#F7F7F7',
-      borderRadius: 14,
+        '#F8F2EA',
+
+      borderRadius: 15,
+
       paddingHorizontal: 16,
+
       fontSize: 15,
+
       borderWidth: 1,
+
       borderColor:
-        '#E0E0E0',
+        '#E6DED2',
+
       marginBottom: 7,
-      color: '#000000',
+
+      color:
+        '#171717',
+
+      fontWeight: '500',
     },
 
     inputError: {
       borderColor:
         '#D93025',
+
+      backgroundColor:
+        '#FFF7F3',
     },
 
     errorText: {
       color:
         '#D93025',
+
       fontSize: 12,
-      marginBottom: 14,
+
+      marginBottom: 13,
+
       marginLeft: 4,
-      fontWeight: '500',
+
+      fontWeight: '600',
     },
 
     generalError: {
       color:
         '#D93025',
+
       fontSize: 12,
+
       marginTop: 10,
+
       marginBottom: 10,
+
       marginLeft: 4,
-      fontWeight: '500',
+
+      fontWeight: '600',
     },
 
+
+    /* =====================================================
+       INFO BOX
+    ===================================================== */
+
     infoBox: {
-      flexDirection:
-        'row',
-      alignItems:
-        'center',
+      flexDirection: 'row',
+
+      alignItems: 'center',
+
       backgroundColor:
-        '#FFFBEF',
-      borderRadius: 12,
+        '#FFF7F3',
+
+      borderRadius: 15,
+
       borderWidth: 1,
+
       borderColor:
-        '#E8D89B',
-      padding: 12,
-      marginTop: 8,
-      gap: 9,
+        '#F0CFC4',
+
+      paddingVertical: 11,
+
+      paddingHorizontal: 12,
+
+      marginTop: 9,
+
+      gap: 10,
+    },
+
+    infoIcon: {
+      width: 34,
+
+      height: 34,
+
+      borderRadius: 11,
+
+      backgroundColor:
+        '#FFFFFF',
+
+      borderWidth: 1,
+
+      borderColor:
+        '#F0CFC4',
+
+      alignItems: 'center',
+
+      justifyContent: 'center',
     },
 
     infoText: {
       flex: 1,
+
       fontSize: 12,
+
       lineHeight: 18,
+
       color:
-        '#555555',
+        '#777168',
+
+      fontWeight: '500',
     },
 
+
+    /* =====================================================
+       LOGIN BUTTON
+    ===================================================== */
+
     loginButton: {
-      marginTop: 18,
+      marginTop: 20,
+
       backgroundColor:
-        '#D4AF37',
-      paddingVertical: 14,
-      borderRadius: 25,
-      alignItems:
-        'center',
-      justifyContent:
-        'center',
-      flexDirection:
-        'row',
+        '#E35B3F',
+
+      minHeight: 53,
+
+      borderRadius: 16,
+
+      alignItems: 'center',
+
+      justifyContent: 'center',
+
+      flexDirection: 'row',
+
       gap: 8,
-      minHeight: 50,
+
+      shadowColor:
+        '#E35B3F',
+
+      shadowOffset: {
+        width: 0,
+        height: 4,
+      },
+
+      shadowOpacity: 0.18,
+
+      shadowRadius: 8,
+
+      elevation: 3,
     },
 
     disabledButton: {
-      opacity: 0.7,
+      opacity: 0.55,
+
+      shadowOpacity: 0,
+
+      elevation: 0,
     },
 
     loginText: {
       color:
         '#FFFFFF',
-      fontSize: 16,
-      fontWeight: '800',
+
+      fontSize: 15,
+
+      fontWeight: '900',
+
+      letterSpacing: 0.1,
     },
 
+
+    /* =====================================================
+       REGISTER
+    ===================================================== */
+
     registerSection: {
-      marginTop: 25,
-      alignItems:
-        'center',
+      marginTop: 24,
+
+      alignItems: 'center',
     },
 
     registerQuestion: {
       fontSize: 13,
+
       color:
-        '#888888',
-      marginBottom: 8,
+        '#817B71',
+
+      marginBottom: 9,
+
+      fontWeight: '500',
     },
 
     registerButton: {
       backgroundColor:
         '#FFFFFF',
+
       borderWidth: 1,
+
       borderColor:
-        '#E0E0E0',
-      borderRadius: 22,
-      paddingVertical: 11,
-      paddingHorizontal: 18,
-      flexDirection:
-        'row',
-      alignItems:
-        'center',
-      justifyContent:
-        'center',
-      gap: 6,
+        '#E7DED1',
+
+      borderRadius: 16,
+
+      paddingVertical: 12,
+
+      paddingHorizontal: 20,
+
+      flexDirection: 'row',
+
+      alignItems: 'center',
+
+      justifyContent: 'center',
+
+      gap: 7,
+
+      shadowColor:
+        '#171717',
+
+      shadowOffset: {
+        width: 0,
+        height: 3,
+      },
+
+      shadowOpacity: 0.06,
+
+      shadowRadius: 7,
+
+      elevation: 2,
     },
 
     registerText: {
       color:
-        '#000000',
+        '#171717',
+
       fontSize: 14,
-      fontWeight: '700',
+
+      fontWeight: '800',
     },
 
   });

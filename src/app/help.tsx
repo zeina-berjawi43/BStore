@@ -11,7 +11,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 
 export default function Help() {
-
   return (
     <View style={styles.container}>
 
@@ -30,13 +29,11 @@ export default function Help() {
             style={styles.backButton}
             onPress={() => router.back()}
           >
-
             <Ionicons
               name="arrow-back"
-              size={23}
-              color="#000000"
+              size={22}
+              color="#171717"
             />
-
           </Pressable>
 
 
@@ -62,13 +59,11 @@ export default function Help() {
         <View style={styles.introCard}>
 
           <View style={styles.introIcon}>
-
             <Ionicons
               name="help-circle-outline"
-              size={28}
-              color="#D4AF37"
+              size={25}
+              color="#E35B3F"
             />
-
           </View>
 
 
@@ -93,9 +88,13 @@ export default function Help() {
             FREQUENTLY ASKED QUESTIONS
         ==================================================== */}
 
-        <Text style={styles.sectionTitle}>
-          Frequently Asked Questions
-        </Text>
+        <View style={styles.sectionHeader}>
+          <View style={styles.sectionAccent} />
+
+          <Text style={styles.sectionTitle}>
+            Frequently Asked Questions
+          </Text>
+        </View>
 
 
         <View style={styles.card}>
@@ -105,13 +104,11 @@ export default function Help() {
           <View style={styles.faqRow}>
 
             <View style={styles.faqIcon}>
-
               <Ionicons
                 name="bag-handle-outline"
                 size={21}
-                color="#D4AF37"
+                color="#E35B3F"
               />
-
             </View>
 
 
@@ -140,13 +137,11 @@ export default function Help() {
           <View style={styles.faqRow}>
 
             <View style={styles.faqIcon}>
-
               <Ionicons
                 name="cart-outline"
                 size={21}
-                color="#D4AF37"
+                color="#E35B3F"
               />
-
             </View>
 
 
@@ -175,13 +170,11 @@ export default function Help() {
           <View style={styles.faqRow}>
 
             <View style={styles.faqIcon}>
-
               <Ionicons
                 name="car-outline"
                 size={21}
-                color="#D4AF37"
+                color="#E35B3F"
               />
-
             </View>
 
 
@@ -210,13 +203,11 @@ export default function Help() {
           <View style={styles.faqRow}>
 
             <View style={styles.faqIcon}>
-
               <Ionicons
                 name="card-outline"
                 size={21}
-                color="#D4AF37"
+                color="#E35B3F"
               />
-
             </View>
 
 
@@ -242,9 +233,15 @@ export default function Help() {
             VERSION
         ==================================================== */}
 
-        <Text style={styles.version}>
-          BStore v1.0.0
-        </Text>
+        <View style={styles.versionContainer}>
+
+          <View style={styles.versionDot} />
+
+          <Text style={styles.version}>
+            BStore v1.0.0
+          </Text>
+
+        </View>
 
       </ScrollView>
 
@@ -265,15 +262,15 @@ const styles = StyleSheet.create({
 
   container: {
     flex: 1,
-    backgroundColor: '#F7F7F7',
-    paddingTop: 20,
+    backgroundColor: '#F7F3EC',
+    paddingTop:20,
   },
 
 
   scrollContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
     paddingTop: 18,
-    paddingBottom: 40,
+    paddingBottom: 45,
   },
 
 
@@ -284,20 +281,29 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 22,
+    marginBottom: 20,
   },
 
 
   backButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 46,
+    height: 46,
+    borderRadius: 16,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#E7DED1',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
+
+    shadowColor: '#171717',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.07,
+    shadowRadius: 8,
+    elevation: 2,
   },
 
 
@@ -306,17 +312,28 @@ const styles = StyleSheet.create({
   },
 
 
+  smallTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#817B71',
+    marginBottom: 2,
+    letterSpacing: 0.2,
+  },
+
+
   title: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#000000',
+    fontSize: 29,
+    fontWeight: '900',
+    color: '#171717',
+    letterSpacing: -0.8,
   },
 
 
   subtitle: {
-    marginTop: 4,
+    marginTop: 3,
     fontSize: 13,
-    color: '#888888',
+    fontWeight: '500',
+    color: '#817B71',
   },
 
 
@@ -326,23 +343,32 @@ const styles = StyleSheet.create({
 
   introCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 18,
+    borderRadius: 21,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#E7DED1',
     padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 25,
+    marginBottom: 24,
+
+    shadowColor: '#171717',
+    shadowOffset: {
+      width: 0,
+      height: 5,
+    },
+    shadowOpacity: 0.07,
+    shadowRadius: 9,
+    elevation: 2,
   },
 
 
   introIcon: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#F7F7F7',
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: '#FFF7F3',
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#F0CFC4',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -355,17 +381,19 @@ const styles = StyleSheet.create({
 
 
   introTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#000000',
+    fontSize: 17,
+    fontWeight: '900',
+    color: '#171717',
+    letterSpacing: -0.2,
   },
 
 
   introText: {
     marginTop: 5,
-    fontSize: 12,
+    fontSize: 12.5,
     lineHeight: 18,
-    color: '#777777',
+    fontWeight: '500',
+    color: '#817B71',
   },
 
 
@@ -373,46 +401,73 @@ const styles = StyleSheet.create({
      SECTION
   ========================================================== */
 
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 11,
+    paddingLeft: 2,
+  },
+
+
+  sectionAccent: {
+    width: 4,
+    height: 21,
+    borderRadius: 2,
+    backgroundColor: '#E35B3F',
+    marginRight: 9,
+  },
+
+
   sectionTitle: {
-    marginBottom: 10,
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1A1A1A',
+    flex: 1,
+    fontSize: 19,
+    fontWeight: '900',
+    color: '#171717',
+    letterSpacing: -0.3,
   },
 
 
   /* ==========================================================
-     CARD
+     FAQ CARD
   ========================================================== */
 
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 18,
+    borderRadius: 21,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#E7DED1',
     overflow: 'hidden',
-    marginBottom: 25,
+    marginBottom: 10,
+
+    shadowColor: '#171717',
+    shadowOffset: {
+      width: 0,
+      height: 5,
+    },
+    shadowOpacity: 0.07,
+    shadowRadius: 9,
+    elevation: 2,
   },
 
 
   /* ==========================================================
-     FAQ
+     FAQ ROW
   ========================================================== */
 
   faqRow: {
-    padding: 15,
+    padding: 16,
     flexDirection: 'row',
     alignItems: 'flex-start',
   },
 
 
   faqIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: '#F7F7F7',
+    width: 46,
+    height: 46,
+    borderRadius: 15,
+    backgroundColor: '#FFF7F3',
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#F0CFC4',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -420,29 +475,32 @@ const styles = StyleSheet.create({
 
   faqText: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: 13,
+    paddingTop: 1,
   },
 
 
   faqTitle: {
     fontSize: 14,
-    fontWeight: '700',
-    color: '#1A1A1A',
+    lineHeight: 19,
+    fontWeight: '800',
+    color: '#24221E',
   },
 
 
   faqAnswer: {
-    marginTop: 5,
+    marginTop: 6,
     fontSize: 12,
     lineHeight: 18,
-    color: '#888888',
+    fontWeight: '500',
+    color: '#817B71',
   },
 
 
   divider: {
     height: 1,
-    backgroundColor: '#E0E0E0',
-    marginLeft: 69,
+    backgroundColor: '#EEE4D7',
+    marginLeft: 75,
   },
 
 
@@ -450,11 +508,28 @@ const styles = StyleSheet.create({
      VERSION
   ========================================================== */
 
+  versionContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 22,
+  },
+
+
+  versionDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#E35B3F',
+    marginRight: 7,
+  },
+
+
   version: {
-    textAlign: 'center',
-    marginTop: 25,
     fontSize: 12,
-    color: '#AAAAAA',
+    fontWeight: '600',
+    color: '#9A9186',
   },
 
 });
+

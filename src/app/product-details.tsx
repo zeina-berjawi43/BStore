@@ -414,7 +414,23 @@ export default function ProductDetails() {
 
 
   /* =======================================================
-     ALERT
+     FAVORITE STATE
+  ======================================================= */
+
+  const [
+    isFavorite,
+    setIsFavorite,
+  ] = useState(false);
+
+
+  const [
+    updatingFavorite,
+    setUpdatingFavorite,
+  ] = useState(false);
+
+
+  /* =======================================================
+     CART / STOCK ALERT
   ======================================================= */
 
   const [
@@ -442,7 +458,35 @@ export default function ProductDetails() {
 
 
   /* =======================================================
-     SHOW ALERT
+     FAVORITE ALERT
+  ======================================================= */
+
+  const [
+    favoriteAlertVisible,
+    setFavoriteAlertVisible,
+  ] = useState(false);
+
+
+  const [
+    favoriteAlertType,
+    setFavoriteAlertType,
+  ] = useState<'added' | 'removed'>('added');
+
+
+  const favoriteAlertOpacity =
+    useRef(
+      new Animated.Value(0)
+    ).current;
+
+
+  const favoriteAlertTranslateY =
+    useRef(
+      new Animated.Value(-40)
+    ).current;
+
+
+  /* =======================================================
+     SHOW CART / STOCK ALERT
   ======================================================= */
 
   const showAlert = (
@@ -518,6 +562,93 @@ export default function ProductDetails() {
       ]).start(() => {
 
         setAlertVisible(
+          false
+        );
+
+      });
+
+    }, 2200);
+
+  };
+
+
+  /* =======================================================
+     SHOW FAVORITE ALERT
+  ======================================================= */
+
+  const showFavoriteAlert = (
+    type: 'added' | 'removed'
+  ) => {
+
+    setFavoriteAlertType(
+      type
+    );
+
+
+    setFavoriteAlertVisible(
+      true
+    );
+
+
+    favoriteAlertOpacity.setValue(
+      0
+    );
+
+
+    favoriteAlertTranslateY.setValue(
+      -40
+    );
+
+
+    Animated.parallel([
+
+      Animated.timing(
+        favoriteAlertOpacity,
+        {
+          toValue: 1,
+          duration: 220,
+          useNativeDriver: true,
+        }
+      ),
+
+      Animated.spring(
+        favoriteAlertTranslateY,
+        {
+          toValue: 0,
+          friction: 7,
+          tension: 70,
+          useNativeDriver: true,
+        }
+      ),
+
+    ]).start();
+
+
+    setTimeout(() => {
+
+      Animated.parallel([
+
+        Animated.timing(
+          favoriteAlertOpacity,
+          {
+            toValue: 0,
+            duration: 220,
+            useNativeDriver: true,
+          }
+        ),
+
+        Animated.timing(
+          favoriteAlertTranslateY,
+          {
+            toValue: -25,
+            duration: 220,
+            useNativeDriver: true,
+          }
+        ),
+
+      ]).start(() => {
+
+        setFavoriteAlertVisible(
           false
         );
 
@@ -744,6 +875,134 @@ export default function ProductDetails() {
 
 
   /* =======================================================
+     LOAD FAVORITE STATUS
+  ======================================================= */
+
+  const loadFavoriteStatus = async () => {
+
+    if (!productId) {
+
+      setIsFavorite(
+        false
+      );
+
+      return;
+
+    }
+
+
+    try {
+
+      const accessToken =
+        await AsyncStorage.getItem(
+          'accessToken'
+        );
+
+
+      if (!accessToken) {
+
+        setIsFavorite(
+          false
+        );
+
+        return;
+
+      }
+
+
+      const response =
+        await fetch(
+          `${API_URL}/favorites`,
+          {
+            method: 'GET',
+
+            headers: {
+              Accept:
+                'application/json',
+
+              Authorization:
+                `Bearer ${accessToken}`,
+            },
+          }
+        );
+
+
+      if (!response.ok) {
+
+        if (
+          response.status === 401 ||
+          response.status === 403
+        ) {
+
+          setIsFavorite(
+            false
+          );
+
+        }
+
+        return;
+
+      }
+
+
+      const data =
+        await response.json();
+
+
+      const favorites =
+        Array.isArray(
+          data?.favorites
+        )
+          ? data.favorites
+          : [];
+
+
+      const favoriteExists =
+        favorites.some(
+          (item: any) => {
+
+            const favoriteProduct =
+              item?.product ||
+              item?.productId ||
+              item;
+
+
+            const favoriteId =
+              typeof favoriteProduct === 'string'
+                ? favoriteProduct
+                : favoriteProduct?._id;
+
+
+            return (
+              String(
+                favoriteId || ''
+              ) ===
+              String(
+                productId
+              )
+            );
+
+          }
+        );
+
+
+      setIsFavorite(
+        favoriteExists
+      );
+
+    } catch (error) {
+
+      console.log(
+        'LOAD FAVORITE STATUS ERROR:',
+        error
+      );
+
+    }
+
+  };
+
+
+  /* =======================================================
      PAGE FOCUS
   ======================================================= */
 
@@ -752,8 +1011,241 @@ export default function ProductDetails() {
 
       loadProduct();
 
+      loadFavoriteStatus();
+
     }, [productId])
   );
+
+
+  /* =======================================================
+     TOGGLE FAVORITE
+     
+     IMPORTANT:
+     The heart changes IMMEDIATELY.
+     The API request runs in the background.
+  ======================================================= */
+
+  const toggleFavorite = () => {
+
+    if (updatingFavorite) {
+      return;
+    }
+
+
+    if (!isLoggedIn) {
+
+      router.push(
+        '/login'
+      );
+
+      return;
+
+    }
+
+
+    if (!product) {
+      return;
+    }
+
+
+    const previousFavorite =
+      isFavorite;
+
+
+    const nextFavorite =
+      !previousFavorite;
+
+
+    /*
+     * =====================================================
+     * OPTIMISTIC UI
+     *
+     * Change the heart immediately.
+     * =====================================================
+     */
+
+    setIsFavorite(
+      nextFavorite
+    );
+
+
+    setUpdatingFavorite(
+      true
+    );
+
+
+    /*
+     * =====================================================
+     * BACKGROUND API REQUEST
+     * =====================================================
+     */
+
+    (async () => {
+
+      try {
+
+        const accessToken =
+          await AsyncStorage.getItem(
+            'accessToken'
+          );
+
+
+        if (!accessToken) {
+
+          setIsFavorite(
+            previousFavorite
+          );
+
+
+          setIsLoggedIn(
+            false
+          );
+
+
+          router.push(
+            '/login'
+          );
+
+
+          return;
+
+        }
+
+
+        const endpoint =
+          nextFavorite
+            ? `${API_URL}/favorites/add`
+            : `${API_URL}/favorites/remove`;
+
+
+        const method =
+          nextFavorite
+            ? 'POST'
+            : 'DELETE';
+
+
+        const response =
+          await fetch(
+            endpoint,
+            {
+
+              method,
+
+              headers: {
+
+                Accept:
+                  'application/json',
+
+                'Content-Type':
+                  'application/json',
+
+                Authorization:
+                  `Bearer ${accessToken}`,
+
+              },
+
+              body:
+                JSON.stringify({
+
+                  productId:
+                    product._id,
+
+                }),
+
+            }
+          );
+
+
+        const data =
+          await response.json()
+            .catch(() => null);
+
+
+        if (!response.ok) {
+
+          console.log(
+
+            nextFavorite
+              ? 'ADD FAVORITE ERROR:'
+              : 'REMOVE FAVORITE ERROR:',
+
+            data?.message ||
+              'Unable to update favorite.'
+
+          );
+
+
+          /*
+           * =================================================
+           * ROLLBACK
+           * =================================================
+           */
+
+          setIsFavorite(
+            previousFavorite
+          );
+
+
+          if (
+            response.status === 401 ||
+            response.status === 403
+          ) {
+
+            setIsLoggedIn(
+              false
+            );
+
+          }
+
+
+          return;
+
+        }
+
+
+        /*
+         * =================================================
+         * SUCCESS
+         *
+         * Show a beautiful confirmation alert only
+         * after the server confirms the action.
+         * =================================================
+         */
+
+        showFavoriteAlert(
+          nextFavorite
+            ? 'added'
+            : 'removed'
+        );
+
+      } catch (error) {
+
+        console.log(
+          'TOGGLE FAVORITE ERROR:',
+          error
+        );
+
+
+        /*
+         * Request failed completely.
+         * Roll back the heart.
+         */
+
+        setIsFavorite(
+          previousFavorite
+        );
+
+      } finally {
+
+        setUpdatingFavorite(
+          false
+        );
+
+      }
+
+    })();
+
+  };
 
 
   /* =======================================================
@@ -896,10 +1388,37 @@ export default function ProductDetails() {
 
 
   /* =======================================================
-     GO HOME
+     GO BACK
+     
+     IMPORTANT:
+     Return to the screen that opened Product Details.
+     
+     Home:
+       Home → Product Details → Back → Home
+     
+     Category:
+       Category Products → Product Details → Back
+       → Category Products
   ======================================================= */
 
   const goBackHome = () => {
+
+    if (router.canGoBack()) {
+
+      router.back();
+
+      return;
+
+    }
+
+
+    /*
+     * -------------------------------------------------------
+     * Fallback:
+     * If Product Details was opened without a previous
+     * screen in the navigation stack, return to Home.
+     * -------------------------------------------------------
+     */
 
     router.replace(
       '/'
@@ -939,11 +1458,19 @@ export default function ProductDetails() {
         }
       >
 
-        <Ionicons
-          name="cube-outline"
-          size={65}
-          color="#D4AF37"
-        />
+        <View
+          style={
+            styles.errorIconContainer
+          }
+        >
+
+          <Ionicons
+            name="cube-outline"
+            size={58}
+            color="#E35B3F"
+          />
+
+        </View>
 
 
         <Text
@@ -964,6 +1491,13 @@ export default function ProductDetails() {
             goBackHome
           }
         >
+
+          <Ionicons
+            name="arrow-back"
+            size={18}
+            color="#FFFFFF"
+          />
+
 
           <Text
             style={
@@ -1060,7 +1594,7 @@ export default function ProductDetails() {
     >
 
       {/* =================================================
-          ALERT
+          CART / STOCK ALERT
       ================================================= */}
 
       {alertVisible && (
@@ -1130,11 +1664,125 @@ export default function ProductDetails() {
           </View>
 
 
-          <Ionicons
-            name="cart-outline"
-            size={21}
-            color="#4CAF50"
-          />
+          <View
+            style={
+              styles.productAlertCart
+            }
+          >
+
+            <Ionicons
+              name="cart-outline"
+              size={21}
+              color="#E35B3F"
+            />
+
+          </View>
+
+        </Animated.View>
+
+      )}
+
+
+      {/* =================================================
+          FAVORITE ALERT
+      ================================================= */}
+
+      {favoriteAlertVisible && (
+
+        <Animated.View
+          style={[
+            styles.favoriteAlert,
+
+            {
+              opacity:
+                favoriteAlertOpacity,
+
+              transform: [
+
+                {
+                  translateY:
+                    favoriteAlertTranslateY,
+                },
+
+              ],
+
+            },
+
+          ]}
+        >
+
+          <View
+            style={
+              styles.favoriteAlertIcon
+            }
+          >
+
+            <Ionicons
+              name={
+                favoriteAlertType === 'added'
+                  ? 'heart'
+                  : 'heart-outline'
+              }
+
+              size={21}
+
+              color="#FFFFFF"
+            />
+
+          </View>
+
+
+          <View
+            style={
+              styles.favoriteAlertContent
+            }
+          >
+
+            <Text
+              style={
+                styles.favoriteAlertTitle
+              }
+            >
+              {favoriteAlertType === 'added'
+                ? 'Added to Favorites'
+                : 'Removed from Favorites'}
+            </Text>
+
+
+            <Text
+              style={
+                styles.favoriteAlertMessage
+              }
+
+              numberOfLines={2}
+            >
+              {favoriteAlertType === 'added'
+                ? 'Product has been added to your favorites.'
+                : 'Product has been removed from your favorites.'}
+            </Text>
+
+          </View>
+
+
+          <View
+            style={
+              styles.favoriteAlertBadge
+            }
+          >
+
+            <Ionicons
+              name={
+                favoriteAlertType === 'added'
+                  ? 'heart'
+                  : 'heart-outline'
+              }
+
+              size={19}
+
+              color="#E35B3F"
+            />
+
+          </View>
 
         </Animated.View>
 
@@ -1174,7 +1822,7 @@ export default function ProductDetails() {
             <Ionicons
               name="arrow-back"
               size={23}
-              color="#000000"
+              color="#171717"
             />
 
           </Pressable>
@@ -1194,7 +1842,7 @@ export default function ProductDetails() {
 
 
         {/* =================================================
-            IMAGE
+            IMAGE CARD
         ================================================= */}
 
         <View
@@ -1202,6 +1850,47 @@ export default function ProductDetails() {
             styles.image
           }
         >
+
+          {/* =================================================
+              FAVORITE BUTTON
+          ================================================= */}
+
+          <Pressable
+            style={
+              styles.favoriteButton
+            }
+
+            onPress={
+              toggleFavorite
+            }
+
+            disabled={
+              updatingFavorite
+            }
+          >
+
+            <Ionicons
+              name={
+                isFavorite
+                  ? 'heart'
+                  : 'heart-outline'
+              }
+
+              size={
+                isFavorite
+                  ? 22
+                  : 21
+              }
+
+              color={
+                isFavorite
+                  ? '#E35B3F'
+                  : '#171717'
+              }
+            />
+
+          </Pressable>
+
 
           {imageUrl ? (
 
@@ -1226,11 +1915,19 @@ export default function ProductDetails() {
               }
             >
 
-              <Ionicons
-                name="cube-outline"
-                size={80}
-                color="#D4AF37"
-              />
+              <View
+                style={
+                  styles.placeholderIcon
+                }
+              >
+
+                <Ionicons
+                  name="cube-outline"
+                  size={55}
+                  color="#E35B3F"
+                />
+
+              </View>
 
 
               <Text
@@ -1393,7 +2090,7 @@ export default function ProductDetails() {
 
               <Text
                 style={
-                  styles.price
+                  styles.priceUnavailable
                 }
               >
                 Price unavailable
@@ -1404,12 +2101,23 @@ export default function ProductDetails() {
           ) : (
 
             <Pressable
+              style={
+                styles.signInContainer
+              }
+
               onPress={() =>
                 router.push(
                   '/login'
                 )
               }
             >
+
+              <Ionicons
+                name="lock-closed-outline"
+                size={16}
+                color="#E35B3F"
+              />
+
 
               <Text
                 style={
@@ -1471,13 +2179,28 @@ export default function ProductDetails() {
               DESCRIPTION
           ================================================= */}
 
-          <Text
+          <View
             style={
-              styles.descriptionTitle
+              styles.descriptionHeader
             }
           >
-            Description
-          </Text>
+
+            <View
+              style={
+                styles.descriptionAccent
+              }
+            />
+
+
+            <Text
+              style={
+                styles.descriptionTitle
+              }
+            >
+              Description
+            </Text>
+
+          </View>
 
 
           <Text
@@ -1560,380 +2283,1319 @@ export default function ProductDetails() {
 const styles =
   StyleSheet.create({
 
-  /* =======================================================
-     MAIN
-  ======================================================= */
+    // ===================================================
+    // MAIN
+    // ===================================================
 
-  container: {
-    flex: 1,
-    backgroundColor: '#F7F7F7',
-    paddingTop: 20,
-  },
+    container: {
 
+      flex: 1,
 
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 18,
-    paddingBottom: 35,
-  },
+      paddingTop:
+        20,
 
+      backgroundColor:
+        '#F7F3EC',
 
-  /* =======================================================
-     ERROR
-  ======================================================= */
-
-  errorContainer: {
-    flex: 1,
-    backgroundColor: '#F7F7F7',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 30,
-  },
-
-
-  errorTitle: {
-    marginTop: 15,
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#000000',
-  },
-
-
-  backHomeButton: {
-    marginTop: 20,
-    backgroundColor: '#000000',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 12,
-  },
-
-
-  backHomeText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-
-
-  /* =======================================================
-     HEADER
-  ======================================================= */
-
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-
-
-  backButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-
-
-  headerTitle: {
-    flex: 1,
-    fontSize: 25,
-    fontWeight: '800',
-    color: '#000000',
-  },
-
-
-  /* =======================================================
-     IMAGE
-  ======================================================= */
-
-  image: {
-    height: 310,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-
-
-  productImage: {
-    width: '90%',
-    height: '90%',
-  },
-
-
-  imagePlaceholder: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-
-  imageText: {
-    marginTop: 10,
-    color: '#AAAAAA',
-    fontSize: 13,
-  },
-
-
-  /* =======================================================
-     INFO CARD
-  ======================================================= */
-
-  infoCard: {
-    marginTop: 18,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    padding: 20,
-  },
-
-
-  name: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: '#000000',
-  },
-
-
-  categoryBadge: {
-    alignSelf: 'flex-start',
-    marginTop: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: '#F7F7F7',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-
-
-  categoryText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#555555',
-  },
-
-
-  productBrand: {
-    marginTop: 7,
-    fontSize: 13,
-    color: '#D4AF37',
-    fontWeight: '700',
-  },
-
-
-  /* =======================================================
-     PRICE
-  ======================================================= */
-
-  priceSection: {
-    marginTop: 15,
-  },
-
-
-  price: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#000000',
-  },
-
-
-  discountRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 9,
-  },
-
-
-  oldPrice: {
-    fontSize: 15,
-    color: '#999999',
-    textDecorationLine: 'line-through',
-    fontWeight: '600',
-  },
-
-
-  discountBadge: {
-    backgroundColor: '#FDECEC',
-    borderWidth: 1,
-    borderColor: '#F3C2C2',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-
-
-  discountText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#C62828',
-  },
-
-
-  discountedPrice: {
-    marginTop: 4,
-    fontSize: 25,
-    fontWeight: '900',
-    color: '#000000',
-  },
-
-
-  signInText: {
-    marginTop: 15,
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#D4AF37',
-  },
-
-
-  /* =======================================================
-     OUT OF STOCK
-  ======================================================= */
-
-  outOfStockBadge: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 12,
-    paddingHorizontal: 11,
-    paddingVertical: 7,
-    borderRadius: 10,
-    backgroundColor: '#FDECEC',
-    borderWidth: 1,
-    borderColor: '#F3C2C2',
-    gap: 6,
-  },
-
-
-  outOfStockText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#C62828',
-  },
-
-
-  /* =======================================================
-     DESCRIPTION
-  ======================================================= */
-
-  divider: {
-    height: 1,
-    backgroundColor: '#E0E0E0',
-    marginTop: 20,
-    marginBottom: 18,
-  },
-
-
-  descriptionTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#000000',
-    marginBottom: 8,
-  },
-
-
-  description: {
-    fontSize: 14,
-    lineHeight: 22,
-    color: '#777777',
-  },
-
-
-  /* =======================================================
-     CART
-  ======================================================= */
-
-  cartButton: {
-    marginTop: 24,
-    backgroundColor: '#000000',
-    minHeight: 52,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 8,
-  },
-
-
-  cartButtonDisabled: {
-    backgroundColor: '#A0A0A0',
-  },
-
-
-  cartButtonText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-
-
-  /* =======================================================
-     ALERT
-  ======================================================= */
-
-  productAlert: {
-    position: 'absolute',
-    top: 55,
-    left: 18,
-    right: 18,
-    zIndex: 9999,
-    minHeight: 68,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    paddingVertical: 11,
-    paddingHorizontal: 13,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
-    shadowColor: '#000000',
-    shadowOffset: {
-      width: 0,
-      height: 6,
     },
-    shadowOpacity: 0.15,
-    shadowRadius: 14,
-    elevation: 10,
-  },
 
 
-  productAlertIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: '#4CAF50',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+    scrollContent: {
+
+      paddingHorizontal:
+        18,
+
+      paddingTop:
+        18,
+
+      paddingBottom:
+        40,
+
+    },
 
 
-  productAlertContent: {
-    flex: 1,
-    marginLeft: 12,
-    marginRight: 10,
-  },
+    // ===================================================
+    // ERROR
+    // ===================================================
+
+    errorContainer: {
+
+      flex: 1,
+
+      backgroundColor:
+        '#F7F3EC',
+
+      alignItems:
+        'center',
+
+      justifyContent:
+        'center',
+
+      paddingHorizontal:
+        30,
+
+    },
 
 
-  productAlertTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#1A1A1A',
-    marginBottom: 3,
-  },
+    errorIconContainer: {
+
+      width:
+        92,
+
+      height:
+        92,
+
+      borderRadius:
+        24,
+
+      backgroundColor:
+        '#FFF7F3',
+
+      borderWidth:
+        1,
+
+      borderColor:
+        '#F0CFC4',
+
+      alignItems:
+        'center',
+
+      justifyContent:
+        'center',
+
+      shadowColor:
+        '#171717',
+
+      shadowOffset: {
+        width: 0,
+        height: 5,
+      },
+
+      shadowOpacity:
+        0.07,
+
+      shadowRadius:
+        9,
+
+      elevation:
+        2,
+
+    },
 
 
-  productAlertMessage: {
-    fontSize: 11.5,
-    color: '#777777',
-    lineHeight: 16,
-  },
+    errorTitle: {
 
-});
+      marginTop:
+        16,
+
+      fontSize:
+        21,
+
+      fontWeight:
+        '900',
+
+      color:
+        '#171717',
+
+    },
+
+
+    backHomeButton: {
+
+      marginTop:
+        20,
+
+      minHeight:
+        50,
+
+      paddingHorizontal:
+        22,
+
+      borderRadius:
+        16,
+
+      backgroundColor:
+        '#171717',
+
+      flexDirection:
+        'row',
+
+      alignItems:
+        'center',
+
+      justifyContent:
+        'center',
+
+      gap:
+        8,
+
+      shadowColor:
+        '#171717',
+
+      shadowOffset: {
+        width: 0,
+        height: 5,
+      },
+
+      shadowOpacity:
+        0.14,
+
+      shadowRadius:
+        8,
+
+      elevation:
+        3,
+
+    },
+
+
+    backHomeText: {
+
+      color:
+        '#FFFFFF',
+
+      fontSize:
+        13,
+
+      fontWeight:
+        '800',
+
+    },
+
+
+    // ===================================================
+    // HEADER
+    // ===================================================
+
+    header: {
+
+      flexDirection:
+        'row',
+
+      alignItems:
+        'center',
+
+      marginBottom:
+        18,
+
+    },
+
+
+    backButton: {
+
+      width:
+        46,
+
+      height:
+        46,
+
+      borderRadius:
+        16,
+
+      backgroundColor:
+        '#FFFFFF',
+
+      borderWidth:
+        1,
+
+      borderColor:
+        '#E7DED1',
+
+      alignItems:
+        'center',
+
+      justifyContent:
+        'center',
+
+      marginRight:
+        13,
+
+      shadowColor:
+        '#171717',
+
+      shadowOffset: {
+        width: 0,
+        height: 4,
+      },
+
+      shadowOpacity:
+        0.06,
+
+      shadowRadius:
+        8,
+
+      elevation:
+        2,
+
+    },
+
+
+    headerTitle: {
+
+      flex: 1,
+
+      fontSize:
+        29,
+
+      fontWeight:
+        '900',
+
+      color:
+        '#171717',
+
+      letterSpacing:
+        -0.7,
+
+    },
+
+
+    // ===================================================
+    // IMAGE
+    // ===================================================
+
+    image: {
+
+      height:
+        320,
+
+      backgroundColor:
+        '#FFFFFF',
+
+      borderRadius:
+        21,
+
+      borderWidth:
+        1,
+
+      borderColor:
+        '#E7DED1',
+
+      alignItems:
+        'center',
+
+      justifyContent:
+        'center',
+
+      overflow:
+        'hidden',
+
+      shadowColor:
+        '#171717',
+
+      shadowOffset: {
+        width: 0,
+        height: 5,
+      },
+
+      shadowOpacity:
+        0.07,
+
+      shadowRadius:
+        9,
+
+      elevation:
+        2,
+
+    },
+
+
+    productImage: {
+
+      width:
+        '90%',
+
+      height:
+        '90%',
+
+    },
+
+
+    /* =================================================
+       FAVORITE BUTTON
+    ================================================= */
+
+    favoriteButton: {
+
+      position:
+        'absolute',
+
+      top:
+        14,
+
+      right:
+        14,
+
+      width:
+        42,
+
+      height:
+        42,
+
+      borderRadius:
+        50,
+
+      backgroundColor:
+        '#FFFFFF',
+
+      borderWidth:
+        1,
+
+      borderColor:
+        '#E7DED1',
+
+      alignItems:
+        'center',
+
+      justifyContent:
+        'center',
+
+      zIndex:
+        10,
+
+      shadowColor:
+        '#171717',
+
+      shadowOffset: {
+        width: 0,
+        height: 4,
+      },
+
+      shadowOpacity:
+        0.08,
+
+      shadowRadius:
+        8,
+
+      elevation:
+        3,
+
+    },
+
+
+    imagePlaceholder: {
+
+      alignItems:
+        'center',
+
+      justifyContent:
+        'center',
+
+    },
+
+
+    placeholderIcon: {
+
+      width:
+        82,
+
+      height:
+        82,
+
+      borderRadius:
+        22,
+
+      backgroundColor:
+        '#FFF7F3',
+
+      borderWidth:
+        1,
+
+      borderColor:
+        '#F0CFC4',
+
+      alignItems:
+        'center',
+
+      justifyContent:
+        'center',
+
+    },
+
+
+    imageText: {
+
+      marginTop:
+        11,
+
+      color:
+        '#9A9186',
+
+      fontSize:
+        13,
+
+      fontWeight:
+        '600',
+
+    },
+
+
+    // ===================================================
+    // INFO CARD
+    // ===================================================
+
+    infoCard: {
+
+      marginTop:
+        14,
+
+      backgroundColor:
+        '#FFFFFF',
+
+      borderRadius:
+        21,
+
+      borderWidth:
+        1,
+
+      borderColor:
+        '#E7DED1',
+
+      padding:
+        19,
+
+      shadowColor:
+        '#171717',
+
+      shadowOffset: {
+        width: 0,
+        height: 5,
+      },
+
+      shadowOpacity:
+        0.07,
+
+      shadowRadius:
+        9,
+
+      elevation:
+        2,
+
+    },
+
+
+    name: {
+
+      fontSize:
+        26,
+
+      lineHeight:
+        32,
+
+      fontWeight:
+        '900',
+
+      color:
+        '#171717',
+
+      letterSpacing:
+        -0.5,
+
+    },
+
+
+    categoryBadge: {
+
+      alignSelf:
+        'flex-start',
+
+      marginTop:
+        10,
+
+      paddingHorizontal:
+        12,
+
+      paddingVertical:
+        6,
+
+      borderRadius:
+        12,
+
+      backgroundColor:
+        '#F8F2EA',
+
+      borderWidth:
+        1,
+
+      borderColor:
+        '#E7DED1',
+
+    },
+
+
+    categoryText: {
+
+      fontSize:
+        12,
+
+      fontWeight:
+        '700',
+
+      color:
+        '#817B71',
+
+    },
+
+
+    productBrand: {
+
+      marginTop:
+        8,
+
+      fontSize:
+        13,
+
+      color:
+        '#E35B3F',
+
+      fontWeight:
+        '800',
+
+    },
+
+
+    // ===================================================
+    // PRICE
+    // ===================================================
+
+    priceSection: {
+
+      marginTop:
+        15,
+
+    },
+
+
+    price: {
+
+      fontSize:
+        26,
+
+      fontWeight:
+        '900',
+
+      color:
+        '#171717',
+
+      letterSpacing:
+        -0.4,
+
+    },
+
+
+    priceUnavailable: {
+
+      marginTop:
+        15,
+
+      fontSize:
+        14,
+
+      fontWeight:
+        '700',
+
+      color:
+        '#817B71',
+
+    },
+
+
+    discountRow: {
+
+      flexDirection:
+        'row',
+
+      alignItems:
+        'center',
+
+      gap:
+        9,
+
+    },
+
+
+    oldPrice: {
+
+      fontSize:
+        15,
+
+      color:
+        '#9A9186',
+
+      textDecorationLine:
+        'line-through',
+
+      fontWeight:
+        '600',
+
+    },
+
+
+    discountBadge: {
+
+      backgroundColor:
+        '#FFF7F3',
+
+      borderWidth:
+        1,
+
+      borderColor:
+        '#F0CFC4',
+
+      paddingHorizontal:
+        9,
+
+      paddingVertical:
+        5,
+
+      borderRadius:
+        9,
+
+    },
+
+
+    discountText: {
+
+      fontSize:
+        11,
+
+      fontWeight:
+        '900',
+
+      color:
+        '#E35B3F',
+
+    },
+
+
+    discountedPrice: {
+
+      marginTop:
+        4,
+
+      fontSize:
+        27,
+
+      fontWeight:
+        '900',
+
+      color:
+        '#E35B3F',
+
+      letterSpacing:
+        -0.4,
+
+    },
+
+
+    signInContainer: {
+
+      alignSelf:
+        'flex-start',
+
+      marginTop:
+        15,
+
+      minHeight:
+        42,
+
+      paddingHorizontal:
+        12,
+
+      paddingVertical:
+        9,
+
+      borderRadius:
+        13,
+
+      backgroundColor:
+        '#FFF7F3',
+
+      borderWidth:
+        1,
+
+      borderColor:
+        '#F0CFC4',
+
+      flexDirection:
+        'row',
+
+      alignItems:
+        'center',
+
+      gap:
+        7,
+
+    },
+
+
+    signInText: {
+
+      fontSize:
+        14,
+
+      fontWeight:
+        '800',
+
+      color:
+        '#E35B3F',
+
+    },
+
+
+    // ===================================================
+    // OUT OF STOCK
+    // ===================================================
+
+    outOfStockBadge: {
+
+      alignSelf:
+        'flex-start',
+
+      flexDirection:
+        'row',
+
+      alignItems:
+        'center',
+
+      marginTop:
+        12,
+
+      paddingHorizontal:
+        11,
+
+      paddingVertical:
+        7,
+
+      borderRadius:
+        10,
+
+      backgroundColor:
+        '#FFF1F1',
+
+      borderWidth:
+        1,
+
+      borderColor:
+        '#F0CCCC',
+
+      gap:
+        6,
+
+    },
+
+
+    outOfStockText: {
+
+      fontSize:
+        12,
+
+      fontWeight:
+        '800',
+
+      color:
+        '#C62828',
+
+    },
+
+
+    // ===================================================
+    // DESCRIPTION
+    // ===================================================
+
+    divider: {
+
+      height:
+        1,
+
+      backgroundColor:
+        '#EEE4D7',
+
+      marginTop:
+        20,
+
+      marginBottom:
+        18,
+
+    },
+
+
+    descriptionHeader: {
+
+      flexDirection:
+        'row',
+
+      alignItems:
+        'center',
+
+      marginBottom:
+        9,
+
+    },
+
+
+    descriptionAccent: {
+
+      width:
+        4,
+
+      height:
+        20,
+
+      borderRadius:
+        2,
+
+      backgroundColor:
+        '#E35B3F',
+
+      marginRight:
+        9,
+
+    },
+
+
+    descriptionTitle: {
+
+      fontSize:
+        18,
+
+      fontWeight:
+        '900',
+
+      color:
+        '#171717',
+
+      letterSpacing:
+        -0.2,
+
+    },
+
+
+    description: {
+
+      fontSize:
+        14,
+
+      lineHeight:
+        22,
+
+      fontWeight:
+        '500',
+
+      color:
+        '#777168',
+
+    },
+
+
+    // ===================================================
+    // CART
+    // ===================================================
+
+    cartButton: {
+
+      marginTop:
+        24,
+
+      backgroundColor:
+        '#E35B3F',
+
+      minHeight:
+        54,
+
+      borderRadius:
+        16,
+
+      alignItems:
+        'center',
+
+      justifyContent:
+        'center',
+
+      flexDirection:
+        'row',
+
+      gap:
+        8,
+
+      shadowColor:
+        '#E35B3F',
+
+      shadowOffset: {
+        width: 0,
+        height: 5,
+      },
+
+      shadowOpacity:
+        0.22,
+
+      shadowRadius:
+        8,
+
+      elevation:
+        3,
+
+    },
+
+
+    cartButtonDisabled: {
+
+      backgroundColor:
+        '#B8B1A8',
+
+      shadowOpacity:
+        0,
+
+      elevation:
+        0,
+
+    },
+
+
+    cartButtonText: {
+
+      color:
+        '#FFFFFF',
+
+      fontSize:
+        15,
+
+      fontWeight:
+        '900',
+
+    },
+
+
+    // ===================================================
+    // CART / STOCK ALERT
+    // ===================================================
+
+    productAlert: {
+
+      position:
+        'absolute',
+
+      top:
+        55,
+
+      left:
+        18,
+
+      right:
+        18,
+
+      zIndex:
+        9999,
+
+      minHeight:
+        70,
+
+      backgroundColor:
+        '#FFFFFF',
+
+      borderRadius:
+        18,
+
+      paddingVertical:
+        11,
+
+      paddingHorizontal:
+        13,
+
+      flexDirection:
+        'row',
+
+      alignItems:
+        'center',
+
+      borderWidth:
+        1,
+
+      borderColor:
+        '#E7DED1',
+
+      shadowColor:
+        '#171717',
+
+      shadowOffset: {
+        width: 0,
+        height: 6,
+      },
+
+      shadowOpacity:
+        0.12,
+
+      shadowRadius:
+        14,
+
+      elevation:
+        10,
+
+    },
+
+
+    productAlertIcon: {
+
+      width:
+        42,
+
+      height:
+        42,
+
+      borderRadius:
+        14,
+
+      backgroundColor:
+        '#E35B3F',
+
+      alignItems:
+        'center',
+
+      justifyContent:
+        'center',
+
+    },
+
+
+    productAlertContent: {
+
+      flex: 1,
+
+      marginLeft:
+        12,
+
+      marginRight:
+        10,
+
+    },
+
+
+    productAlertTitle: {
+
+      fontSize:
+        14,
+
+      fontWeight:
+        '900',
+
+      color:
+        '#24221E',
+
+      marginBottom:
+        3,
+
+    },
+
+
+    productAlertMessage: {
+
+      fontSize:
+        11.5,
+
+      color:
+        '#817B71',
+
+      lineHeight:
+        16,
+
+      fontWeight:
+        '600',
+
+    },
+
+
+    productAlertCart: {
+
+      width:
+        36,
+
+      height:
+        36,
+
+      borderRadius:
+        12,
+
+      backgroundColor:
+        '#FFF7F3',
+
+      borderWidth:
+        1,
+
+      borderColor:
+        '#F0CFC4',
+
+      alignItems:
+        'center',
+
+      justifyContent:
+        'center',
+
+    },
+
+
+    // ===================================================
+    // FAVORITE ALERT
+    // ===================================================
+
+    favoriteAlert: {
+
+      position:
+        'absolute',
+
+      top:
+        55,
+
+      left:
+        18,
+
+      right:
+        18,
+
+      zIndex:
+        10000,
+
+      minHeight:
+        70,
+
+      backgroundColor:
+        '#FFFFFF',
+
+      borderRadius:
+        18,
+
+      paddingVertical:
+        11,
+
+      paddingHorizontal:
+        13,
+
+      flexDirection:
+        'row',
+
+      alignItems:
+        'center',
+
+      borderWidth:
+        1,
+
+      borderColor:
+        '#E7DED1',
+
+      shadowColor:
+        '#171717',
+
+      shadowOffset: {
+        width: 0,
+        height: 6,
+      },
+
+      shadowOpacity:
+        0.12,
+
+      shadowRadius:
+        14,
+
+      elevation:
+        10,
+
+    },
+
+
+    favoriteAlertIcon: {
+
+      width:
+        42,
+
+      height:
+        42,
+
+      borderRadius:
+        14,
+
+      backgroundColor:
+        '#E35B3F',
+
+      alignItems:
+        'center',
+
+      justifyContent:
+        'center',
+
+    },
+
+
+    favoriteAlertContent: {
+
+      flex: 1,
+
+      marginLeft:
+        12,
+
+      marginRight:
+        10,
+
+    },
+
+
+    favoriteAlertTitle: {
+
+      fontSize:
+        14,
+
+      fontWeight:
+        '900',
+
+      color:
+        '#24221E',
+
+      marginBottom:
+        3,
+
+    },
+
+
+    favoriteAlertMessage: {
+
+      fontSize:
+        11.5,
+
+      color:
+        '#817B71',
+
+      lineHeight:
+        16,
+
+      fontWeight:
+        '600',
+
+    },
+
+
+    favoriteAlertBadge: {
+
+      width:
+        36,
+
+      height:
+        36,
+
+      borderRadius:
+        12,
+
+      backgroundColor:
+        '#FFF7F3',
+
+      borderWidth:
+        1,
+
+      borderColor:
+        '#F0CFC4',
+
+      alignItems:
+        'center',
+
+      justifyContent:
+        'center',
+
+    },
+
+  });
