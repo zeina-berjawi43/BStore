@@ -20,6 +20,8 @@ import {
   useState,
 } from 'react';
 
+import { getValidAccessToken } from '../services/authService';
+
 
 /* =========================================================
    API
@@ -82,13 +84,6 @@ type BackendOrder = {
    PRICE FORMAT
 ========================================================= */
 
-/*
- * No currency conversion here.
- *
- * We simply display the totalPrice
- * saved inside the order.
- */
-
 const formatPrice = (
   amount: number
 ) => {
@@ -121,12 +116,6 @@ export default function Orders() {
     >([]);
 
 
-  /*
-   * Internal loading state only.
-   *
-   * We do NOT show a loading page anymore.
-   */
-
   const [
     loading,
     setLoading
@@ -140,10 +129,6 @@ export default function Orders() {
 
   const loadOrders =
     async () => {
-
-      /*
-       * Prevent duplicate requests.
-       */
 
       if (loading) {
         return;
@@ -160,14 +145,8 @@ export default function Orders() {
         ================================================ */
 
         const accessToken =
-          await AsyncStorage.getItem(
-            'accessToken'
-          );
+          await getValidAccessToken();
 
-
-        /* ================================================
-           NO TOKEN
-        ================================================ */
 
         if (!accessToken) {
 
@@ -181,10 +160,6 @@ export default function Orders() {
 
         }
 
-
-        /* ================================================
-           GET USER ORDERS
-        ================================================ */
 
         const response =
           await fetch(
@@ -216,10 +191,6 @@ export default function Orders() {
         );
 
 
-        /* ================================================
-           TOKEN EXPIRED
-        ================================================ */
-
         if (
           response.status === 401 ||
           response.status === 403
@@ -240,10 +211,6 @@ export default function Orders() {
         }
 
 
-        /* ================================================
-           ERROR
-        ================================================ */
-
         if (!response.ok) {
 
           console.log(
@@ -257,10 +224,6 @@ export default function Orders() {
 
         }
 
-
-        /* ================================================
-           SAVE ORDERS
-        ================================================ */
 
         setOrders(
 
@@ -552,10 +515,6 @@ export default function Orders() {
                 order
               ) => {
 
-                /* =========================================
-                   TOTAL ITEMS
-                ========================================= */
-
                 const items =
                   Array.isArray(
                     order.items
@@ -579,10 +538,6 @@ export default function Orders() {
                     : 0;
 
 
-                /* =========================================
-                   DATE
-                ========================================= */
-
                 const date =
                   new Date(
                     order.createdAt
@@ -601,10 +556,6 @@ export default function Orders() {
                   );
 
 
-                /* =========================================
-                   STATUS
-                ========================================= */
-
                 const statusColor =
                   getStatusColor(
                     order.status
@@ -617,19 +568,11 @@ export default function Orders() {
                   );
 
 
-                /* =========================================
-                   TOTAL
-                ========================================= */
-
                 const displayTotal =
                   formatPrice(
                     order.totalPrice
                   );
 
-
-                /* =========================================
-                   ORDER CARD
-                ========================================= */
 
                 return (
 
@@ -870,10 +813,6 @@ export default function Orders() {
 const styles =
   StyleSheet.create({
 
-    /* =====================================================
-       CONTAINER
-    ===================================================== */
-
     container: {
       flex: 1,
       paddingTop: 20,
@@ -890,10 +829,6 @@ const styles =
       paddingBottom: 40,
     },
 
-
-    /* =====================================================
-       HEADER
-    ===================================================== */
 
     header: {
       flexDirection: 'row',
@@ -972,10 +907,6 @@ const styles =
       width: 46,
     },
 
-
-    /* =====================================================
-       ORDER CARD
-    ===================================================== */
 
     orderCard: {
       backgroundColor:
@@ -1068,10 +999,6 @@ const styles =
     },
 
 
-    /* =====================================================
-       DIVIDER
-    ===================================================== */
-
     divider: {
       height: 1,
 
@@ -1081,10 +1008,6 @@ const styles =
       marginVertical: 15,
     },
 
-
-    /* =====================================================
-       ORDER INFO
-    ===================================================== */
 
     orderInfo: {
       flexDirection: 'row',
@@ -1141,10 +1064,6 @@ const styles =
     },
 
 
-    /* =====================================================
-       STATUS
-    ===================================================== */
-
     statusContainer: {
       paddingHorizontal: 11,
 
@@ -1177,10 +1096,6 @@ const styles =
       fontWeight: '800',
     },
 
-
-    /* =====================================================
-       EMPTY
-    ===================================================== */
 
     emptyContainer: {
       alignItems: 'center',

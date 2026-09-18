@@ -11,7 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
+import { getValidAccessToken } from '../services/authService';
 import {
   router,
   useLocalSearchParams,
@@ -663,59 +663,24 @@ export default function ProductDetails() {
      CHECK LOGIN
   ======================================================= */
 
-  const checkLogin = async () => {
+ const checkLogin = async () => {
+  try {
+    const [accessToken, loginStatus, savedUser] = await Promise.all([
+      getValidAccessToken(),
+      AsyncStorage.getItem('isLoggedIn'),
+      AsyncStorage.getItem('user'),
+    ]);
 
-    try {
+    const loggedIn = !!accessToken && (loginStatus === 'true' || !!savedUser);
 
-      const [
-        accessToken,
-        loginStatus,
-        savedUser,
-      ] = await Promise.all([
+    setIsLoggedIn(loggedIn);
 
-        AsyncStorage.getItem(
-          'accessToken'
-        ),
-
-        AsyncStorage.getItem(
-          'isLoggedIn'
-        ),
-
-        AsyncStorage.getItem(
-          'user'
-        ),
-
-      ]);
-
-
-      const loggedIn =
-        !!accessToken &&
-        (
-          loginStatus === 'true' ||
-          !!savedUser
-        );
-
-
-      setIsLoggedIn(
-        loggedIn
-      );
-
-
-      return accessToken;
-
-    } catch (error) {
-
-      setIsLoggedIn(
-        false
-      );
-
-
-      return null;
-
-    }
-
-  };
-
+    return accessToken;
+  } catch (error) {
+    setIsLoggedIn(false);
+    return null;
+  }
+};
 
   /* =======================================================
      LOAD PRODUCT
@@ -893,10 +858,7 @@ export default function ProductDetails() {
 
     try {
 
-      const accessToken =
-        await AsyncStorage.getItem(
-          'accessToken'
-        );
+      const accessToken = await getValidAccessToken();
 
 
       if (!accessToken) {

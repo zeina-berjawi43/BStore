@@ -1,11 +1,8 @@
+import { Stack, router } from 'expo-router';
+import { useEffect } from 'react';
 
-import { Stack } from 'expo-router';
 
 export default function RootLayout() {
-  // ==========================================================
-  // ROUTER
-  // ==========================================================
-
   return (
     <Stack
       initialRouteName="loading"
@@ -15,3 +12,6 @@ export default function RootLayout() {
     />
   );
 }
+
+
+

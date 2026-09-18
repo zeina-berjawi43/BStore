@@ -1,43 +1,46 @@
 {
-"expo": {
-"name": "BStore",
-"slug": "mystore",
-"version": "1.0.0",
-"orientation": "portrait",
-"icon": "./assets/images/app-icon-final.png",
-"scheme": "bstore",
-"userInterfaceStyle": "automatic",
-
-"android": {
-"predictiveBackGestureEnabled": false,
-"package": "com.zeina43.mystore"
-},
-"web": {
-"output": "static",
-"favicon": "./assets/images/favicon.png"
-},
-"plugins": [
-"expo-router",
-"expo-notifications",
-[
-  "expo-splash-screen",
-  {
-    "backgroundColor": "#FFFFFF",
-    "image": "./assets/images/splash-logo.png",
-    "imageWidth": 300
+  "expo": {
+    "name": "",
+    "slug": "mystore",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/splash-logo.png",
+    "scheme": "bstore",
+    "userInterfaceStyle": "automatic",
+    "android": {
+      "predictiveBackGestureEnabled": false,
+      "package": "com.zeina43.mystore"
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-notifications",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#FFFFFF",
+          "image": "./assets/images/splash-logo.png",
+          "imageWidth": 300
+        }
+      ],
+      "expo-font",
+      "expo-image",
+      "expo-status-bar",
+      "expo-web-browser"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "01603f4a-3767-40ad-84bd-0743d02198c1"
+      }
+    },
+    "owner": "zeina43"
   }
-]
-],
-"experiments": {
-"typedRoutes": true,
-"reactCompiler": true
-},
-"extra": {
-"router": {},
-"eas": {
-"projectId": "01603f4a-3767-40ad-84bd-0743d02198c1"
-}
-},
-"owner": "zeina43"
-}
 }

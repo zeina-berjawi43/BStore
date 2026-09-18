@@ -11,7 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
+import { getValidAccessToken } from '../services/authService';
 import {
   router,
   useFocusEffect,
@@ -1487,10 +1487,7 @@ export default function CategoryProducts() {
 
     try {
 
-      const accessToken =
-        await AsyncStorage.getItem(
-          'accessToken'
-        );
+      const accessToken = await getValidAccessToken();
 
 
       if (!accessToken) {

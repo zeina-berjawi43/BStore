@@ -1,6 +1,6 @@
 import {
   View,
-  Text,
+  Image,
   StyleSheet,
   Animated,
   Easing,
@@ -15,39 +15,10 @@ import {
   router,
 } from 'expo-router';
 
-import {
-  Ionicons,
-} from '@expo/vector-icons';
-
 export default function Loading() {
   // =====================================================
-  // ANIMATIONS
+  // LOADING ANIMATION
   // =====================================================
-
-  const logoOpacity =
-    useRef(
-      new Animated.Value(0)
-    ).current;
-
-  const logoScale =
-    useRef(
-      new Animated.Value(0.85)
-    ).current;
-
-  const iconOpacity =
-    useRef(
-      new Animated.Value(0)
-    ).current;
-
-  const iconScale =
-    useRef(
-      new Animated.Value(0.7)
-    ).current;
-
-  const loadingOpacity =
-    useRef(
-      new Animated.Value(0)
-    ).current;
 
   const dotAnimation =
     useRef(
@@ -59,72 +30,9 @@ export default function Loading() {
   // =====================================================
 
   useEffect(() => {
-    // LOGO ANIMATION
-
-    Animated.parallel([
-      Animated.timing(
-        logoOpacity,
-        {
-          toValue: 1,
-          duration: 600,
-          easing: Easing.out(
-            Easing.ease
-          ),
-          useNativeDriver: true,
-        }
-      ),
-
-      Animated.spring(
-        logoScale,
-        {
-          toValue: 1,
-          friction: 6,
-          tension: 55,
-          useNativeDriver: true,
-        }
-      ),
-    ]).start();
-
-    // ICON ANIMATION
-
-    Animated.parallel([
-      Animated.timing(
-        iconOpacity,
-        {
-          toValue: 1,
-          duration: 500,
-          delay: 250,
-          useNativeDriver: true,
-        }
-      ),
-
-      Animated.spring(
-        iconScale,
-        {
-          toValue: 1,
-          delay: 250,
-          friction: 5,
-          tension: 55,
-          useNativeDriver: true,
-        }
-      ),
-    ]).start();
-
-    // LOADING TEXT
-
-    Animated.timing(
-      loadingOpacity,
-      {
-        toValue: 1,
-        duration: 500,
-        delay: 700,
-        useNativeDriver: true,
-      }
-    ).start();
-
-    // =================================================
+    // ===================================================
     // DOT ANIMATION
-    // =================================================
+    // ===================================================
 
     Animated.loop(
       Animated.sequence([
@@ -154,9 +62,9 @@ export default function Loading() {
       ])
     ).start();
 
-    // =================================================
+    // ===================================================
     // GO TO HOME
-    // =================================================
+    // ===================================================
 
     const timer =
       setTimeout(() => {
@@ -190,158 +98,74 @@ export default function Loading() {
     >
 
       {/* =================================================
-          LOGO
+          YOUR DESIGN
       ================================================= */}
 
-      <Animated.View
-        style={[
-          styles.logoContainer,
-          {
-            opacity:
-              logoOpacity,
+      <Image
+        source={
+          require(
+            '../../assets/images/loading-screen.png'
+          )
+        }
+        style={
+          styles.backgroundImage
+        }
+        resizeMode="cover"
+      />
 
-            transform: [
-              {
-                scale:
-                  logoScale,
-              },
-            ],
-          },
-        ]}
+      {/* =================================================
+          LOADING DOTS
+      ================================================= */}
+
+      <View
+        style={
+          styles.loadingContainer
+        }
       >
-
-        {/* ICON */}
 
         <Animated.View
           style={[
-            styles.iconCircle,
+            styles.dot,
             {
-              opacity:
-                iconOpacity,
-
               transform: [
                 {
                   scale:
-                    iconScale,
+                    dotScale,
                 },
               ],
             },
           ]}
-        >
+        />
 
-          <Ionicons
-            name="bag-handle-outline"
-            size={43}
-            color="#E35B3F"
-          />
+        <Animated.View
+          style={[
+            styles.dot,
+            {
+              transform: [
+                {
+                  scale:
+                    dotScale,
+                },
+              ],
+            },
+          ]}
+        />
 
-        </Animated.View>
+        <Animated.View
+          style={[
+            styles.dot,
+            {
+              transform: [
+                {
+                  scale:
+                    dotScale,
+                },
+              ],
+            },
+          ]}
+        />
 
-        {/* NAME */}
-
-        <Text
-          style={
-            styles.logo
-          }
-        >
-          Welcome
-        </Text>
-
-        <Text
-          style={
-            styles.tagline
-          }
-        >
-          Your favorites, all in one place
-        </Text>
-
-      </Animated.View>
-
-      {/* =================================================
-          LOADING
-      ================================================= */}
-
-      <Animated.View
-        style={[
-          styles.loadingContainer,
-          {
-            opacity:
-              loadingOpacity,
-          },
-        ]}
-      >
-
-        <Text
-          style={
-            styles.loadingText
-          }
-        >
-          Loading
-        </Text>
-
-        <View
-          style={
-            styles.dots
-          }
-        >
-
-          <Animated.View
-            style={[
-              styles.dot,
-              {
-                transform: [
-                  {
-                    scale:
-                      dotScale,
-                  },
-                ],
-              },
-            ]}
-          />
-
-          <Animated.View
-            style={[
-              styles.dot,
-              {
-                transform: [
-                  {
-                    scale:
-                      dotScale,
-                  },
-                ],
-              },
-            ]}
-          />
-
-          <Animated.View
-            style={[
-              styles.dot,
-              {
-                transform: [
-                  {
-                    scale:
-                      dotScale,
-                  },
-                ],
-              },
-            ]}
-          />
-
-        </View>
-
-      </Animated.View>
-
-      {/* =================================================
-          BOTTOM
-      ================================================= */}
-
-      <Text
-        style={
-          styles.bottomText
-        }
-      >
-        SHOP • DISCOVER • ENJOY
-      </Text>
+      </View>
 
     </View>
   );
@@ -362,97 +186,28 @@ const styles =
       flex: 1,
 
       backgroundColor:
-        '#F7F3EC',
+        '#E8DED0',
 
       alignItems:
         'center',
 
       justifyContent:
         'center',
-
-      paddingHorizontal:
-        25,
     },
 
     // ===================================================
-    // LOGO
+    // BACKGROUND IMAGE
     // ===================================================
 
-    logoContainer: {
-      alignItems:
-        'center',
+    backgroundImage: {
+      position:
+        'absolute',
 
-      justifyContent:
-        'center',
-    },
+      width:
+        '97%',
 
-    iconCircle: {
-      width: 88,
-      height: 88,
-
-      borderRadius: 22,
-
-      borderWidth: 1.5,
-
-      borderColor:
-        '#F0CFC4',
-
-      backgroundColor:
-        '#FFF7F3',
-
-      alignItems:
-        'center',
-
-      justifyContent:
-        'center',
-
-      marginBottom:
-        20,
-
-      shadowColor:
-        '#171717',
-
-      shadowOffset: {
-        width: 0,
-        height: 6,
-      },
-
-      shadowOpacity:
-        0.08,
-
-      shadowRadius:
-        10,
-
-      elevation:
-        3,
-    },
-
-    logo: {
-      color:
-        '#171717',
-
-      fontSize: 38,
-
-      fontWeight:
-        '900',
-
-      letterSpacing:
-        0.5,
-    },
-
-    tagline: {
-      color:
-        '#817B71',
-
-      fontSize: 12,
-
-      fontWeight:
-        '600',
-
-      marginTop: 7,
-
-      letterSpacing:
-        0.4,
+      height:
+        '95%',
     },
 
     // ===================================================
@@ -463,7 +218,11 @@ const styles =
       position:
         'absolute',
 
-      bottom: 100,
+      bottom:
+        '11%',
+
+      flexDirection:
+        'row',
 
       alignItems:
         'center',
@@ -471,62 +230,21 @@ const styles =
       justifyContent:
         'center',
 
-      flexDirection:
-        'row',
-    },
-
-    loadingText: {
-      color:
-        '#24221E',
-
-      fontSize: 12,
-
-      fontWeight:
-        '700',
-
-      letterSpacing:
-        0.8,
-    },
-
-    dots: {
-      flexDirection:
-        'row',
-
-      marginLeft: 7,
-
-      gap: 4,
+      gap:
+        6,
     },
 
     dot: {
-      width: 5,
-      height: 5,
+      width:
+        6,
 
-      borderRadius: 3,
+      height:
+        6,
+
+      borderRadius:
+        3,
 
       backgroundColor:
-        '#E35B3F',
-    },
-
-    // ===================================================
-    // BOTTOM
-    // ===================================================
-
-    bottomText: {
-      position:
-        'absolute',
-
-      bottom: 35,
-
-      color:
-        '#9A9186',
-
-      fontSize: 9,
-
-      fontWeight:
-        '800',
-
-      letterSpacing:
-        1.5,
+        '#EF5A3C',
     },
   });
-

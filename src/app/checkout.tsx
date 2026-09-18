@@ -1,8 +1,3 @@
-import React, {
-  useCallback,
-  useState,
-} from "react";
-
 import {
   View,
   Text,
@@ -10,29 +5,39 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
+  Image,
   Alert,
-} from "react-native";
+} from 'react-native';
 
-import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Ionicons } from '@expo/vector-icons';
+
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import {
   router,
+  useLocalSearchParams,
   useFocusEffect,
-} from "expo-router";
+} from 'expo-router';
+
+import {
+  useCallback,
+  useState,
+} from 'react';
+
+import { getValidAccessToken } from '../services/authService';
 
 
-// ============================================================
+// =========================================================
 // API
-// ============================================================
+// =========================================================
 
 const API_URL =
-  "https://mystore-backend-u6ey.onrender.com";
+  'https://mystore-backend-u6ey.onrender.com';
 
 
-// ============================================================
+// =========================================================
 // TYPES
-// ============================================================
+// =========================================================
 
 type BackendProduct = {
   _id: string;
@@ -83,7 +88,7 @@ type User = {
 // ============================================================
 
 const getAccessToken = async () => {
-  return await AsyncStorage.getItem("accessToken");
+  return await getValidAccessToken();
 };
 
 

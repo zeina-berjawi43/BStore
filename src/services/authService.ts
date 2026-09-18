@@ -48,6 +48,99 @@ export type AuthResponse = {
 };
 
 // =========================================================
+// CHECK IF A JWT ACCESS TOKEN IS EXPIRED
+//
+// A JWT is: header.payload.signature (base64url parts).
+// We decode the payload only, to read "exp" (seconds since
+// epoch), and compare it against the current time.
+//
+// React Native has no built-in atob/Buffer, so we decode
+// base64 manually with a small lookup table.
+// =========================================================
+
+const BASE64_CHARS =
+  'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+const decodeBase64 = (input: string): string => {
+  let output = '';
+  let buffer = 0;
+  let bitsCollected = 0;
+
+  for (let i = 0; i < input.length; i++) {
+    const char = input[i];
+
+    if (char === '=') {
+      break;
+    }
+
+    const value = BASE64_CHARS.indexOf(char);
+
+    if (value === -1) {
+      continue;
+    }
+
+    buffer = (buffer << 6) | value;
+    bitsCollected += 6;
+
+    if (bitsCollected >= 8) {
+      bitsCollected -= 8;
+      output += String.fromCharCode(
+        (buffer >> bitsCollected) & 0xff
+      );
+    }
+  }
+
+  return output;
+};
+
+const isTokenExpired = (
+  token: string
+): boolean => {
+
+  try {
+
+    const parts = token.split('.');
+
+    if (parts.length !== 3) {
+      return true;
+    }
+
+    // base64url -> base64
+    const base64 =
+      parts[1]
+        .replace(/-/g, '+')
+        .replace(/_/g, '/');
+
+    const decoded = decodeBase64(base64);
+
+    const payload = JSON.parse(decoded);
+
+    if (
+      !payload ||
+      typeof payload.exp !== 'number'
+    ) {
+      return true;
+    }
+
+    const nowInSeconds =
+      Date.now() / 1000;
+
+    // Refresh a little early (60s buffer) to avoid a
+    // request landing right as the token expires.
+    return payload.exp <= nowInSeconds + 60;
+
+  } catch (error) {
+
+    console.log(
+      'TOKEN DECODE ERROR:',
+      error
+    );
+
+    return true;
+  }
+};
+
+// =========================================================
 // SAVE AUTH DATA
 // =========================================================
 
@@ -374,6 +467,10 @@ export const refreshAccessToken =
 
 // =========================================================
 // GET VALID ACCESS TOKEN
+//
+// Returns the stored access token only if it is present
+// AND not expired (or about to expire). Otherwise attempts
+// a refresh using the stored refresh token.
 // =========================================================
 
 export const getValidAccessToken =
@@ -382,7 +479,10 @@ export const getValidAccessToken =
     const token =
       await getAccessToken();
 
-    if (token) {
+    if (
+      token &&
+      !isTokenExpired(token)
+    ) {
       return token;
     }
 

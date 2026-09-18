@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState, useRef, useEffect } from 'react';
+import { getValidAccessToken } from '../services/authService';
 
 const API_URL = 'https://mystore-backend-u6ey.onrender.com';
 
@@ -127,6 +128,10 @@ export default function Index() {
     useState<TopSellingProduct[]>([]);
   const [offerProducts, setOfferProducts] =
     useState<OfferProduct[]>([]);
+
+  const [activeOfferIndex, setActiveOfferIndex] =
+    useState<number>(0);
+
   const [showAllTopSelling, setShowAllTopSelling] = useState(false);
 
   const [categories, setCategories] = useState<Category[]>([
@@ -148,9 +153,12 @@ export default function Index() {
   const [slidesLoading, setSlidesLoading] = useState(true);
   const [currentSlide, setCurrentSlide] = useState(0);
 
-  const slideAnimation = useRef(new Animated.Value(0)).current;
+  const slideAnimation = useRef(
+    new Animated.Value(1)
+  ).current;
 
-  const [activeOfferIndex, setActiveOfferIndex] = useState(0);
+  const slideTransitioningRef = useRef(false);
+
   const offerFade = useRef(new Animated.Value(1)).current;
   const offerTranslate = useRef(new Animated.Value(0)).current;
 
@@ -167,18 +175,9 @@ export default function Index() {
   const alertTranslateY = useRef(new Animated.Value(-40)).current;
 
   const getAccessToken = async () => {
-    if (accessTokenRef.current) {
-      return accessTokenRef.current;
-    }
-
-    try {
-      const token = await AsyncStorage.getItem('accessToken');
-      accessTokenRef.current = token;
-      return token;
-    } catch (error) {
-      console.log('GET TOKEN ERROR:', error);
-      return null;
-    }
+    const token = await getValidAccessToken();
+    accessTokenRef.current = token;
+    return token;
   };
 
   const convertSlide = (slide: any): Slide => {
@@ -220,18 +219,33 @@ export default function Index() {
 
       const convertedSlides: Slide[] = data.slides
         .map((slide: any) => convertSlide(slide))
-        .filter((slide: Slide) => slide.active && !!slide.image)
-        .sort((a: Slide, b: Slide) => a.order - b.order);
+        .filter(
+          (slide: Slide) =>
+            slide.active && !!slide.image
+        )
+        .sort(
+          (a: Slide, b: Slide) =>
+            a.order - b.order
+        );
+
+      slideAnimation.stopAnimation();
+      slideTransitioningRef.current = false;
+      slideAnimation.setValue(1);
 
       setSlides(convertedSlides);
 
       setCurrentSlide(previousSlide => {
         if (convertedSlides.length === 0) return 0;
-        if (previousSlide >= convertedSlides.length) return 0;
+
+        if (
+          previousSlide >=
+          convertedSlides.length
+        ) {
+          return 0;
+        }
+
         return previousSlide;
       });
-
-      slideAnimation.setValue(0);
     } catch (error) {
       console.log('LOAD SLIDESHOW ERROR:', error);
       setSlides([]);
@@ -274,47 +288,61 @@ export default function Index() {
           ? data.categories
           : [];
 
-      const convertedCategories: Category[] = rawCategories
-        .map((category: any) => {
-          if (typeof category === 'string') {
+      const convertedCategories: Category[] =
+        rawCategories
+          .map((category: any) => {
+            if (typeof category === 'string') {
+              return {
+                id: category,
+                name: category,
+                image: '',
+                icon: getCategoryIcon(category),
+              };
+            }
+
+            const categoryName =
+              category.name ??
+              category.title ??
+              '';
+
+            if (!categoryName) return null;
+
+            const categoryId = String(
+              category._id ??
+                category.id ??
+                categoryName
+            );
+
+            const rawImage =
+              category.image ??
+              category.imageUrl ??
+              category.imageURL ??
+              category.photo ??
+              '';
+
             return {
-              id: category,
-              name: category,
-              image: '',
-              icon: getCategoryIcon(category),
+              id: categoryId,
+              name: String(categoryName),
+              image: buildImageUrl(rawImage),
+              icon: getCategoryIcon(
+                String(categoryName)
+              ),
             };
-          }
-
-          const categoryName = category.name ?? category.title ?? '';
-
-          if (!categoryName) return null;
-
-          const categoryId = String(
-            category._id ?? category.id ?? categoryName
+          })
+          .filter(
+            (
+              category: Category | null
+            ): category is Category =>
+              category !== null
           );
 
-          const rawImage =
-            category.image ??
-            category.imageUrl ??
-            category.imageURL ??
-            category.photo ??
-            '';
-
-          return {
-            id: categoryId,
-            name: String(categoryName),
-            image: buildImageUrl(rawImage),
-            icon: getCategoryIcon(String(categoryName)),
-          };
-        })
-        .filter(
-          (category: Category | null): category is Category =>
-            category !== null
+      const filteredCategories =
+        convertedCategories.filter(
+          category =>
+            category.name
+              .trim()
+              .toLowerCase() !== 'all'
         );
-
-      const filteredCategories = convertedCategories.filter(
-        category => category.name.trim().toLowerCase() !== 'all'
-      );
 
       setCategories([
         {
@@ -341,65 +369,98 @@ export default function Index() {
     }
   };
 
+  useEffect(() => {
+    if (slides.length <= 1) return;
+
+    if (!slideTransitioningRef.current) return;
+
+    const fadeIn = Animated.timing(
+      slideAnimation,
+      {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }
+    );
+
+    fadeIn.start(({ finished }) => {
+      if (finished) {
+        slideTransitioningRef.current = false;
+      }
+    });
+  }, [
+    currentSlide,
+    slides.length,
+    slideAnimation,
+  ]);
+
   const goToNextSlide = useCallback(() => {
     if (slides.length <= 1) return;
 
+    if (slideTransitioningRef.current) {
+      return;
+    }
+
+    slideTransitioningRef.current = true;
+
+    slideAnimation.stopAnimation();
+
     Animated.timing(slideAnimation, {
-      toValue: -1,
-      duration: 280,
+      toValue: 0,
+      duration: 220,
       useNativeDriver: true,
     }).start(({ finished }) => {
-      if (!finished) return;
-
-      /*
-       * The next slide is already visible at the end
-       * of the animation.
-       *
-       * We move the animation value to 1 first so the
-       * previous/current/next panes can be rebuilt without
-       * causing another visible animation.
-       */
-      slideAnimation.setValue(1);
+      if (!finished) {
+        slideAnimation.setValue(1);
+        slideTransitioningRef.current = false;
+        return;
+      }
 
       setCurrentSlide(
-        previousSlide => (previousSlide + 1) % slides.length
+        previousSlide =>
+          (previousSlide + 1) %
+          slides.length
       );
-
-      /*
-       * Reset instantly.
-       * Do NOT animate from 1 -> 0 here.
-       */
-      slideAnimation.setValue(0);
     });
-  }, [slideAnimation, slides.length]);
+  }, [
+    slideAnimation,
+    slides.length,
+  ]);
 
   const goToPreviousSlide = useCallback(() => {
     if (slides.length <= 1) return;
 
+    if (slideTransitioningRef.current) {
+      return;
+    }
+
+    slideTransitioningRef.current = true;
+
+    slideAnimation.stopAnimation();
+
     Animated.timing(slideAnimation, {
-      toValue: 1,
-      duration: 280,
+      toValue: 0,
+      duration: 220,
       useNativeDriver: true,
     }).start(({ finished }) => {
-      if (!finished) return;
-
-      /*
-       * Prepare the new three-slide track without
-       * creating a second visible animation.
-       */
-      slideAnimation.setValue(-1);
+      if (!finished) {
+        slideAnimation.setValue(1);
+        slideTransitioningRef.current = false;
+        return;
+      }
 
       setCurrentSlide(
         previousSlide =>
-          (previousSlide - 1 + slides.length) % slides.length
+          (previousSlide -
+            1 +
+            slides.length) %
+          slides.length
       );
-
-      /*
-       * Instant reset.
-       */
-      slideAnimation.setValue(0);
     });
-  }, [slideAnimation, slides.length]);
+  }, [
+    slideAnimation,
+    slides.length,
+  ]);
 
   useEffect(() => {
     if (slides.length <= 1) return;
@@ -409,7 +470,10 @@ export default function Index() {
     }, 3500);
 
     return () => clearInterval(interval);
-  }, [goToNextSlide, slides.length]);
+  }, [
+    goToNextSlide,
+    slides.length,
+  ]);
 
   useEffect(() => {
     if (offerProducts.length <= 1) return;
@@ -428,8 +492,9 @@ export default function Index() {
         }),
       ]).start(() => {
         setActiveOfferIndex(
-          previousIndex =>
-            (previousIndex + 1) % offerProducts.length
+          (previousIndex: number) =>
+            (previousIndex + 1) %
+            offerProducts.length
         );
 
         offerTranslate.setValue(18);
@@ -451,25 +516,40 @@ export default function Index() {
     }, 3500);
 
     return () => clearInterval(interval);
-  }, [offerProducts.length, offerFade, offerTranslate]);
+  }, [
+    offerProducts.length,
+    offerFade,
+    offerTranslate,
+  ]);
 
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => false,
 
-      onMoveShouldSetPanResponder: (_, gestureState) => {
-        const horizontalMovement = Math.abs(gestureState.dx);
-        const verticalMovement = Math.abs(gestureState.dy);
+      onMoveShouldSetPanResponder: (
+        _,
+        gestureState
+      ) => {
+        const horizontalMovement =
+          Math.abs(gestureState.dx);
+
+        const verticalMovement =
+          Math.abs(gestureState.dy);
 
         return (
           horizontalMovement > 12 &&
-          horizontalMovement > verticalMovement
+          horizontalMovement >
+            verticalMovement
         );
       },
 
-      onPanResponderTerminationRequest: () => false,
+      onPanResponderTerminationRequest: () =>
+        false,
 
-      onPanResponderRelease: (_, gestureState) => {
+      onPanResponderRelease: (
+        _,
+        gestureState
+      ) => {
         if (gestureState.dx < -50) {
           goToNextSlide();
         } else if (gestureState.dx > 50) {
@@ -481,7 +561,10 @@ export default function Index() {
 
   const scrollToOffers = () => {
     scrollViewRef.current?.scrollTo({
-      y: Math.max(offersSectionY.current - 20, 0),
+      y: Math.max(
+        offersSectionY.current - 20,
+        0
+      ),
       animated: true,
     });
   };
@@ -526,7 +609,9 @@ export default function Index() {
   };
 
   const convertProduct = (product: any): Product => {
-    const productId = String(product._id ?? product.id);
+    const productId = String(
+      product._id ?? product.id
+    );
 
     return {
       id: productId,
@@ -542,17 +627,24 @@ export default function Index() {
           ? product.brand
           : product.brand?.name ?? '',
       price:
-        product.price !== undefined && product.price !== null
+        product.price !== undefined &&
+        product.price !== null
           ? Number(product.price)
           : undefined,
-      discount: Number(product.discount) || 0,
-      availability: product.availability !== false,
+      discount:
+        Number(product.discount) || 0,
+      availability:
+        product.availability !== false,
     };
   };
 
-  const loadProducts = async (accessToken?: string | null) => {
+  const loadProducts = async (
+    accessToken?: string | null
+  ) => {
     try {
-      const token = accessToken ?? accessTokenRef.current;
+      const token =
+        accessToken ??
+        accessTokenRef.current;
 
       const headers: Record<string, string> = {
         Accept: 'application/json',
@@ -562,39 +654,57 @@ export default function Index() {
         headers.Authorization = `Bearer ${token}`;
       }
 
-      const response = await fetch(`${API_URL}/products`, {
-        method: 'GET',
-        headers,
-      });
+      const response = await fetch(
+        `${API_URL}/products`,
+        {
+          method: 'GET',
+          headers,
+        }
+      );
 
       const data = await response.json();
 
       if (!response.ok) {
-        console.log('GET PRODUCTS ERROR:', data);
+        console.log(
+          'GET PRODUCTS ERROR:',
+          data
+        );
         setProducts([]);
         return;
       }
 
       if (!Array.isArray(data.products)) {
-        console.log('INVALID PRODUCTS RESPONSE:', data);
+        console.log(
+          'INVALID PRODUCTS RESPONSE:',
+          data
+        );
         setProducts([]);
         return;
       }
 
-      const convertedProducts: Product[] = data.products.map(
-        (product: any) => convertProduct(product)
-      );
+      const convertedProducts: Product[] =
+        data.products.map(
+          (product: any) =>
+            convertProduct(product)
+        );
 
       setProducts(convertedProducts);
     } catch (error) {
-      console.log('LOAD PRODUCTS ERROR:', error);
+      console.log(
+        'LOAD PRODUCTS ERROR:',
+        error
+      );
       setProducts([]);
     }
   };
 
-  const loadOffers = async (accessToken?: string | null) => {
+  const loadOffers = async (
+    accessToken?: string | null
+  ) => {
     try {
-      const token = accessToken ?? accessTokenRef.current;
+      const token =
+        accessToken ??
+        accessTokenRef.current;
 
       const headers: Record<string, string> = {
         Accept: 'application/json',
@@ -604,10 +714,13 @@ export default function Index() {
         headers.Authorization = `Bearer ${token}`;
       }
 
-      const response = await fetch(`${API_URL}/products/offers`, {
-        method: 'GET',
-        headers,
-      });
+      const response = await fetch(
+        `${API_URL}/products/offers`,
+        {
+          method: 'GET',
+          headers,
+        }
+      );
 
       const data = await response.json();
 
@@ -618,39 +731,56 @@ export default function Index() {
           data
         );
         setOfferProducts([]);
+        setActiveOfferIndex(0);
         return;
       }
 
       if (!Array.isArray(data.products)) {
-        console.log('INVALID OFFERS RESPONSE:', data);
+        console.log(
+          'INVALID OFFERS RESPONSE:',
+          data
+        );
         setOfferProducts([]);
+        setActiveOfferIndex(0);
         return;
       }
 
-      const convertedOffers: OfferProduct[] = data.products
-        .map((product: any) => {
-          const converted = convertProduct(product);
+      const convertedOffers: OfferProduct[] =
+        data.products
+          .map((product: any) => {
+            const converted =
+              convertProduct(product);
 
-          return {
-            ...converted,
-            discount: Number(product.discount) || 0,
-          };
-        })
-        .filter(
-          (product: OfferProduct) => product.discount > 0
-        );
+            return {
+              ...converted,
+              discount:
+                Number(product.discount) || 0,
+            };
+          })
+          .filter(
+            (product: OfferProduct) =>
+              product.discount > 0
+          );
 
       setOfferProducts(convertedOffers);
       setActiveOfferIndex(0);
     } catch (error) {
-      console.log('LOAD OFFERS ERROR:', error);
+      console.log(
+        'LOAD OFFERS ERROR:',
+        error
+      );
       setOfferProducts([]);
+      setActiveOfferIndex(0);
     }
   };
 
-  const loadTopSelling = async (accessToken?: string | null) => {
+  const loadTopSelling = async (
+    accessToken?: string | null
+  ) => {
     try {
-      const token = accessToken ?? accessTokenRef.current;
+      const token =
+        accessToken ??
+        accessTokenRef.current;
 
       const headers: Record<string, string> = {
         Accept: 'application/json',
@@ -689,21 +819,28 @@ export default function Index() {
         return;
       }
 
-      const convertedTopSelling: TopSellingProduct[] =
+      const convertedTopSelling:
+        TopSellingProduct[] =
         data.products
           .map((item: any) => {
             if (!item.product) return null;
 
-            return convertProduct(item.product);
+            return convertProduct(
+              item.product
+            );
           })
           .filter(
             (
-              product: TopSellingProduct | null
+              product:
+                | TopSellingProduct
+                | null
             ): product is TopSellingProduct =>
               product !== null
           );
 
-      setTopSellingProducts(convertedTopSelling);
+      setTopSellingProducts(
+        convertedTopSelling
+      );
     } catch (error) {
       console.log(
         'LOAD TOP SELLING ERROR:',
@@ -713,22 +850,29 @@ export default function Index() {
     }
   };
 
-  const loadCartCount = async (accessToken?: string | null) => {
+  const loadCartCount = async (
+    accessToken?: string | null
+  ) => {
     try {
-      const token = accessToken ?? accessTokenRef.current;
+      const token =
+        accessToken ??
+        accessTokenRef.current;
 
       if (!token) {
         setCartCount(0);
         return;
       }
 
-      const response = await fetch(`${API_URL}/cart`, {
-        method: 'GET',
-        headers: {
-          Accept: 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await fetch(
+        `${API_URL}/cart`,
+        {
+          method: 'GET',
+          headers: {
+            Accept: 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
       const data = await response.json();
 
@@ -741,11 +885,16 @@ export default function Index() {
         return;
       }
 
-      const items = data.cart?.items || [];
+      const items =
+        data.cart?.items || [];
 
       const count = items.reduce(
-        (total: number, item: any) =>
-          total + (Number(item.quantity) || 0),
+        (
+          total: number,
+          item: any
+        ) =>
+          total +
+          (Number(item.quantity) || 0),
         0
       );
 
@@ -759,22 +908,29 @@ export default function Index() {
     }
   };
 
-  const loadFavorites = async (accessToken?: string | null) => {
+  const loadFavorites = async (
+    accessToken?: string | null
+  ) => {
     try {
-      const token = accessToken ?? accessTokenRef.current;
+      const token =
+        accessToken ??
+        accessTokenRef.current;
 
       if (!token) {
         setFavorites([]);
         return;
       }
 
-      const response = await fetch(`${API_URL}/favorites`, {
-        method: 'GET',
-        headers: {
-          Accept: 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await fetch(
+        `${API_URL}/favorites`,
+        {
+          method: 'GET',
+          headers: {
+            Accept: 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
       const data = await response.json();
 
@@ -798,11 +954,14 @@ export default function Index() {
       const convertedFavorites: Product[] =
         (data.favorites || [])
           .map((favorite: any) => {
-            const product = favorite.product;
+            const product =
+              favorite.product;
 
             if (!product) return null;
 
-            return convertProduct(product);
+            return convertProduct(
+              product
+            );
           })
           .filter(
             (
@@ -811,7 +970,9 @@ export default function Index() {
               product !== null
           );
 
-      setFavorites(convertedFavorites);
+      setFavorites(
+        convertedFavorites
+      );
     } catch (error) {
       console.log(
         'LOAD FAVORITES ERROR:',
@@ -841,7 +1002,8 @@ export default function Index() {
 
       const loggedIn =
         !!token &&
-        (status === 'true' || !!user);
+        (status === 'true' ||
+          !!user);
 
       setIsLoggedIn(loggedIn);
 
@@ -911,28 +1073,31 @@ export default function Index() {
         return;
       }
 
-      const refreshUserData = async () => {
-        const {
-          token,
-          loggedIn,
-        } = await loadData();
+      const refreshUserData =
+        async () => {
+          const {
+            token,
+            loggedIn,
+          } = await loadData();
 
-        if (loggedIn) {
-          await Promise.all([
-            loadCartCount(token),
-            loadFavorites(token),
-          ]);
-        } else {
-          setCartCount(0);
-          setFavorites([]);
-        }
-      };
+          if (loggedIn) {
+            await Promise.all([
+              loadCartCount(token),
+              loadFavorites(token),
+            ]);
+          } else {
+            setCartCount(0);
+            setFavorites([]);
+          }
+        };
 
       refreshUserData();
     }, [])
   );
 
-  const openProduct = (product: Product) => {
+  const openProduct = (
+    product: Product
+  ) => {
     router.push({
       pathname: '/product-details',
       params: {
@@ -941,46 +1106,58 @@ export default function Index() {
     });
   };
 
-  const toggleFavorite = async (product: Product) => {
+  const toggleFavorite = async (
+    product: Product
+  ) => {
     if (!isLoggedIn) {
       router.push('/login');
       return;
     }
 
-    const accessToken = await getAccessToken();
+    const accessToken =
+      await getAccessToken();
 
     if (!accessToken) {
       router.push('/login');
       return;
     }
 
-    const alreadyFavorite = favorites.some(
-      item => item.id === product.id
-    );
+    const alreadyFavorite =
+      favorites.some(
+        item =>
+          item.id === product.id
+      );
 
-    const previousFavorites = favorites;
+    const previousFavorites =
+      favorites;
 
     if (alreadyFavorite) {
-      setFavorites(currentFavorites =>
-        currentFavorites.filter(
-          item => item.id !== product.id
-        )
+      setFavorites(
+        currentFavorites =>
+          currentFavorites.filter(
+            item =>
+              item.id !== product.id
+          )
       );
     } else {
-      setFavorites(currentFavorites => {
-        const alreadyExists = currentFavorites.some(
-          item => item.id === product.id
-        );
+      setFavorites(
+        currentFavorites => {
+          const alreadyExists =
+            currentFavorites.some(
+              item =>
+                item.id === product.id
+            );
 
-        if (alreadyExists) {
-          return currentFavorites;
+          if (alreadyExists) {
+            return currentFavorites;
+          }
+
+          return [
+            ...currentFavorites,
+            product,
+          ];
         }
-
-        return [
-          ...currentFavorites,
-          product,
-        ];
-      });
+      );
     }
 
     try {
@@ -994,7 +1171,8 @@ export default function Index() {
             : 'POST',
           headers: {
             Accept: 'application/json',
-            'Content-Type': 'application/json',
+            'Content-Type':
+              'application/json',
             Authorization: `Bearer ${accessToken}`,
           },
           body: JSON.stringify({
@@ -1003,7 +1181,8 @@ export default function Index() {
         }
       );
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       if (!response.ok) {
         console.log(
@@ -1011,22 +1190,30 @@ export default function Index() {
           data
         );
 
-        setFavorites(previousFavorites);
+        setFavorites(
+          previousFavorites
+        );
         return;
       }
 
-      loadFavorites(accessToken);
+      loadFavorites(
+        accessToken
+      );
     } catch (error) {
       console.log(
         'TOGGLE FAVORITE ERROR:',
         error
       );
 
-      setFavorites(previousFavorites);
+      setFavorites(
+        previousFavorites
+      );
     }
   };
 
-  const isFavorite = (id: string) => {
+  const isFavorite = (
+    id: string
+  ) => {
     return favorites.some(
       item => item.id === id
     );
@@ -1036,7 +1223,9 @@ export default function Index() {
     product: Product,
     cartPrice?: number
   ) => {
-    if (product.availability === false) {
+    if (
+      product.availability === false
+    ) {
       showAlert(
         `${product.name} is currently out of stock.`
       );
@@ -1049,7 +1238,8 @@ export default function Index() {
     }
 
     try {
-      const accessToken = await getAccessToken();
+      const accessToken =
+        await getAccessToken();
 
       if (!accessToken) {
         router.push('/login');
@@ -1065,7 +1255,8 @@ export default function Index() {
           method: 'POST',
           headers: {
             Accept: 'application/json',
-            'Content-Type': 'application/json',
+            'Content-Type':
+              'application/json',
             Authorization: `Bearer ${accessToken}`,
           },
           body: JSON.stringify({
@@ -1078,7 +1269,8 @@ export default function Index() {
         }
       );
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       if (!response.ok) {
         console.log(
@@ -1088,13 +1280,15 @@ export default function Index() {
 
         showAlert(
           data.message ||
-          'Unable to add product to cart.'
+            'Unable to add product to cart.'
         );
 
         return;
       }
 
-      await loadCartCount(accessToken);
+      await loadCartCount(
+        accessToken
+      );
 
       showAlert(
         `${product.name} has been added to your cart.`
@@ -1107,9 +1301,12 @@ export default function Index() {
     }
   };
 
-  const openCategory = (category: string) => {
+  const openCategory = (
+    category: string
+  ) => {
     router.push({
-      pathname: '/category-products',
+      pathname:
+        '/category-products',
       params: {
         category,
       },
@@ -1124,28 +1321,21 @@ export default function Index() {
     }
   };
 
-  const displayedTopSelling = showAllTopSelling
-    ? topSellingProducts
-    : topSellingProducts.slice(0, 2);
+  const displayedTopSelling =
+    showAllTopSelling
+      ? topSellingProducts
+      : topSellingProducts.slice(0, 2);
 
-  const recentlyAdded = products.slice(0, 4);
-  const activeSlide = slides[currentSlide];
-  const activeOffer = offerProducts[activeOfferIndex];
+  const recentlyAdded =
+    products.slice(0, 4);
 
-  const previousSlide =
-    slides.length > 0
-      ? slides[
-          (currentSlide - 1 + slides.length) %
-            slides.length
-        ]
-      : undefined;
+  const activeSlide =
+    slides[currentSlide];
 
-  const nextSlide =
-    slides.length > 0
-      ? slides[
-          (currentSlide + 1) % slides.length
-        ]
-      : undefined;
+  const activeOffer =
+    offerProducts[
+      activeOfferIndex
+    ];
 
   return (
     <View style={styles.container}>
@@ -1157,7 +1347,8 @@ export default function Index() {
               opacity: alertOpacity,
               transform: [
                 {
-                  translateY: alertTranslateY,
+                  translateY:
+                    alertTranslateY,
                 },
               ],
             },
@@ -1172,12 +1363,16 @@ export default function Index() {
           </View>
 
           <View style={styles.homeAlertContent}>
-            <Text style={styles.homeAlertTitle}>
+            <Text
+              style={styles.homeAlertTitle}
+            >
               Added to Cart
             </Text>
 
             <Text
-              style={styles.homeAlertMessage}
+              style={
+                styles.homeAlertMessage
+              }
               numberOfLines={2}
             >
               {alertMessage}
@@ -1195,26 +1390,38 @@ export default function Index() {
       <ScrollView
         ref={scrollViewRef}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={
+          styles.scrollContent
+        }
       >
         <View style={styles.header}>
           <View>
-            <Text style={styles.logo}>
-              BStore
-            </Text>
+           
 
             <View style={styles.logoRow}>
-              <View style={styles.logoAccent} />
+              <View
+                style={
+                  styles.logoAccent
+                }
+              />
 
-              <Text style={styles.logoTagline}>
+              <Text
+                style={
+                  styles.logoTagline
+                }
+              >
                 EVERYTHING YOU NEED
               </Text>
             </View>
           </View>
 
           <Pressable
-            style={styles.accountButton}
-            onPress={openAccount}
+            style={
+              styles.accountButton
+            }
+            onPress={
+              openAccount
+            }
           >
             <Ionicons
               name="person-outline"
@@ -1226,27 +1433,52 @@ export default function Index() {
 
         {/* SLIDESHOW */}
 
-        <View style={styles.sliderWrapper}>
+        <View
+          style={
+            styles.sliderWrapper
+          }
+        >
           <View
             style={styles.slider}
             {...panResponder.panHandlers}
           >
             {slidesLoading ? (
-              <View style={styles.slideLoading}>
-                <View style={styles.slideLoadingCircle}>
+              <View
+                style={
+                  styles.slideLoading
+                }
+              >
+                <View
+                  style={
+                    styles.slideLoadingCircle
+                  }
+                >
                   <ActivityIndicator
                     size="small"
                     color="#E35B3F"
                   />
                 </View>
 
-                <Text style={styles.slideLoadingText}>
+                <Text
+                  style={
+                    styles.slideLoadingText
+                  }
+                >
                   Loading...
                 </Text>
               </View>
-            ) : slides.length === 0 ? (
-              <View style={styles.emptySlide}>
-                <View style={styles.emptySlideIcon}>
+            ) : slides.length ===
+              0 ? (
+              <View
+                style={
+                  styles.emptySlide
+                }
+              >
+                <View
+                  style={
+                    styles.emptySlideIcon
+                  }
+                >
                   <Ionicons
                     name="images-outline"
                     size={34}
@@ -1254,100 +1486,83 @@ export default function Index() {
                   />
                 </View>
 
-                <Text style={styles.emptySlideText}>
+                <Text
+                  style={
+                    styles.emptySlideText
+                  }
+                >
                   No slideshow images
                 </Text>
               </View>
             ) : (
-              <Animated.View
-                style={[
-                  styles.animatedSlideTrack,
-                  {
-                    transform: [
-                      {
-                        translateX:
-                          slideAnimation.interpolate({
-                            inputRange: [-1, 0, 1],
-                            outputRange: [
-                              -SCREEN_WIDTH * 2,
-                              -SCREEN_WIDTH,
-                              0,
-                            ],
-                          }),
-                      },
-                    ],
-                  },
-                ]}
+              <View
+                style={
+                  styles.fadeSlideContainer
+                }
               >
-                {/* PREVIOUS */}
-
-                <View style={styles.slidePane}>
+                <Animated.View
+                  style={[
+                    styles.fadeSlidePane,
+                    {
+                      opacity:
+                        slideAnimation,
+                    },
+                  ]}
+                >
                   <Image
                     source={{
-                      uri: previousSlide?.image,
+                      uri:
+                        activeSlide?.image,
                     }}
-                    style={styles.slideImage}
+                    style={
+                      styles.slideImage
+                    }
                     resizeMode="cover"
                   />
 
-                  <View style={styles.slideBadge}>
-                    <Text style={styles.slideBadgeText}>
+                  <View
+                    style={
+                      styles.slideBadge
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.slideBadgeText
+                      }
+                    >
                       BSTORE
                     </Text>
                   </View>
-                </View>
-
-                {/* CURRENT */}
-
-                <View style={styles.slidePane}>
-                  <Image
-                    source={{
-                      uri: activeSlide?.image,
-                    }}
-                    style={styles.slideImage}
-                    resizeMode="cover"
-                  />
-
-                  <View style={styles.slideBadge}>
-                    <Text style={styles.slideBadgeText}>
-                      BSTORE
-                    </Text>
-                  </View>
-                </View>
-
-                {/* NEXT */}
-
-                <View style={styles.slidePane}>
-                  <Image
-                    source={{
-                      uri: nextSlide?.image,
-                    }}
-                    style={styles.slideImage}
-                    resizeMode="cover"
-                  />
-
-                  <View style={styles.slideBadge}>
-                    <Text style={styles.slideBadgeText}>
-                      BSTORE
-                    </Text>
-                  </View>
-                </View>
-              </Animated.View>
+                </Animated.View>
+              </View>
             )}
 
-            {slides.length > 1 && !slidesLoading ? (
-              <View style={styles.slideDots}>
-                {slides.map((slide, index) => (
-                  <View
-                    key={slide.id}
-                    style={[
-                      styles.slideDot,
-                      index === currentSlide
-                        ? styles.slideDotActive
-                        : null,
-                    ]}
-                  />
-                ))}
+            {slides.length > 1 &&
+            !slidesLoading ? (
+              <View
+                style={
+                  styles.slideDots
+                }
+              >
+                {slides.map(
+                  (
+                    slide,
+                    index
+                  ) => (
+                    <View
+                      key={
+                        slide.id
+                      }
+                      style={[
+                        styles.slideDot,
+                        index ===
+                        currentSlide
+                          ? styles.slideDotActive
+                          : null,
+                      ]}
+                    />
+                  )
+                )}
               </View>
             ) : null}
           </View>
@@ -1355,99 +1570,179 @@ export default function Index() {
 
         {/* CATEGORIES */}
 
-        <View style={styles.sectionHeader}>
-          <View style={styles.sectionTitleRow}>
-            <View style={styles.sectionAccent} />
+        <View
+          style={
+            styles.sectionHeader
+          }
+        >
+          <View
+            style={
+              styles.sectionTitleRow
+            }
+          >
+            <View
+              style={
+                styles.sectionAccent
+              }
+            />
 
-            <Text style={styles.sectionTitle}>
+            <Text
+              style={
+                styles.sectionTitle
+              }
+            >
               Categories
             </Text>
           </View>
 
-          <Text style={styles.sectionSmallLabel}>
+          <Text
+            style={
+              styles.sectionSmallLabel
+            }
+          >
             EXPLORE
           </Text>
         </View>
 
         {categoriesLoading ? (
-          <View style={styles.categoriesLoading}>
+          <View
+            style={
+              styles.categoriesLoading
+            }
+          >
             <ActivityIndicator
               size="small"
               color="#E35B3F"
             />
           </View>
-        ) : categories.length > 0 ? (
+        ) : categories.length >
+          0 ? (
           <ScrollView
             horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.categories}
+            showsHorizontalScrollIndicator={
+              false
+            }
+            contentContainerStyle={
+              styles.categories
+            }
           >
-            {categories.map(category => (
-              <Pressable
-                key={category.id}
-                style={styles.category}
-                onPress={() =>
-                  openCategory(category.name)
-                }
-              >
-                <View style={styles.categoryIconOuter}>
-                  <View style={styles.categoryIcon}>
-                    {category.image &&
-                    category.image.trim() !== '' ? (
-                      <Image
-                        source={{
-                          uri: category.image,
-                        }}
-                        style={styles.categoryImage}
-                        resizeMode="cover"
-                      />
-                    ) : (
-                      <Ionicons
-                        name={
-                          category.icon ??
-                          'pricetag-outline'
-                        }
-                        size={24}
-                        color="#E35B3F"
-                      />
-                    )}
-                  </View>
-                </View>
-
-                <Text
-                  style={styles.categoryName}
-                  numberOfLines={2}
+            {categories.map(
+              category => (
+                <Pressable
+                  key={
+                    category.id
+                  }
+                  style={
+                    styles.category
+                  }
+                  onPress={() =>
+                    openCategory(
+                      category.name
+                    )
+                  }
                 >
-                  {category.name}
-                </Text>
-              </Pressable>
-            ))}
+                  <View
+                    style={
+                      styles.categoryIconOuter
+                    }
+                  >
+                    <View
+                      style={
+                        styles.categoryIcon
+                      }
+                    >
+                      {category.image &&
+                      category.image.trim() !==
+                        '' ? (
+                        <Image
+                          source={{
+                            uri: category.image,
+                          }}
+                          style={
+                            styles.categoryImage
+                          }
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <Ionicons
+                          name={
+                            category.icon ??
+                            'pricetag-outline'
+                          }
+                          size={24}
+                          color="#E35B3F"
+                        />
+                      )}
+                    </View>
+                  </View>
+
+                  <Text
+                    style={
+                      styles.categoryName
+                    }
+                    numberOfLines={2}
+                  >
+                    {
+                      category.name
+                    }
+                  </Text>
+                </Pressable>
+              )
+            )}
           </ScrollView>
         ) : (
-          <Text style={styles.emptyText}>
+          <Text
+            style={
+              styles.emptyText
+            }
+          >
             No categories available.
           </Text>
         )}
 
         {/* TOP SELLING */}
 
-        <View style={styles.sectionHeader}>
-          <View style={styles.sectionTitleRow}>
-            <View style={styles.sectionAccent} />
+        <View
+          style={
+            styles.sectionHeader
+          }
+        >
+          <View
+            style={
+              styles.sectionTitleRow
+            }
+          >
+            <View
+              style={
+                styles.sectionAccent
+              }
+            />
 
-            <Text style={styles.sectionTitle}>
+            <Text
+              style={
+                styles.sectionTitle
+              }
+            >
               Top Selling
             </Text>
           </View>
 
-          {topSellingProducts.length > 2 ? (
+          {topSellingProducts.length >
+          2 ? (
             <Pressable
               onPress={() =>
-                setShowAllTopSelling(current => !current)
+                setShowAllTopSelling(
+                  current =>
+                    !current
+                )
               }
               hitSlop={8}
             >
-              <Text style={styles.sectionSeeMore}>
+              <Text
+                style={
+                  styles.sectionSeeMore
+                }
+              >
                 {showAllTopSelling
                   ? 'SEE LESS'
                   : 'SEE MORE'}
@@ -1456,47 +1751,82 @@ export default function Index() {
           ) : null}
         </View>
 
-        <View style={styles.topSellingGrid}>
-          {displayedTopSelling.length > 0 ? (
-            displayedTopSelling.map(product => (
-              <TopSellingProductRow
-                key={product.id}
-                product={product}
-                isLoggedIn={isLoggedIn}
-                isFavorite={isFavorite(product.id)}
-                onPress={() =>
-                  openProduct(product)
-                }
-                onFavorite={() =>
-                  toggleFavorite(product)
-                }
-                onAddToCart={() => {
-                  const discount =
-                    Number(product.discount || 0);
-
-                  if (
-                    discount > 0 &&
-                    product.price !== undefined
-                  ) {
-                    const discountedPrice = Number(
-                      (
-                        product.price *
-                        (1 - discount / 100)
-                      ).toFixed(2)
-                    );
-
-                    addToCart(
-                      product,
-                      discountedPrice
-                    );
-                  } else {
-                    addToCart(product);
+        <View
+          style={
+            styles.topSellingGrid
+          }
+        >
+          {displayedTopSelling.length >
+          0 ? (
+            displayedTopSelling.map(
+              product => (
+                <TopSellingProductRow
+                  key={
+                    product.id
                   }
-                }}
-              />
-            ))
+                  product={
+                    product
+                  }
+                  isLoggedIn={
+                    isLoggedIn
+                  }
+                  isFavorite={isFavorite(
+                    product.id
+                  )}
+                  onPress={() =>
+                    openProduct(
+                      product
+                    )
+                  }
+                  onFavorite={() =>
+                    toggleFavorite(
+                      product
+                    )
+                  }
+                  onAddToCart={() => {
+                    const discount =
+                      Number(
+                        product.discount ||
+                          0
+                      );
+
+                    if (
+                      discount >
+                        0 &&
+                      product.price !==
+                        undefined
+                    ) {
+                      const discountedPrice =
+                        Number(
+                          (
+                            product.price *
+                            (1 -
+                              discount /
+                                100)
+                          ).toFixed(
+                            2
+                          )
+                        );
+
+                      addToCart(
+                        product,
+                        discountedPrice
+                      );
+                    } else {
+                      addToCart(
+                        product
+                      );
+                    }
+                  }}
+                />
+              )
+            )
           ) : (
-            <Text style={styles.emptyText}>
+            <Text
+              style={
+                styles.emptyText
+              }
+            >
               No top selling products yet.
             </Text>
           )}
@@ -1504,42 +1834,86 @@ export default function Index() {
 
         {/* RECENTLY ADDED */}
 
-        <View style={styles.sectionHeader}>
-          <View style={styles.sectionTitleRow}>
-            <View style={styles.sectionAccent} />
+        <View
+          style={
+            styles.sectionHeader
+          }
+        >
+          <View
+            style={
+              styles.sectionTitleRow
+            }
+          >
+            <View
+              style={
+                styles.sectionAccent
+              }
+            />
 
-            <Text style={styles.sectionTitle}>
+            <Text
+              style={
+                styles.sectionTitle
+              }
+            >
               Recently Added
             </Text>
           </View>
 
-          <Text style={styles.sectionSmallLabel}>
+          <Text
+            style={
+              styles.sectionSmallLabel
+            }
+          >
             NEW
           </Text>
         </View>
 
         <ScrollView
           horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.recentProducts}
+          showsHorizontalScrollIndicator={
+            false
+          }
+          contentContainerStyle={
+            styles.recentProducts
+          }
         >
-          {recentlyAdded.length > 0 ? (
-            recentlyAdded.map((product, index) => (
-              <RecentProduct
-                key={product.id}
-                product={product}
-                index={index}
-                isFavorite={isFavorite(product.id)}
-                onPress={() =>
-                  openProduct(product)
-                }
-                onFavorite={() =>
-                  toggleFavorite(product)
-                }
-              />
-            ))
+          {recentlyAdded.length >
+          0 ? (
+            recentlyAdded.map(
+              (
+                product,
+                index
+              ) => (
+                <RecentProduct
+                  key={
+                    product.id
+                  }
+                  product={
+                    product
+                  }
+                  index={index}
+                  isFavorite={isFavorite(
+                    product.id
+                  )}
+                  onPress={() =>
+                    openProduct(
+                      product
+                    )
+                  }
+                  onFavorite={() =>
+                    toggleFavorite(
+                      product
+                    )
+                  }
+                />
+              )
+            )
           ) : (
-            <Text style={styles.emptyText}>
+            <Text
+              style={
+                styles.emptyText
+              }
+            >
               No products available.
             </Text>
           )}
@@ -1552,18 +1926,40 @@ export default function Index() {
             offersSectionY.current =
               event.nativeEvent.layout.y;
           }}
-          style={styles.offerHeader}
+          style={
+            styles.offerHeader
+          }
         >
-          <View style={styles.sectionTitleRow}>
-            <View style={styles.offerAccent} />
+          <View
+            style={
+              styles.sectionTitleRow
+            }
+          >
+            <View
+              style={
+                styles.offerAccent
+              }
+            />
 
-            <Text style={styles.sectionTitle}>
+            <Text
+              style={
+                styles.sectionTitle
+              }
+            >
               Offers
             </Text>
           </View>
 
-          <Pressable onPress={scrollToOffers}>
-            <Text style={styles.offerLabel}>
+          <Pressable
+            onPress={
+              scrollToOffers
+            }
+          >
+            <Text
+              style={
+                styles.offerLabel
+              }
+            >
               SPECIAL DEALS
             </Text>
           </Pressable>
@@ -1577,74 +1973,131 @@ export default function Index() {
                 opacity: offerFade,
                 transform: [
                   {
-                    translateX: offerTranslate,
+                    translateX:
+                      offerTranslate,
                   },
                 ],
               },
             ]}
           >
             <Pressable
-              style={styles.offerShowcasePressable}
+              style={
+                styles.offerShowcasePressable
+              }
               onPress={() =>
-                openProduct(activeOffer)
+                openProduct(
+                  activeOffer
+                )
               }
             >
-              <View style={styles.offerVisual}>
+              <View
+                style={
+                  styles.offerVisual
+                }
+              >
                 <Image
                   source={{
                     uri: activeOffer.image,
                   }}
-                  style={styles.offerShowcaseImage}
+                  style={
+                    styles.offerShowcaseImage
+                  }
                   resizeMode="contain"
                 />
 
-                <View style={styles.offerBadge}>
+                <View
+                  style={
+                    styles.offerBadge
+                  }
+                >
                   <Ionicons
                     name="pricetag"
                     size={11}
                     color="#FFFFFF"
                   />
 
-                  <Text style={styles.offerBadgeText}>
-                    {activeOffer.discount}% OFF
+                  <Text
+                    style={
+                      styles.offerBadgeText
+                    }
+                  >
+                    {
+                      activeOffer.discount
+                    }% OFF
                   </Text>
                 </View>
               </View>
 
-              <View style={styles.offerInfo}>
-                <Text style={styles.offerMiniLabel}>
+              <View
+                style={
+                  styles.offerInfo
+                }
+              >
+                <Text
+                  style={
+                    styles.offerMiniLabel
+                  }
+                >
                   LIMITED DEAL
                 </Text>
 
                 <Text
-                  style={styles.offerProductName}
+                  style={
+                    styles.offerProductName
+                  }
                   numberOfLines={2}
                 >
-                  {activeOffer.name}
+                  {
+                    activeOffer.name
+                  }
                 </Text>
 
-                {activeOffer.price !== undefined ? (
-                  <View style={styles.offerPriceRow}>
-                    <Text style={styles.offerOldPrice}>
-                      ${Number(activeOffer.price).toFixed(2)}
+                {activeOffer.price !==
+                undefined ? (
+                  <View
+                    style={
+                      styles.offerPriceRow
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.offerOldPrice
+                      }
+                    >
+                      $
+                      {Number(
+                        activeOffer.price
+                      ).toFixed(2)}
                     </Text>
 
-                    <Text style={styles.offerNewPrice}>
+                    <Text
+                      style={
+                        styles.offerNewPrice
+                      }
+                    >
                       $
                       {Number(
                         activeOffer.price *
-                        (1 - activeOffer.discount / 100)
+                          (1 -
+                            activeOffer.discount /
+                              100)
                       ).toFixed(2)}
                     </Text>
                   </View>
                 ) : (
-                  <Text style={styles.loginOfferPrice}>
+                  <Text
+                    style={
+                      styles.loginOfferPrice
+                    }
+                  >
                     Login to see price
                   </Text>
                 )}
 
                 <Pressable
-                  style={styles.offerAddButton}
+                  style={
+                    styles.offerAddButton
+                  }
                   onPress={() => {
                     if (
                       activeOffer.availability ===
@@ -1668,17 +2121,25 @@ export default function Index() {
 
                     const discountedPrice =
                       activeOffer.price *
-                      (1 - activeOffer.discount / 100);
+                      (1 -
+                        activeOffer.discount /
+                          100);
 
                     addToCart(
                       activeOffer,
                       Number(
-                        discountedPrice.toFixed(2)
+                        discountedPrice.toFixed(
+                          2
+                        )
                       )
                     );
                   }}
                 >
-                  <Text style={styles.offerAddText}>
+                  <Text
+                    style={
+                      styles.offerAddText
+                    }
+                  >
                     Add to Cart
                   </Text>
 
@@ -1692,46 +2153,83 @@ export default function Index() {
             </Pressable>
           </Animated.View>
         ) : (
-          <View style={styles.emptyOffer}>
+          <View
+            style={
+              styles.emptyOffer
+            }
+          >
             <Ionicons
               name="pricetag-outline"
               size={25}
               color="#A49B90"
             />
 
-            <Text style={styles.emptyOfferText}>
+            <Text
+              style={
+                styles.emptyOfferText
+              }
+            >
               No offers available.
             </Text>
           </View>
         )}
 
-        {offerProducts.length > 1 ? (
-          <View style={styles.offerIndicators}>
-            {offerProducts.slice(0, 6).map(
-              (offer, index) => (
-                <View
-                  key={offer.id}
-                  style={[
-                    styles.offerIndicator,
-                    index === activeOfferIndex
-                      ? styles.offerIndicatorActive
-                      : null,
-                  ]}
-                />
-              )
-            )}
+        {offerProducts.length >
+        1 ? (
+          <View
+            style={
+              styles.offerIndicators
+            }
+          >
+            {offerProducts
+              .slice(0, 6)
+              .map(
+                (
+                  offer,
+                  index
+                ) => (
+                  <View
+                    key={
+                      offer.id
+                    }
+                    style={[
+                      styles.offerIndicator,
+                      index ===
+                      activeOfferIndex
+                        ? styles.offerIndicatorActive
+                        : null,
+                    ]}
+                  />
+                )
+              )}
           </View>
         ) : null}
 
-        <View style={styles.bottomSpace} />
+        <View
+          style={
+            styles.bottomSpace
+          }
+        />
       </ScrollView>
 
-      <View style={styles.bottomNav}>
+      <View
+        style={
+          styles.bottomNav
+        }
+      >
         <Pressable
-          style={styles.navItem}
-          onPress={() => router.replace('/')}
+          style={
+            styles.navItem
+          }
+          onPress={() =>
+            router.replace('/')
+          }
         >
-          <View style={styles.activeNavIcon}>
+          <View
+            style={
+              styles.activeNavIcon
+            }
+          >
             <Ionicons
               name="home"
               size={19}
@@ -1739,14 +2237,24 @@ export default function Index() {
             />
           </View>
 
-          <Text style={styles.navTextActive}>
+          <Text
+            style={
+              styles.navTextActive
+            }
+          >
             Home
           </Text>
         </Pressable>
 
         <Pressable
-          style={styles.navItem}
-          onPress={() => router.push('/search')}
+          style={
+            styles.navItem
+          }
+          onPress={() =>
+            router.push(
+              '/search'
+            )
+          }
         >
           <Ionicons
             name="search-outline"
@@ -1754,70 +2262,130 @@ export default function Index() {
             color="#817D75"
           />
 
-          <Text style={styles.navText}>
+          <Text
+            style={
+              styles.navText
+            }
+          >
             Search
           </Text>
         </Pressable>
 
         <Pressable
-          style={styles.navItem}
-          onPress={() => router.push('/favorites')}
+          style={
+            styles.navItem
+          }
+          onPress={() =>
+            router.push(
+              '/favorites'
+            )
+          }
         >
-          <View style={styles.navIconWrapper}>
+          <View
+            style={
+              styles.navIconWrapper
+            }
+          >
             <Ionicons
               name="heart-outline"
               size={22}
               color="#817D75"
             />
 
-            {favorites.length > 0 ? (
-              <View style={styles.navBadge}>
-                <Text style={styles.navBadgeText}>
-                  {favorites.length}
+            {favorites.length >
+            0 ? (
+              <View
+                style={
+                  styles.navBadge
+                }
+              >
+                <Text
+                  style={
+                    styles.navBadgeText
+                  }
+                >
+                  {
+                    favorites.length
+                  }
                 </Text>
               </View>
             ) : null}
           </View>
 
-          <Text style={styles.navText}>
+          <Text
+            style={
+              styles.navText
+            }
+          >
             Favorites
           </Text>
         </Pressable>
 
         <Pressable
-          style={styles.navItem}
+          style={
+            styles.navItem
+          }
           onPress={() => {
             if (!isLoggedIn) {
-              router.push('/login');
+              router.push(
+                '/login'
+              );
             } else {
-              router.push('/cart');
+              router.push(
+                '/cart'
+              );
             }
           }}
         >
-          <View style={styles.navIconWrapper}>
+          <View
+            style={
+              styles.navIconWrapper
+            }
+          >
             <Ionicons
               name="cart-outline"
               size={22}
               color="#817D75"
             />
 
-            {isLoggedIn && cartCount > 0 ? (
-              <View style={styles.navBadge}>
-                <Text style={styles.navBadgeText}>
-                  {cartCount}
+            {isLoggedIn &&
+            cartCount > 0 ? (
+              <View
+                style={
+                  styles.navBadge
+                }
+              >
+                <Text
+                  style={
+                    styles.navBadgeText
+                  }
+                >
+                  {
+                    cartCount
+                  }
                 </Text>
               </View>
             ) : null}
           </View>
 
-          <Text style={styles.navText}>
+          <Text
+            style={
+              styles.navText
+            }
+          >
             Cart
           </Text>
         </Pressable>
 
         <Pressable
-          style={styles.navItem}
-          onPress={() => router.push('/settings')}
+          style={
+            styles.navItem
+          }
+          onPress={() =>
+            router.push(
+              '/settings'
+            )
+          }
         >
           <Ionicons
             name="settings-outline"
@@ -1825,7 +2393,11 @@ export default function Index() {
             color="#817B71"
           />
 
-          <Text style={styles.navText}>
+          <Text
+            style={
+              styles.navText
+            }
+          >
             Settings
           </Text>
         </Pressable>
@@ -1849,8 +2421,13 @@ function TopSellingProductRow({
   onFavorite: () => void;
   onAddToCart: () => void;
 }) {
-  const appear = useRef(new Animated.Value(0)).current;
-  const pressScale = useRef(new Animated.Value(1)).current;
+  const appear = useRef(
+    new Animated.Value(0)
+  ).current;
+
+  const pressScale = useRef(
+    new Animated.Value(1)
+  ).current;
 
   const isAvailable =
     product.availability !== false;
@@ -1865,16 +2442,22 @@ function TopSellingProductRow({
 
   const animatePress = () => {
     Animated.sequence([
-      Animated.timing(pressScale, {
-        toValue: 0.96,
-        duration: 80,
-        useNativeDriver: true,
-      }),
-      Animated.spring(pressScale, {
-        toValue: 1,
-        friction: 6,
-        useNativeDriver: true,
-      }),
+      Animated.timing(
+        pressScale,
+        {
+          toValue: 0.96,
+          duration: 80,
+          useNativeDriver: true,
+        }
+      ),
+      Animated.spring(
+        pressScale,
+        {
+          toValue: 1,
+          friction: 6,
+          useNativeDriver: true,
+        }
+      ),
     ]).start();
   };
 
@@ -1886,10 +2469,11 @@ function TopSellingProductRow({
           opacity: appear,
           transform: [
             {
-              translateY: appear.interpolate({
-                inputRange: [0, 1],
-                outputRange: [10, 0],
-              }),
+              translateY:
+                appear.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [10, 0],
+                }),
             },
             {
               scale: pressScale,
@@ -1899,23 +2483,35 @@ function TopSellingProductRow({
       ]}
     >
       <Pressable
-        style={styles.topSellingCard}
+        style={
+          styles.topSellingCard
+        }
         onPress={() => {
           animatePress();
           onPress();
         }}
       >
-        <View style={styles.topSellingImageBox}>
+        <View
+          style={
+            styles.topSellingImageBox
+          }
+        >
           <Image
             source={{
               uri: product.image,
             }}
-            style={styles.topSellingImage}
+            style={
+              styles.topSellingImage
+            }
             resizeMode="contain"
           />
 
           {!isAvailable ? (
-            <View style={styles.topSellingOutOfStock}>
+            <View
+              style={
+                styles.topSellingOutOfStock
+              }
+            >
               <Ionicons
                 name="close"
                 size={9}
@@ -1925,7 +2521,9 @@ function TopSellingProductRow({
           ) : null}
 
           <Pressable
-            style={styles.topSellingFavorite}
+            style={
+              styles.topSellingFavorite
+            }
             onPress={event => {
               event.stopPropagation();
               onFavorite();
@@ -1948,17 +2546,28 @@ function TopSellingProductRow({
           </Pressable>
         </View>
 
-        <View style={styles.topSellingInfo}>
+        <View
+          style={
+            styles.topSellingInfo
+          }
+        >
           <Text
-            style={styles.topSellingName}
+            style={
+              styles.topSellingName
+            }
             numberOfLines={1}
           >
             {product.name}
           </Text>
 
-          <View style={styles.topSellingBottom}>
+          <View
+            style={
+              styles.topSellingBottom
+            }
+          >
             {isLoggedIn &&
-            product.price !== undefined ? (
+            product.price !==
+              undefined ? (
               <Text
                 style={[
                   styles.topSellingPrice,
@@ -1968,11 +2577,16 @@ function TopSellingProductRow({
                 ]}
                 numberOfLines={1}
               >
-                ${Number(product.price).toFixed(2)}
+                $
+                {Number(
+                  product.price
+                ).toFixed(2)}
               </Text>
             ) : (
               <Text
-                style={styles.topSellingLoginPrice}
+                style={
+                  styles.topSellingLoginPrice
+                }
                 numberOfLines={1}
               >
                 Login for price
@@ -1990,7 +2604,9 @@ function TopSellingProductRow({
                 event.stopPropagation();
                 onAddToCart();
               }}
-              disabled={!isAvailable}
+              disabled={
+                !isAvailable
+              }
               hitSlop={4}
             >
               <Ionicons
@@ -2023,8 +2639,13 @@ function RecentProduct({
   onPress: () => void;
   onFavorite: () => void;
 }) {
-  const appear = useRef(new Animated.Value(0)).current;
-  const scale = useRef(new Animated.Value(1)).current;
+  const appear = useRef(
+    new Animated.Value(0)
+  ).current;
+
+  const scale = useRef(
+    new Animated.Value(1)
+  ).current;
 
   useEffect(() => {
     Animated.timing(appear, {
@@ -2059,10 +2680,11 @@ function RecentProduct({
           opacity: appear,
           transform: [
             {
-              translateY: appear.interpolate({
-                inputRange: [0, 1],
-                outputRange: [18, 0],
-              }),
+              translateY:
+                appear.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [18, 0],
+                }),
             },
             {
               scale,
@@ -2076,26 +2698,42 @@ function RecentProduct({
         onPressIn={pressIn}
         onPressOut={pressOut}
       >
-        <View style={styles.recentImageBox}>
+        <View
+          style={
+            styles.recentImageBox
+          }
+        >
           <Image
             source={{
               uri: product.image,
             }}
-            style={styles.recentImage}
+            style={
+              styles.recentImage
+            }
             resizeMode="contain"
           />
 
           {product.discount &&
           product.discount > 0 ? (
-            <View style={styles.recentDiscount}>
-              <Text style={styles.recentDiscountText}>
+            <View
+              style={
+                styles.recentDiscount
+              }
+            >
+              <Text
+                style={
+                  styles.recentDiscountText
+                }
+              >
                 -{product.discount}%
               </Text>
             </View>
           ) : null}
 
           <Pressable
-            style={styles.recentHeart}
+            style={
+              styles.recentHeart
+            }
             onPress={event => {
               event.stopPropagation();
               onFavorite();
@@ -2119,15 +2757,25 @@ function RecentProduct({
         </View>
 
         <Text
-          style={styles.recentName}
+          style={
+            styles.recentName
+          }
           numberOfLines={1}
         >
           {product.name}
         </Text>
 
-        {product.price !== undefined ? (
-          <Text style={styles.recentPrice}>
-            ${Number(product.price).toFixed(2)}
+        {product.price !==
+        undefined ? (
+          <Text
+            style={
+              styles.recentPrice
+            }
+          >
+            $
+            {Number(
+              product.price
+            ).toFixed(2)}
           </Text>
         ) : null}
       </Pressable>
@@ -2324,10 +2972,19 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  animatedSlideTrack: {
-    width: SCREEN_WIDTH * 3,
+  fadeSlideContainer: {
+    width: SCREEN_WIDTH,
     height: 218,
-    flexDirection: 'row',
+    position: 'relative',
+  },
+
+  fadeSlidePane: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    width: SCREEN_WIDTH,
+    height: 218,
+    overflow: 'hidden',
   },
 
   slidePane: {
@@ -2377,9 +3034,11 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: 'rgba(255,255,255,0.65)',
+    backgroundColor:
+      'rgba(255,255,255,0.65)',
     borderWidth: 1,
-    borderColor: 'rgba(23,23,23,0.15)',
+    borderColor:
+      'rgba(23,23,23,0.15)',
   },
 
   slideDotActive: {

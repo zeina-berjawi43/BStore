@@ -23,6 +23,8 @@ import {
   useState,
 } from 'react';
 
+import { getValidAccessToken } from '../services/authService';
+
 
 // ============================================================
 // API
@@ -195,21 +197,10 @@ export default function Cart() {
     useCallback(
       async () => {
 
-        if (
-          accessTokenRef.current
-        ) {
-
-          return accessTokenRef.current;
-
-        }
-
-
         try {
 
           const token =
-            await AsyncStorage.getItem(
-              'accessToken'
-            );
+            await getValidAccessToken();
 
 
           accessTokenRef.current =
