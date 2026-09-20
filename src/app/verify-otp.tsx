@@ -13,249 +13,200 @@ import {
   useLocalSearchParams,
 } from 'expo-router';
 
-import {
-  Ionicons,
-} from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
+import { useEffect, useState } from 'react';
 
 import {
-  useEffect,
-  useState,
-} from 'react';
-
-import {
-  verifyLoginOTP,
-  requestLoginOTP,
+  verifyRegistrationOTP,
+  resendRegistrationOTP,
 } from '../services/authService';
 
 export default function VerifyOTP() {
-
-  const params =
-    useLocalSearchParams<{
-      phone?: string;
-      mode?: string;
-    }>();
+  const params = useLocalSearchParams<{
+    phone?: string;
+    mode?: string;
+  }>();
 
   const phone =
     typeof params.phone === 'string'
-      ? params.phone
+      ? params.phone.trim()
       : '';
 
   const mode =
     typeof params.mode === 'string'
       ? params.mode
-      : 'login';
+      : 'register';
 
-  const [otp, setOtp] =
-    useState('');
-
-  const [error, setError] =
-    useState('');
-
-  const [loading, setLoading] =
+  const [otp, setOtp] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] =
     useState(false);
 
-  const [resending, setResending] =
-    useState(false);
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
 
-  const [seconds, setSeconds] =
-    useState(0);
+  const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [seconds, setSeconds] = useState(0);
+
+  // This screen handles registration verification only.
+  // Normal login uses phone + password without OTP.
+
+  const isRegistration = mode === 'register';
 
   // =========================================================
-  // COUNTDOWN
+  // RESEND COUNTDOWN
   // =========================================================
 
   useEffect(() => {
+    if (seconds <= 0) return;
 
-    if (seconds <= 0) {
-      return;
-    }
+    const timer = setTimeout(() => {
+      setSeconds((current) =>
+        current > 0 ? current - 1 : 0
+      );
+    }, 1000);
 
-    const timer =
-      setInterval(() => {
-
-        setSeconds(
-          current =>
-            current > 0
-              ? current - 1
-              : 0
-        );
-
-      }, 1000);
-
-    return () =>
-      clearInterval(timer);
-
+    return () => clearTimeout(timer);
   }, [seconds]);
 
   // =========================================================
-  // VERIFY
+  // VERIFY REGISTRATION OTP
   // =========================================================
 
-  const handleVerify =
-    async () => {
+  const handleVerify = async () => {
+    if (loading || resending) return;
 
-      setError('');
+    setError('');
+    setMessage('');
 
-      const cleanOTP =
-        otp.trim();
+    if (!isRegistration) {
+      setError(
+        'This verification page is for registration only.'
+      );
+      return;
+    }
 
-      if (!cleanOTP) {
+    if (!phone) {
+      setError(
+        'Phone number is missing. Please register again.'
+      );
+      return;
+    }
 
-        setError(
-          'Please enter the verification code.'
-        );
+    const cleanOTP = otp.trim();
 
-        return;
-      }
+    if (!/^\d{6}$/.test(cleanOTP)) {
+      setError(
+        'Please enter the 6-digit verification code.'
+      );
+      return;
+    }
 
-      if (
-        !/^\d{6}$/.test(
-          cleanOTP
-        )
-      ) {
+    try {
+      setLoading(true);
 
-        setError(
-          'Verification code must contain 6 digits.'
-        );
+      // The service saves the access token,
+      // refresh token and user after verification.
+      await verifyRegistrationOTP(phone, cleanOTP);
 
-        return;
-      }
+      setOtp('');
+      setPassword('');
 
-      if (!phone) {
-
-        setError(
-          'Phone number is missing.'
-        );
-
-        return;
-      }
-
-      try {
-
-        setLoading(true);
-
-        const data =
-          await verifyLoginOTP(
-            phone,
-            cleanOTP
-          );
-
-        console.log(
-          'OTP VERIFIED:',
-          data.user
-        );
-
-        // ===================================================
-        // NO PUSH TOKEN FOR CUSTOMER
-        // ===================================================
-
-        router.replace('/');
-
-      } catch (error: any) {
-
-        console.log(
-          'VERIFY OTP ERROR:',
-          error
-        );
-
-        setError(
-          error?.message ||
-            'Incorrect verification code.'
-        );
-
-      } finally {
-
-        setLoading(false);
-      }
-    };
+      // Registration verification logs the user in.
+      router.replace('/');
+    } catch (err: any) {
+      setError(
+        err?.message ||
+          'Unable to verify the code. Please try again.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // =========================================================
-  // RESEND
+  // RESEND REGISTRATION OTP
   // =========================================================
 
-  const handleResend =
-    async () => {
+  const handleResend = async () => {
+    if (loading || resending || seconds > 0) return;
 
-      if (
-        resending ||
-        seconds > 0
-      ) {
-        return;
-      }
+    setError('');
+    setMessage('');
 
-      if (!phone) {
+    if (!isRegistration) {
+      setError(
+        'Please return to the login page.'
+      );
+      return;
+    }
 
-        setError(
-          'Phone number is missing.'
-        );
+    if (!phone) {
+      setError(
+        'Phone number is missing. Please register again.'
+      );
+      return;
+    }
 
-        return;
-      }
+    // Never pass a password through navigation params.
+    // The user enters it again here when resending.
+    if (!password) {
+      setError(
+        'Enter your password to request another code.'
+      );
+      return;
+    }
 
-      try {
+    try {
+      setResending(true);
 
-        setError('');
-        setResending(true);
+      await resendRegistrationOTP(phone, password);
 
-        await requestLoginOTP(
-          phone
-        );
+      setOtp('');
+      setPassword('');
+      setSeconds(30);
 
-        setOtp('');
-        setSeconds(30);
+      setMessage(
+        'A new code has been requested. Please wait for the administrator to send it to you.'
+      );
+    } catch (err: any) {
+      setError(
+        err?.message ||
+          'Unable to request another code.'
+      );
+    } finally {
+      setResending(false);
+    }
+  };
 
-      } catch (error: any) {
-
-        console.log(
-          'RESEND OTP ERROR:',
-          error
-        );
-
-        setError(
-          error?.message ||
-            'Unable to resend verification code.'
-        );
-
-      } finally {
-
-        setResending(false);
-      }
-    };
+  const busy = loading || resending;
 
   return (
     <View style={styles.container}>
-
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={
-          styles.scrollContent
-        }
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.scrollContent}
       >
-
-        {/* =====================================================
-            HEADER
-        ===================================================== */}
+        {/* HEADER */}
 
         <View style={styles.header}>
-
           <Pressable
             style={styles.backButton}
-            onPress={() =>
-              router.back()
-            }
-            disabled={loading}
+            onPress={() => router.back()}
+            disabled={busy}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
           >
-
             <Ionicons
               name="arrow-back"
               size={22}
               color="#171717"
             />
-
           </Pressable>
 
           <View style={styles.headerText}>
-
             <Text style={styles.smallTitle}>
               BStore
             </Text>
@@ -265,27 +216,20 @@ export default function VerifyOTP() {
             </Text>
 
             <Text style={styles.subtitle}>
-              Enter the verification code
+              Complete your account registration
             </Text>
-
           </View>
-
         </View>
 
-        {/* =====================================================
-            VERIFICATION CARD
-        ===================================================== */}
+        {/* VERIFICATION CARD */}
 
         <View style={styles.card}>
-
           <View style={styles.iconCircle}>
-
             <Ionicons
               name="phone-portrait-outline"
               size={29}
               color="#E35B3F"
             />
-
           </View>
 
           <Text style={styles.cardTitle}>
@@ -293,12 +237,11 @@ export default function VerifyOTP() {
           </Text>
 
           <Text style={styles.description}>
-            Enter the 6-digit code sent for
-            verification of:
+            Enter the 6-digit code sent to you
+            by the administrator for:
           </Text>
 
           <View style={styles.phoneBox}>
-
             <Ionicons
               name="call-outline"
               size={16}
@@ -306,53 +249,42 @@ export default function VerifyOTP() {
             />
 
             <Text style={styles.phone}>
-              {phone}
+              {phone || 'Phone number missing'}
             </Text>
-
           </View>
 
-          {/* ===================================================
-              OTP INPUT
-          =================================================== */}
+          {/* OTP */}
+
+          <Text style={styles.label}>
+            Verification Code
+          </Text>
 
           <TextInput
             value={otp}
-            onChangeText={(text) => {
-
-              const onlyNumbers =
-                text.replace(
-                  /[^0-9]/g,
-                  ''
-                );
-
+            onChangeText={(value) => {
               setOtp(
-                onlyNumbers.slice(
-                  0,
-                  6
-                )
+                value.replace(/\D/g, '').slice(0, 6)
               );
-
-              if (error) {
-                setError('');
-              }
-
+              setError('');
+              setMessage('');
             }}
             keyboardType="number-pad"
             maxLength={6}
             placeholder="000000"
             placeholderTextColor="#B8AFA5"
-            editable={!loading}
+            editable={!busy}
             textAlign="center"
+            autoComplete="one-time-code"
             style={[
               styles.otpInput,
-              error &&
-                styles.otpInputError,
+              error ? styles.inputError : null,
             ]}
           />
 
+          {/* ERROR */}
+
           {error ? (
             <View style={styles.errorBox}>
-
               <Ionicons
                 name="alert-circle-outline"
                 size={17}
@@ -362,37 +294,41 @@ export default function VerifyOTP() {
               <Text style={styles.errorText}>
                 {error}
               </Text>
-
             </View>
           ) : null}
 
-          {/* ===================================================
-              VERIFY BUTTON
-          =================================================== */}
+          {/* SUCCESS MESSAGE */}
+
+          {message ? (
+            <View style={styles.messageBox}>
+              <Ionicons
+                name="checkmark-circle-outline"
+                size={17}
+                color="#26734D"
+              />
+
+              <Text style={styles.messageText}>
+                {message}
+              </Text>
+            </View>
+          ) : null}
+
+          {/* VERIFY BUTTON */}
 
           <Pressable
             style={[
               styles.verifyButton,
-              loading &&
-                styles.disabledButton,
+              busy ? styles.disabledButton : null,
             ]}
-            onPress={
-              handleVerify
-            }
-            disabled={
-              loading
-            }
+            onPress={handleVerify}
+            disabled={busy || !isRegistration}
           >
-
             {loading ? (
-
               <ActivityIndicator
                 size="small"
                 color="#FFFFFF"
               />
-
             ) : (
-
               <>
                 <Text style={styles.verifyText}>
                   Verify
@@ -404,72 +340,125 @@ export default function VerifyOTP() {
                   color="#FFFFFF"
                 />
               </>
-
             )}
-
           </Pressable>
 
-          {/* ===================================================
-              RESEND
-          =================================================== */}
+          {/* RESEND SECTION */}
 
-          <Pressable
-            style={styles.resendButton}
-            onPress={
-              handleResend
-            }
-            disabled={
-              resending ||
-              seconds > 0 ||
-              loading
-            }
-          >
+          {isRegistration ? (
+            <View style={styles.resendSection}>
+              <Text style={styles.resendTitle}>
+                Didn't receive the code?
+              </Text>
 
-            {resending ? (
+              <Text style={styles.resendDescription}>
+                Enter your account password to
+                request a new verification code.
+              </Text>
 
-              <ActivityIndicator
-                size="small"
-                color="#E35B3F"
-              />
+              <Text style={styles.label}>
+                Password
+              </Text>
 
-            ) : (
-
-              <View style={styles.resendContent}>
-
-                <Ionicons
-                  name="refresh-outline"
-                  size={17}
-                  color={
-                    seconds > 0
-                      ? '#AFA79E'
-                      : '#E35B3F'
-                  }
+              <View style={styles.passwordContainer}>
+                <TextInput
+                  value={password}
+                  onChangeText={(value) => {
+                    setPassword(value);
+                    setError('');
+                    setMessage('');
+                  }}
+                  placeholder="Enter your password"
+                  placeholderTextColor="#B8AFA5"
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="password"
+                  editable={!busy}
+                  style={styles.passwordInput}
                 />
 
-                <Text
-                  style={[
-                    styles.resendText,
-                    seconds > 0 &&
-                      styles.resendDisabled,
-                  ]}
+                <Pressable
+                  style={styles.eyeButton}
+                  onPress={() =>
+                    setShowPassword((current) => !current)
+                  }
+                  disabled={busy}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    showPassword
+                      ? 'Hide password'
+                      : 'Show password'
+                  }
                 >
-                  {seconds > 0
-                    ? `Resend code in ${seconds}s`
-                    : 'Resend Code'}
-                </Text>
-
+                  <Ionicons
+                    name={
+                      showPassword
+                        ? 'eye-off-outline'
+                        : 'eye-outline'
+                    }
+                    size={21}
+                    color="#817B71"
+                  />
+                </Pressable>
               </View>
 
-            )}
+              <Pressable
+                style={styles.resendButton}
+                onPress={handleResend}
+                disabled={
+                  busy ||
+                  seconds > 0 ||
+                  !phone
+                }
+              >
+                {resending ? (
+                  <ActivityIndicator
+                    size="small"
+                    color="#E35B3F"
+                  />
+                ) : (
+                  <View style={styles.resendContent}>
+                    <Ionicons
+                      name="refresh-outline"
+                      size={17}
+                      color={
+                        seconds > 0
+                          ? '#AFA79E'
+                          : '#E35B3F'
+                      }
+                    />
 
-          </Pressable>
+                    <Text
+                      style={[
+                        styles.resendText,
+                        seconds > 0
+                          ? styles.resendDisabled
+                          : null,
+                      ]}
+                    >
+                      {seconds > 0
+                        ? `Resend code in ${seconds}s`
+                        : 'Resend Code'}
+                    </Text>
+                  </View>
+                )}
+              </Pressable>
+            </View>
+          ) : (
+            <Pressable
+              style={styles.resendButton}
+              onPress={() => router.replace('/login')}
+            >
+              <Text style={styles.resendText}>
+                Return to Login
+              </Text>
+            </Pressable>
+          )}
 
-          {/* ===================================================
-              NOTE
-          =================================================== */}
+          {/* EXPIRATION NOTE */}
 
           <View style={styles.noteBox}>
-
             <Ionicons
               name="time-outline"
               size={16}
@@ -480,367 +469,316 @@ export default function VerifyOTP() {
               The verification code expires after
               90 minutes.
             </Text>
-
           </View>
-
         </View>
-
       </ScrollView>
-
     </View>
   );
 }
 
-const styles =
-  StyleSheet.create({
+// =========================================================
+// STYLES
+// =========================================================
 
-    // =========================================================
-    // PAGE
-    // =========================================================
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    paddingTop: 20,
+    backgroundColor: '#F7F3EC',
+  },
 
-    container: {
-      flex: 1,
-      paddingTop:20,
-      backgroundColor:
-        '#F7F3EC',
+  scrollContent: {
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 35,
+  },
+
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+
+  backButton: {
+    width: 46,
+    height: 46,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E7DED1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+
+  headerText: {
+    flex: 1,
+  },
+
+  smallTitle: {
+    color: '#E35B3F',
+    fontSize: 12,
+    fontWeight: '900',
+    marginBottom: 3,
+  },
+
+  title: {
+    fontSize: 27,
+    fontWeight: '900',
+    color: '#171717',
+  },
+
+  subtitle: {
+    marginTop: 4,
+    fontSize: 12,
+    color: '#817B71',
+    lineHeight: 18,
+  },
+
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 21,
+    borderWidth: 1,
+    borderColor: '#E7DED1',
+    padding: 19,
+    alignItems: 'center',
+    shadowColor: '#171717',
+    shadowOffset: {
+      width: 0,
+      height: 6,
     },
+    shadowOpacity: 0.08,
+    shadowRadius: 11,
+    elevation: 3,
+  },
 
-    scrollContent: {
-      paddingHorizontal: 18,
-      paddingTop: 18,
-      paddingBottom: 45,
-    },
+  iconCircle: {
+    width: 66,
+    height: 66,
+    borderRadius: 33,
+    backgroundColor: '#FFF0E9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 15,
+  },
 
-    // =========================================================
-    // HEADER
-    // =========================================================
+  cardTitle: {
+    fontSize: 21,
+    fontWeight: '900',
+    color: '#171717',
+    textAlign: 'center',
+  },
 
-    header: {
-      flexDirection:
-        'row',
-      alignItems:
-        'center',
-      marginBottom: 20,
-    },
+  description: {
+    fontSize: 13,
+    color: '#817B71',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginTop: 8,
+    marginBottom: 14,
+  },
 
-    backButton: {
-      width: 46,
-      height: 46,
-      borderRadius: 16,
-      backgroundColor:
-        '#FFFFFF',
-      borderWidth: 1,
-      borderColor:
-        '#E7DED1',
-      alignItems:
-        'center',
-      justifyContent:
-        'center',
-      marginRight: 12,
+  phoneBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    backgroundColor: '#FFF4EE',
+    borderRadius: 12,
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    marginBottom: 20,
+    maxWidth: '100%',
+  },
 
-      shadowColor:
-        '#171717',
-      shadowOffset: {
-        width: 0,
-        height: 4,
-      },
-      shadowOpacity: 0.06,
-      shadowRadius: 8,
-      elevation: 2,
-    },
+  phone: {
+    fontSize: 14,
+    color: '#171717',
+    fontWeight: '800',
+    flexShrink: 1,
+  },
 
-    headerText: {
-      flex: 1,
-    },
+  label: {
+    alignSelf: 'flex-start',
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#171717',
+    marginBottom: 8,
+    marginTop: 5,
+  },
 
-    smallTitle: {
-      fontSize: 12,
-      fontWeight: '700',
-      color:
-        '#817B71',
-      marginBottom: 2,
-      letterSpacing: 0.2,
-    },
+  otpInput: {
+    width: '100%',
+    height: 57,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: '#E7DED1',
+    backgroundColor: '#F8F2EA',
+    color: '#171717',
+    fontSize: 25,
+    fontWeight: '900',
+    letterSpacing: 8,
+  },
 
-    title: {
-      fontSize: 29,
-      fontWeight: '900',
-      color:
-        '#171717',
-      letterSpacing: -0.8,
-      lineHeight: 34,
-    },
+  inputError: {
+    borderColor: '#C94C4C',
+    backgroundColor: '#FFF7F3',
+  },
 
-    subtitle: {
-      marginTop: 3,
-      fontSize: 13,
-      fontWeight: '500',
-      color:
-        '#817B71',
-    },
+  errorBox: {
+    width: '100%',
+    marginTop: 12,
+    padding: 11,
+    borderRadius: 12,
+    backgroundColor: '#FFF0EF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+  },
 
-    // =========================================================
-    // CARD
-    // =========================================================
+  errorText: {
+    flexShrink: 1,
+    color: '#C94C4C',
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
 
-    card: {
-      backgroundColor:
-        '#FFFFFF',
-      borderRadius: 21,
-      borderWidth: 1,
-      borderColor:
-        '#E7DED1',
-      paddingHorizontal: 20,
-      paddingTop: 24,
-      paddingBottom: 22,
-      alignItems:
-        'center',
+  messageBox: {
+    width: '100%',
+    marginTop: 12,
+    padding: 11,
+    borderRadius: 12,
+    backgroundColor: '#EDF8F0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+  },
 
-      shadowColor:
-        '#171717',
-      shadowOffset: {
-        width: 0,
-        height: 6,
-      },
-      shadowOpacity: 0.07,
-      shadowRadius: 10,
-      elevation: 3,
-    },
+  messageText: {
+    flexShrink: 1,
+    color: '#26734D',
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
 
-    // =========================================================
-    // ICON
-    // =========================================================
+  verifyButton: {
+    width: '100%',
+    minHeight: 54,
+    marginTop: 17,
+    backgroundColor: '#E35B3F',
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
 
-    iconCircle: {
-      width: 64,
-      height: 64,
-      borderRadius: 18,
-      backgroundColor:
-        '#FFF7F3',
-      borderWidth: 1,
-      borderColor:
-        '#F0CFC4',
-      alignItems:
-        'center',
-      justifyContent:
-        'center',
-      marginBottom: 15,
-    },
+  disabledButton: {
+    opacity: 0.55,
+  },
 
-    cardTitle: {
-      fontSize: 21,
-      fontWeight: '900',
-      color:
-        '#171717',
-      letterSpacing: -0.3,
-    },
+  verifyText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '900',
+  },
 
-    description: {
-      marginTop: 8,
-      fontSize: 13,
-      lineHeight: 19,
-      color:
-        '#817B71',
-      textAlign:
-        'center',
-      maxWidth: 280,
-    },
+  resendSection: {
+    width: '100%',
+    marginTop: 24,
+    borderTopWidth: 1,
+    borderTopColor: '#E7DED1',
+    paddingTop: 20,
+  },
 
-    // =========================================================
-    // PHONE
-    // =========================================================
+  resendTitle: {
+    color: '#171717',
+    fontSize: 14,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
 
-    phoneBox: {
-      marginTop: 10,
-      minHeight: 38,
-      paddingHorizontal: 13,
-      paddingVertical: 8,
-      borderRadius: 12,
-      backgroundColor:
-        '#FFF7F3',
-      borderWidth: 1,
-      borderColor:
-        '#F0CFC4',
-      flexDirection:
-        'row',
-      alignItems:
-        'center',
-      gap: 7,
-    },
+  resendDescription: {
+    color: '#817B71',
+    fontSize: 12,
+    lineHeight: 19,
+    textAlign: 'center',
+    marginTop: 7,
+    marginBottom: 15,
+  },
 
-    phone: {
-      fontSize: 15,
-      fontWeight: '800',
-      color:
-        '#24221E',
-    },
+  passwordContainer: {
+    width: '100%',
+    height: 54,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: '#E7DED1',
+    backgroundColor: '#F8F2EA',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
 
-    // =========================================================
-    // OTP INPUT
-    // =========================================================
+  passwordInput: {
+    flex: 1,
+    height: '100%',
+    paddingLeft: 15,
+    fontSize: 14,
+    color: '#171717',
+  },
 
-    otpInput: {
-      width: '100%',
-      height: 58,
-      marginTop: 20,
-      backgroundColor:
-        '#FFF7F3',
-      borderRadius: 15,
-      borderWidth: 1,
-      borderColor:
-        '#F0CFC4',
-      fontSize: 25,
-      fontWeight: '900',
-      letterSpacing: 8,
-      color:
-        '#171717',
-      paddingLeft: 8,
-    },
+  eyeButton: {
+    width: 48,
+    height: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 
-    otpInputError: {
-      borderColor:
-        '#C94C4C',
-      backgroundColor:
-        '#FFF4F2',
-    },
+  resendButton: {
+    marginTop: 15,
+    paddingVertical: 10,
+    minHeight: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 
-    // =========================================================
-    // ERROR
-    // =========================================================
+  resendContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
 
-    errorBox: {
-      width: '100%',
-      marginTop: 9,
-      paddingHorizontal: 11,
-      paddingVertical: 9,
-      borderRadius: 12,
-      backgroundColor:
-        '#FFF1F1',
-      borderWidth: 1,
-      borderColor:
-        '#F0CCCC',
-      flexDirection:
-        'row',
-      alignItems:
-        'center',
-      justifyContent:
-        'center',
-      gap: 6,
-    },
+  resendText: {
+    color: '#E35B3F',
+    fontSize: 14,
+    fontWeight: '800',
+  },
 
-    errorText: {
-      flexShrink: 1,
-      color:
-        '#C94C4C',
-      fontSize: 12,
-      fontWeight: '600',
-      textAlign:
-        'center',
-    },
+  resendDisabled: {
+    color: '#AFA79E',
+  },
 
-    // =========================================================
-    // VERIFY BUTTON
-    // =========================================================
+  noteBox: {
+    width: '100%',
+    marginTop: 15,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: '#F8F2EA',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+  },
 
-    verifyButton: {
-      width: '100%',
-      minHeight: 54,
-      marginTop: 17,
-      backgroundColor:
-        '#E35B3F',
-      borderRadius: 16,
-      flexDirection:
-        'row',
-      alignItems:
-        'center',
-      justifyContent:
-        'center',
-      gap: 8,
-
-      shadowColor:
-        '#E35B3F',
-      shadowOffset: {
-        width: 0,
-        height: 5,
-      },
-      shadowOpacity: 0.20,
-      shadowRadius: 8,
-      elevation: 3,
-    },
-
-    disabledButton: {
-      opacity: 0.65,
-    },
-
-    verifyText: {
-      color:
-        '#FFFFFF',
-      fontSize: 15,
-      fontWeight: '900',
-    },
-
-    // =========================================================
-    // RESEND
-    // =========================================================
-
-    resendButton: {
-      marginTop: 17,
-      paddingVertical: 7,
-      minHeight: 34,
-      alignItems:
-        'center',
-      justifyContent:
-        'center',
-    },
-
-    resendContent: {
-      flexDirection:
-        'row',
-      alignItems:
-        'center',
-      gap: 6,
-    },
-
-    resendText: {
-      color:
-        '#E35B3F',
-      fontSize: 14,
-      fontWeight: '800',
-    },
-
-    resendDisabled: {
-      color:
-        '#AFA79E',
-    },
-
-    // =========================================================
-    // NOTE
-    // =========================================================
-
-    noteBox: {
-      marginTop: 12,
-      paddingHorizontal: 12,
-      paddingVertical: 9,
-      borderRadius: 12,
-      backgroundColor:
-        '#F8F2EA',
-      flexDirection:
-        'row',
-      alignItems:
-        'center',
-      justifyContent:
-        'center',
-      gap: 6,
-    },
-
-    note: {
-      fontSize: 11,
-      color:
-        '#817B71',
-      textAlign:
-        'center',
-      fontWeight: '500',
-    },
-
-  });
-
+  note: {
+    flex: 1,
+    fontSize: 11,
+    color: '#817B71',
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+});

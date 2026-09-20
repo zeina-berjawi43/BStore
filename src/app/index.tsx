@@ -1,16 +1,21 @@
+import { useTimeouts } from '../hooks/useTimeouts';
+import { setProductFavorite } from '../services/shoppingService';
+import { request } from '../services/request';
 import {
   View,
   Text,
   StyleSheet,
   Pressable,
-  Image,
   ScrollView,
   Animated,
   PanResponder,
   ActivityIndicator,
   Dimensions,
+  RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
+import { fetchCatalog, readPublicCatalog } from '../services/catalogService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState, useRef, useEffect } from 'react';
@@ -123,7 +128,13 @@ const buildImageUrl = (image: any): string => {
 };
 
 export default function Index() {
+  const scheduleTimeout = useTimeouts();
   const [products, setProducts] = useState<Product[]>([]);
+  const [productsLoading, setProductsLoading] = useState(true);
+  const [productsError, setProductsError] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+  const catalogueLoadedRef = useRef(false);
+  const sectionsRef = useRef<{ token: string | null; time: number } | null>(null);
   const [topSellingProducts, setTopSellingProducts] =
     useState<TopSellingProduct[]>([]);
   const [offerProducts, setOfferProducts] =
@@ -166,7 +177,7 @@ export default function Index() {
   const offersSectionY = useRef(0);
   const accessTokenRef = useRef<string | null>(null);
   const homeLoadedRef = useRef(false);
-  const loadingHomeRef = useRef(false);
+  const homeGenerationRef = useRef(0);
 
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertMessage, setAlertMessage] = useState('');
@@ -196,7 +207,7 @@ export default function Index() {
     try {
       setSlidesLoading(true);
 
-      const response = await fetch(`${API_URL}/slideshows`, {
+      const response = await request(`${API_URL}/slideshows`, {
         method: 'GET',
         headers: {
           Accept: 'application/json',
@@ -206,13 +217,13 @@ export default function Index() {
       const data = await response.json();
 
       if (!response.ok) {
-        console.log('GET SLIDESHOW ERROR:', response.status, data);
+        if (__DEV__) { console.log('GET SLIDESHOW ERROR:', response.status, data); }
         setSlides([]);
         return;
       }
 
       if (!Array.isArray(data.slides)) {
-        console.log('INVALID SLIDESHOW RESPONSE:', data);
+        if (__DEV__) { console.log('INVALID SLIDESHOW RESPONSE:', data); }
         setSlides([]);
         return;
       }
@@ -247,7 +258,7 @@ export default function Index() {
         return previousSlide;
       });
     } catch (error) {
-      console.log('LOAD SLIDESHOW ERROR:', error);
+      if (__DEV__) { console.log('LOAD SLIDESHOW ERROR:', error); }
       setSlides([]);
     } finally {
       setSlidesLoading(false);
@@ -258,7 +269,7 @@ export default function Index() {
     try {
       setCategoriesLoading(true);
 
-      const response = await fetch(`${API_URL}/categories`, {
+      const response = await request(`${API_URL}/categories`, {
         method: 'GET',
         headers: {
           Accept: 'application/json',
@@ -268,7 +279,7 @@ export default function Index() {
       const data = await response.json();
 
       if (!response.ok) {
-        console.log('GET CATEGORIES ERROR:', response.status, data);
+        if (__DEV__) { console.log('GET CATEGORIES ERROR:', response.status, data); }
 
         setCategories([
           {
@@ -354,7 +365,7 @@ export default function Index() {
         ...filteredCategories,
       ]);
     } catch (error) {
-      console.log('LOAD CATEGORIES ERROR:', error);
+      if (__DEV__) { console.log('LOAD CATEGORIES ERROR:', error); }
 
       setCategories([
         {
@@ -590,7 +601,7 @@ export default function Index() {
       }),
     ]).start();
 
-    setTimeout(() => {
+    scheduleTimeout(() => {
       Animated.parallel([
         Animated.timing(alertOpacity, {
           toValue: 0,
@@ -638,63 +649,17 @@ export default function Index() {
     };
   };
 
-  const loadProducts = async (
-    accessToken?: string | null
-  ) => {
+  const loadProducts = async (token: string | null, force = false) => {
+    setProductsError('');
     try {
-      const token =
-        accessToken ??
-        accessTokenRef.current;
-
-      const headers: Record<string, string> = {
-        Accept: 'application/json',
-      };
-
-      if (token) {
-        headers.Authorization = `Bearer ${token}`;
-      }
-
-      const response = await fetch(
-        `${API_URL}/products`,
-        {
-          method: 'GET',
-          headers,
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        console.log(
-          'GET PRODUCTS ERROR:',
-          data
-        );
-        setProducts([]);
-        return;
-      }
-
-      if (!Array.isArray(data.products)) {
-        console.log(
-          'INVALID PRODUCTS RESPONSE:',
-          data
-        );
-        setProducts([]);
-        return;
-      }
-
-      const convertedProducts: Product[] =
-        data.products.map(
-          (product: any) =>
-            convertProduct(product)
-        );
-
-      setProducts(convertedProducts);
+      const data = await fetchCatalog(token, force);
+      if (accessTokenRef.current !== token) return;
+      catalogueLoadedRef.current = true;
+      setProducts(data.map(convertProduct));
     } catch (error) {
-      console.log(
-        'LOAD PRODUCTS ERROR:',
-        error
-      );
-      setProducts([]);
+      setProductsError(error instanceof Error ? error.message : 'Could not load products.');
+    } finally {
+      setProductsLoading(false);
     }
   };
 
@@ -714,7 +679,7 @@ export default function Index() {
         headers.Authorization = `Bearer ${token}`;
       }
 
-      const response = await fetch(
+      const response = await request(
         `${API_URL}/products/offers`,
         {
           method: 'GET',
@@ -723,23 +688,24 @@ export default function Index() {
       );
 
       const data = await response.json();
+      if (token !== accessTokenRef.current) return;
 
       if (!response.ok) {
-        console.log(
+        if (__DEV__) { console.log(
           'GET OFFERS ERROR:',
           response.status,
           data
-        );
+        ); }
         setOfferProducts([]);
         setActiveOfferIndex(0);
         return;
       }
 
       if (!Array.isArray(data.products)) {
-        console.log(
+        if (__DEV__) { console.log(
           'INVALID OFFERS RESPONSE:',
           data
-        );
+        ); }
         setOfferProducts([]);
         setActiveOfferIndex(0);
         return;
@@ -765,10 +731,10 @@ export default function Index() {
       setOfferProducts(convertedOffers);
       setActiveOfferIndex(0);
     } catch (error) {
-      console.log(
+      if (__DEV__) { console.log(
         'LOAD OFFERS ERROR:',
         error
-      );
+      ); }
       setOfferProducts([]);
       setActiveOfferIndex(0);
     }
@@ -790,7 +756,7 @@ export default function Index() {
         headers.Authorization = `Bearer ${token}`;
       }
 
-      const response = await fetch(
+      const response = await request(
         `${API_URL}/products/top-selling`,
         {
           method: 'GET',
@@ -799,22 +765,23 @@ export default function Index() {
       );
 
       const data = await response.json();
+      if (token !== accessTokenRef.current) return;
 
       if (!response.ok) {
-        console.log(
+        if (__DEV__) { console.log(
           'GET TOP SELLING ERROR:',
           response.status,
           data
-        );
+        ); }
         setTopSellingProducts([]);
         return;
       }
 
       if (!Array.isArray(data.products)) {
-        console.log(
+        if (__DEV__) { console.log(
           'INVALID TOP SELLING RESPONSE:',
           data
-        );
+        ); }
         setTopSellingProducts([]);
         return;
       }
@@ -842,10 +809,10 @@ export default function Index() {
         convertedTopSelling
       );
     } catch (error) {
-      console.log(
+      if (__DEV__) { console.log(
         'LOAD TOP SELLING ERROR:',
         error
-      );
+      ); }
       setTopSellingProducts([]);
     }
   };
@@ -863,7 +830,7 @@ export default function Index() {
         return;
       }
 
-      const response = await fetch(
+      const response = await request(
         `${API_URL}/cart`,
         {
           method: 'GET',
@@ -875,12 +842,13 @@ export default function Index() {
       );
 
       const data = await response.json();
+      if (token !== accessTokenRef.current) return;
 
       if (!response.ok) {
-        console.log(
+        if (__DEV__) { console.log(
           'GET CART COUNT ERROR:',
           data
-        );
+        ); }
         setCartCount(0);
         return;
       }
@@ -900,10 +868,10 @@ export default function Index() {
 
       setCartCount(count);
     } catch (error) {
-      console.log(
+      if (__DEV__) { console.log(
         'LOAD CART COUNT ERROR:',
         error
-      );
+      ); }
       setCartCount(0);
     }
   };
@@ -921,7 +889,7 @@ export default function Index() {
         return;
       }
 
-      const response = await fetch(
+      const response = await request(
         `${API_URL}/favorites`,
         {
           method: 'GET',
@@ -933,20 +901,20 @@ export default function Index() {
       );
 
       const data = await response.json();
+      if (token !== accessTokenRef.current) return;
 
       if (
-        response.status === 401 ||
-        response.status === 403
+        response.status === 401
       ) {
         setFavorites([]);
         return;
       }
 
       if (!response.ok) {
-        console.log(
+        if (__DEV__) { console.log(
           'GET FAVORITES ERROR:',
           data
-        );
+        ); }
         setFavorites([]);
         return;
       }
@@ -974,126 +942,65 @@ export default function Index() {
         convertedFavorites
       );
     } catch (error) {
-      console.log(
+      if (__DEV__) { console.log(
         'LOAD FAVORITES ERROR:',
         error
-      );
+      ); }
       setFavorites([]);
     }
   };
 
   const loadData = async () => {
     try {
-      const [
-        accessToken,
-        savedUser,
-        loginStatus,
-      ] = await AsyncStorage.multiGet([
-        'accessToken',
-        'user',
-        'isLoggedIn',
-      ]);
-
-      const token = accessToken[1];
-      const user = savedUser[1];
-      const status = loginStatus[1];
-
-      accessTokenRef.current = token;
-
-      const loggedIn =
-        !!token &&
-        (status === 'true' ||
-          !!user);
-
-      setIsLoggedIn(loggedIn);
-
-      return {
-        token,
-        loggedIn,
-      };
-    } catch (error) {
-      console.log(
-        'LOAD HOME DATA ERROR:',
-        error
-      );
-
-      return {
-        token: null,
-        loggedIn: false,
-      };
+      const token = await getValidAccessToken();
+      return { token, loggedIn: Boolean(token) };
+    } catch {
+      return { token: null, loggedIn: false };
     }
   };
 
-  const loadHome = async () => {
-    if (loadingHomeRef.current) return;
-
-    loadingHomeRef.current = true;
-
+  const loadHome = async (force = false) => {
+    const generation = ++homeGenerationRef.current;
     try {
-      const {
-        token,
-        loggedIn,
-      } = await loadData();
-
-      const requests: Promise<any>[] = [
-        loadSlideshow(),
-        loadCategories(),
-        loadProducts(token),
-        loadOffers(token),
-        loadTopSelling(token),
-      ];
-
+      // Cached metadata paints while auth and network requests are still pending.
+      if (!homeLoadedRef.current) {
+        void readPublicCatalog().then(cached => {
+          if (generation === homeGenerationRef.current && !catalogueLoadedRef.current && cached.length) setProducts(cached.map(convertProduct));
+        });
+      }
+      // Public sections can load without waiting for a token refresh.
+      const requests: Promise<unknown>[] = homeLoadedRef.current && !force ? [] : [loadSlideshow(), loadCategories()];
+      const { token, loggedIn } = await loadData();
+      if (generation !== homeGenerationRef.current) return;
+      accessTokenRef.current = token;
+      setIsLoggedIn(loggedIn);
+      if (!loggedIn) {
+        setProducts(current => current.map(({ price, ...product }) => product));
+        setOfferProducts(current => current.map(({ price, ...product }) => product));
+      }
+      requests.push(loadProducts(token, force));
+      const previous = sectionsRef.current;
+      if (force || !previous || previous.token !== token || Date.now() - previous.time > 60000) {
+        requests.push(loadOffers(token), loadTopSelling(token));
+        sectionsRef.current = { token, time: Date.now() };
+      }
       if (loggedIn) {
-        requests.push(
-          loadCartCount(token),
-          loadFavorites(token)
-        );
+        requests.push(loadCartCount(token), loadFavorites(token));
       } else {
         setCartCount(0);
         setFavorites([]);
       }
-
       await Promise.all(requests);
-
       homeLoadedRef.current = true;
     } catch (error) {
-      console.log(
-        'HOME LOAD ERROR:',
-        error
-      );
-    } finally {
-      loadingHomeRef.current = false;
+      if (__DEV__) console.log('HOME LOAD ERROR:', error);
     }
   };
 
-  useFocusEffect(
-    useCallback(() => {
-      if (!homeLoadedRef.current) {
-        loadHome();
-        return;
-      }
-
-      const refreshUserData =
-        async () => {
-          const {
-            token,
-            loggedIn,
-          } = await loadData();
-
-          if (loggedIn) {
-            await Promise.all([
-              loadCartCount(token),
-              loadFavorites(token),
-            ]);
-          } else {
-            setCartCount(0);
-            setFavorites([]);
-          }
-        };
-
-      refreshUserData();
-    }, [])
-  );
+  useFocusEffect(useCallback(() => {
+    void loadHome();
+    return () => { homeGenerationRef.current++; };
+  }, []));
 
   const openProduct = (
     product: Product
@@ -1106,109 +1013,22 @@ export default function Index() {
     });
   };
 
-  const toggleFavorite = async (
-    product: Product
-  ) => {
-    if (!isLoggedIn) {
-      router.push('/login');
-      return;
-    }
-
-    const accessToken =
-      await getAccessToken();
-
-    if (!accessToken) {
-      router.push('/login');
-      return;
-    }
-
-    const alreadyFavorite =
-      favorites.some(
-        item =>
-          item.id === product.id
-      );
-
-    const previousFavorites =
-      favorites;
-
-    if (alreadyFavorite) {
-      setFavorites(
-        currentFavorites =>
-          currentFavorites.filter(
-            item =>
-              item.id !== product.id
-          )
-      );
-    } else {
-      setFavorites(
-        currentFavorites => {
-          const alreadyExists =
-            currentFavorites.some(
-              item =>
-                item.id === product.id
-            );
-
-          if (alreadyExists) {
-            return currentFavorites;
-          }
-
-          return [
-            ...currentFavorites,
-            product,
-          ];
-        }
-      );
-    }
-
+  const favoriteBusy = useRef(new Set<string>());
+  const cartBusy = useRef(new Set<string>());
+  const toggleFavorite = async (product: Product) => {
+    if (favoriteBusy.current.has(product.id)) return;
+    favoriteBusy.current.add(product.id);
+    const generation = homeGenerationRef.current;
     try {
-      const response = await fetch(
-        alreadyFavorite
-          ? `${API_URL}/favorites/remove`
-          : `${API_URL}/favorites/add`,
-        {
-          method: alreadyFavorite
-            ? 'DELETE'
-            : 'POST',
-          headers: {
-            Accept: 'application/json',
-            'Content-Type':
-              'application/json',
-            Authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({
-            productId: product.id,
-          }),
-        }
-      );
-
-      const data =
-        await response.json();
-
-      if (!response.ok) {
-        console.log(
-          'TOGGLE FAVORITE ERROR:',
-          data
-        );
-
-        setFavorites(
-          previousFavorites
-        );
-        return;
-      }
-
-      loadFavorites(
-        accessToken
-      );
-    } catch (error) {
-      console.log(
-        'TOGGLE FAVORITE ERROR:',
-        error
-      );
-
-      setFavorites(
-        previousFavorites
-      );
-    }
+      const token = await getAccessToken();
+      if (!token) { router.push('/login'); return; }
+      const selected = favorites.some(item => item.id === product.id);
+      await setProductFavorite(product.id, !selected, token);
+      if (generation !== homeGenerationRef.current) return;
+      setFavorites(current => selected ? current.filter(item => item.id !== product.id)
+        : current.some(item => item.id === product.id) ? current : [...current, product]);
+    } catch (error) { showAlert(error instanceof Error ? error.message : 'Could not update favorites.'); }
+    finally { favoriteBusy.current.delete(product.id); }
   };
 
   const isFavorite = (
@@ -1237,6 +1057,8 @@ export default function Index() {
       return;
     }
 
+    if (cartBusy.current.has(product.id)) return;
+    cartBusy.current.add(product.id);
     try {
       const accessToken =
         await getAccessToken();
@@ -1249,7 +1071,7 @@ export default function Index() {
       const finalPrice =
         cartPrice ?? product.price;
 
-      const response = await fetch(
+      const response = await request(
         `${API_URL}/cart/add`,
         {
           method: 'POST',
@@ -1273,10 +1095,10 @@ export default function Index() {
         await response.json();
 
       if (!response.ok) {
-        console.log(
+        if (__DEV__) { console.log(
           'ADD TO CART ERROR:',
           data
-        );
+        ); }
 
         showAlert(
           data.message ||
@@ -1294,11 +1116,12 @@ export default function Index() {
         `${product.name} has been added to your cart.`
       );
     } catch (error) {
-      console.log(
+      showAlert(error instanceof Error ? error.message : 'Could not add to cart.');
+      if (__DEV__) { console.log(
         'ADD TO CART ERROR:',
         error
-      );
-    }
+      ); }
+    } finally { cartBusy.current.delete(product.id); }
   };
 
   const openCategory = (
@@ -1389,6 +1212,11 @@ export default function Index() {
 
       <ScrollView
         ref={scrollViewRef}
+        refreshControl={<RefreshControl refreshing={refreshing} tintColor="#E35B3F" colors={['#E35B3F']}
+          onRefresh={() => {
+            setRefreshing(true);
+            void loadHome(true).finally(() => setRefreshing(false));
+          }} />}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={
           styles.scrollContent
@@ -1517,7 +1345,7 @@ export default function Index() {
                     style={
                       styles.slideImage
                     }
-                    resizeMode="cover"
+                    contentFit="cover" cachePolicy="memory-disk"
                   />
 
                   <View
@@ -1661,7 +1489,7 @@ export default function Index() {
                           style={
                             styles.categoryImage
                           }
-                          resizeMode="cover"
+                          contentFit="cover" cachePolicy="memory-disk"
                         />
                       ) : (
                         <Ionicons
@@ -1914,7 +1742,7 @@ export default function Index() {
                 styles.emptyText
               }
             >
-              No products available.
+              {productsLoading ? 'Loading products...' : productsError || 'No products available.'}
             </Text>
           )}
         </ScrollView>
@@ -2002,7 +1830,7 @@ export default function Index() {
                   style={
                     styles.offerShowcaseImage
                   }
-                  resizeMode="contain"
+                  contentFit="contain" cachePolicy="memory-disk"
                 />
 
                 <View
@@ -2503,7 +2331,7 @@ function TopSellingProductRow({
             style={
               styles.topSellingImage
             }
-            resizeMode="contain"
+            contentFit="contain" cachePolicy="memory-disk"
           />
 
           {!isAvailable ? (
@@ -2650,8 +2478,7 @@ function RecentProduct({
   useEffect(() => {
     Animated.timing(appear, {
       toValue: 1,
-      duration: 400,
-      delay: index * 100,
+      duration: 150,
       useNativeDriver: true,
     }).start();
   }, [appear, index]);
@@ -2710,7 +2537,7 @@ function RecentProduct({
             style={
               styles.recentImage
             }
-            resizeMode="contain"
+            contentFit="contain" cachePolicy="memory-disk"
           />
 
           {product.discount &&

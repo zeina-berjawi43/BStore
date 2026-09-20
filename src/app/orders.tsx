@@ -1,5 +1,7 @@
+import { request } from '../services/request';
 import {
   View,
+  Alert,
   Text,
   StyleSheet,
   Pressable,
@@ -8,7 +10,6 @@ import {
 
 import { Ionicons } from '@expo/vector-icons';
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import {
   router,
@@ -20,7 +21,7 @@ import {
   useState,
 } from 'react';
 
-import { getValidAccessToken } from '../services/authService';
+import { getValidAccessToken, logoutLocal } from '../services/authService';
 
 
 /* =========================================================
@@ -162,7 +163,7 @@ export default function Orders() {
 
 
         const response =
-          await fetch(
+          await request(
             `${API_URL}/orders`,
             {
               method: 'GET',
@@ -185,20 +186,17 @@ export default function Orders() {
           await response.json();
 
 
-        console.log(
+        if (__DEV__) { console.log(
           'ORDERS RESPONSE:',
           data
-        );
+        ); }
 
 
         if (
-          response.status === 401 ||
-          response.status === 403
+          response.status === 401
         ) {
 
-          await AsyncStorage.removeItem(
-            'accessToken'
-          );
+          await logoutLocal();
 
           setOrders([]);
 
@@ -212,11 +210,12 @@ export default function Orders() {
 
 
         if (!response.ok) {
+          Alert.alert('Orders unavailable', data.message || 'Please try again.');
 
-          console.log(
+          if (__DEV__) { console.log(
             'GET ORDERS ERROR:',
             data
-          );
+          ); }
 
           setOrders([]);
 
@@ -237,11 +236,12 @@ export default function Orders() {
 
 
       } catch (error) {
+        Alert.alert('Orders unavailable', error instanceof Error ? error.message : 'Please try again.');
 
-        console.log(
+        if (__DEV__) { console.log(
           'LOAD ORDERS ERROR:',
           error
-        );
+        ); }
 
         setOrders([]);
 

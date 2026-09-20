@@ -45,10 +45,10 @@ export default function Account() {
 
       setUser(currentUser);
     } catch (error) {
-      console.log(
+      if (__DEV__) { console.log(
         'GET USER ERROR:',
         error
-      );
+      ); }
     }
   };
 
@@ -72,17 +72,17 @@ export default function Account() {
 
       setUser(null);
 
-      console.log(
+      if (__DEV__) { console.log(
         'LOGOUT COMPLETED SUCCESSFULLY'
-      );
+      ); }
 
       router.replace('/');
 
     } catch (error) {
-      console.log(
+      if (__DEV__) { console.log(
         'LOGOUT ERROR:',
         error
-      );
+      ); }
 
       Alert.alert(
         'Logout Error',

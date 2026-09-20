@@ -1,3 +1,4 @@
+import { request } from '../services/request';
 import {
   View,
   Text,
@@ -10,7 +11,7 @@ import {
 
 import { Ionicons } from '@expo/vector-icons';
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getValidAccessToken, logoutLocal } from '../services/authService';
 
 import {
   router,
@@ -295,18 +296,16 @@ export default function OrderDetails() {
 
       try {
 
-        return await AsyncStorage.getItem(
-          'accessToken'
-        );
+        return await getValidAccessToken();
 
       } catch (error) {
 
-        console.log(
+        if (__DEV__) { console.log(
           'GET TOKEN ERROR:',
           error
-        );
+        ); }
 
-        return null;
+        throw error;
 
       }
 
@@ -362,7 +361,7 @@ export default function OrderDetails() {
         // =================================================
 
         const response =
-          await fetch(
+          await request(
             `${API_URL}/orders/${orderId}`,
             {
               method: 'GET',
@@ -385,10 +384,10 @@ export default function OrderDetails() {
           await response.json();
 
 
-        console.log(
+        if (__DEV__) { console.log(
           'ORDER DETAILS RESPONSE:',
           data
-        );
+        ); }
 
 
         // =================================================
@@ -396,13 +395,10 @@ export default function OrderDetails() {
         // =================================================
 
         if (
-          response.status === 401 ||
-          response.status === 403
+          response.status === 401
         ) {
 
-          await AsyncStorage.removeItem(
-            'accessToken'
-          );
+          await logoutLocal();
 
           router.replace(
             '/login'
@@ -419,10 +415,10 @@ export default function OrderDetails() {
 
         if (!response.ok) {
 
-          console.log(
+          if (__DEV__) { console.log(
             'GET ORDER DETAILS ERROR:',
             data
-          );
+          ); }
 
           setOrder(null);
 
@@ -452,10 +448,10 @@ export default function OrderDetails() {
 
       } catch (error) {
 
-        console.log(
+        if (__DEV__) { console.log(
           'LOAD ORDER ERROR:',
           error
-        );
+        ); }
 
         setOrder(null);
 

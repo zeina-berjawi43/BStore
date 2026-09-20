@@ -1,3 +1,5 @@
+import { updateTokens } from '../services/tokenStorage';
+import { request } from '../services/request';
 import {
   View,
   Text,
@@ -28,6 +30,7 @@ import {
 import {
   API_URL,
   getValidAccessToken,
+  logoutLocal,
 } from '../services/authService';
 
 export default function EditAccount() {
@@ -81,12 +84,7 @@ export default function EditAccount() {
 
       if (!accessToken) {
 
-        await AsyncStorage.multiRemove([
-          'accessToken',
-          'refreshToken',
-          'user',
-          'isLoggedIn',
-        ]);
+        await logoutLocal();
 
         router.replace('/login');
 
@@ -94,7 +92,7 @@ export default function EditAccount() {
       }
 
       const response =
-        await fetch(
+        await request(
           `${API_URL}/users/me`,
           {
             method: 'GET',
@@ -118,21 +116,16 @@ export default function EditAccount() {
         data = {};
       }
 
-      console.log(
+      if (__DEV__) { console.log(
         'GET USER RESPONSE:',
         data
-      );
+      ); }
 
       if (
         response.status === 401
       ) {
 
-        await AsyncStorage.multiRemove([
-          'accessToken',
-          'refreshToken',
-          'user',
-          'isLoggedIn',
-        ]);
+        await logoutLocal();
 
         router.replace('/login');
 
@@ -193,10 +186,10 @@ export default function EditAccount() {
 
     } catch (error: any) {
 
-      console.log(
+      if (__DEV__) { console.log(
         'LOAD ACCOUNT ERROR:',
         error
-      );
+      ); }
 
       Alert.alert(
         'Connection Error',
@@ -262,13 +255,13 @@ export default function EditAccount() {
           trimmedEmail;
       }
 
-      console.log(
+      if (__DEV__) { console.log(
         'UPDATE USER REQUEST BODY:',
         body
-      );
+      ); }
 
       const response =
-        await fetch(
+        await request(
           `${API_URL}/users/me`,
           {
             method: 'PUT',
@@ -298,10 +291,10 @@ export default function EditAccount() {
         data = {};
       }
 
-      console.log(
+      if (__DEV__) { console.log(
         'UPDATE USER RESPONSE:',
         data
-      );
+      ); }
 
       return {
         response,
@@ -321,7 +314,7 @@ export default function EditAccount() {
     ) => {
 
       const response =
-        await fetch(
+        await request(
           `${API_URL}/auth/request-change-phone`,
           {
             method: 'POST',
@@ -353,10 +346,10 @@ export default function EditAccount() {
         data = {};
       }
 
-      console.log(
+      if (__DEV__) { console.log(
         'REQUEST CHANGE PHONE RESPONSE:',
         data
-      );
+      ); }
 
       return {
         response,
@@ -436,12 +429,7 @@ export default function EditAccount() {
 
         if (!accessToken) {
 
-          await AsyncStorage.multiRemove([
-            'accessToken',
-            'refreshToken',
-            'user',
-            'isLoggedIn',
-          ]);
+          await logoutLocal();
 
           router.replace('/login');
 
@@ -472,20 +460,20 @@ export default function EditAccount() {
           originalPhone;
 
 
-        console.log(
+        if (__DEV__) { console.log(
           'ORIGINAL PHONE:',
           originalPhone
-        );
+        ); }
 
-        console.log(
+        if (__DEV__) { console.log(
           'NEW PHONE:',
           trimmedPhone
-        );
+        ); }
 
-        console.log(
+        if (__DEV__) { console.log(
           'PHONE CHANGED:',
           phoneChanged
-        );
+        ); }
 
 
         // ===================================================
@@ -517,12 +505,7 @@ export default function EditAccount() {
           profileResponse.status === 401
         ) {
 
-          await AsyncStorage.multiRemove([
-            'accessToken',
-            'refreshToken',
-            'user',
-            'isLoggedIn',
-          ]);
+          await logoutLocal();
 
           router.replace('/login');
 
@@ -536,10 +519,10 @@ export default function EditAccount() {
 
         if (!profileResponse.ok) {
 
-          console.log(
+          if (__DEV__) { console.log(
             'PROFILE UPDATE FAILED:',
             profileData
-          );
+          ); }
 
           Alert.alert(
             'Update Failed',
@@ -645,12 +628,7 @@ export default function EditAccount() {
           phoneResponse.status === 401
         ) {
 
-          await AsyncStorage.multiRemove([
-            'accessToken',
-            'refreshToken',
-            'user',
-            'isLoggedIn',
-          ]);
+          await logoutLocal();
 
           router.replace('/login');
 
@@ -703,10 +681,10 @@ export default function EditAccount() {
 
       } catch (error) {
 
-        console.log(
+        if (__DEV__) { console.log(
           'SAVE ACCOUNT ERROR:',
           error
-        );
+        ); }
 
         Alert.alert(
           'Connection Error',
@@ -772,12 +750,7 @@ export default function EditAccount() {
 
         if (!accessToken) {
 
-          await AsyncStorage.multiRemove([
-            'accessToken',
-            'refreshToken',
-            'user',
-            'isLoggedIn',
-          ]);
+          await logoutLocal();
 
           router.replace('/login');
 
@@ -786,7 +759,7 @@ export default function EditAccount() {
 
 
         const response =
-          await fetch(
+          await request(
             `${API_URL}/auth/verify-change-phone`,
             {
               method: 'POST',
@@ -821,10 +794,10 @@ export default function EditAccount() {
         }
 
 
-        console.log(
+        if (__DEV__) { console.log(
           'VERIFY CHANGE PHONE RESPONSE:',
           data
-        );
+        ); }
 
 
         // ===================================================
@@ -835,12 +808,7 @@ export default function EditAccount() {
           response.status === 401
         ) {
 
-          await AsyncStorage.multiRemove([
-            'accessToken',
-            'refreshToken',
-            'user',
-            'isLoggedIn',
-          ]);
+          await logoutLocal();
 
           router.replace('/login');
 
@@ -872,10 +840,7 @@ export default function EditAccount() {
           data.accessToken
         ) {
 
-          await AsyncStorage.setItem(
-            'accessToken',
-            data.accessToken
-          );
+          await updateTokens({ accessToken: data.accessToken });
         }
 
 
@@ -950,10 +915,10 @@ export default function EditAccount() {
 
       } catch (error) {
 
-        console.log(
+        if (__DEV__) { console.log(
           'VERIFY CHANGE PHONE ERROR:',
           error
-        );
+        ); }
 
         Alert.alert(
           'Connection Error',
@@ -965,7 +930,6 @@ export default function EditAccount() {
         setVerifyingPhone(false);
       }
     };
-
 
   // =========================================================
   // CANCEL PHONE VERIFICATION
@@ -1492,7 +1456,45 @@ export default function EditAccount() {
         )}
 
 
-        {/* CANCEL */}
+{/* CHANGE PASSWORD */}
+
+{!phoneVerification && (
+  <Pressable
+    onPress={() => router.push('/change-password')}
+    disabled={saving || verifyingPhone}
+    style={{
+      backgroundColor: '#FFFFFF',
+      borderWidth: 1,
+      borderColor: '#E7DED1',
+      borderRadius: 16,
+      minHeight: 54,
+      marginTop: 15,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 9,
+      opacity: saving || verifyingPhone ? 0.5 : 1,
+    }}
+  >
+    <Ionicons
+      name="lock-closed-outline"
+      size={19}
+      color="#E35B3F"
+    />
+
+    <Text
+      style={{
+        color: '#171717',
+        fontSize: 14,
+        fontWeight: '800',
+      }}
+    >
+      Change Password
+    </Text>
+  </Pressable>
+)}
+
+                {/* CANCEL */}
 
         <Pressable
           style={

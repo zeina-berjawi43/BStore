@@ -45,3 +45,8 @@ example
 
 # Local Firebase application configuration
 google-services.json
+
+# Include Firebase client configuration in remote native builds.
+!/google-services.json
+# Never upload service-account credentials.
+*firebase-adminsdk*.json

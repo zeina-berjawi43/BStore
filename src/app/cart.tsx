@@ -1,3 +1,4 @@
+import { request } from '../services/request';
 import {
   View,
   Text,
@@ -6,6 +7,7 @@ import {
   ScrollView,
   Image,
   TextInput,
+  Alert,
 } from 'react-native';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -23,7 +25,7 @@ import {
   useState,
 } from 'react';
 
-import { getValidAccessToken } from '../services/authService';
+import { getValidAccessToken, logoutLocal } from '../services/authService';
 
 
 // ============================================================
@@ -189,838 +191,95 @@ export default function Cart() {
     useRef<string | null>(null);
 
 
-  // ==========================================================
-  // GET ACCESS TOKEN
-  // ==========================================================
-
-  const getAccessToken =
-    useCallback(
-      async () => {
-
-        try {
-
-          const token =
-            await getValidAccessToken();
-
-
-          accessTokenRef.current =
-            token;
-
-
-          return token;
-
-        } catch (error) {
-
-          console.log(
-            'GET TOKEN ERROR:',
-            error
-          );
-
-
-          return null;
-
-        }
-
-      },
-      []
-    );
-
-
-  // ==========================================================
-  // FORMAT PRICE
-  // ==========================================================
-
-  const formatPrice =
-    useCallback(
-      (price: number) => {
-
-        const safePrice =
-          Number(price) || 0;
-
-
-        return `$${safePrice.toFixed(2)}`;
-
-      },
-      []
-    );
-
-
-  // ==========================================================
-  // APPLY CART DATA
-  // ==========================================================
-
-  const applyCartData =
-    useCallback(
-      (
-        items: CartItem[]
-      ) => {
-
-        setCart(
-          items
-        );
-
-
-        const quantities:
-          Record<string, string> = {};
-
-
-        items.forEach(
-          item => {
-
-            const productId =
-              item.product?._id;
-
-
-            if (!productId) {
-              return;
-            }
-
-
-            quantities[
-              productId
-            ] =
-              String(
-                item.quantity
-              );
-
-          }
-        );
-
-
-        setManualQuantities(
-          quantities
-        );
-
-      },
-      []
-    );
-
-
-  // ==========================================================
-  // LOAD CART
-  // ==========================================================
-
-  const loadCart =
-    useCallback(
-      async () => {
-
-        try {
-
-          const accessToken =
-            await getAccessToken();
-
-
-          if (!accessToken) {
-
-            accessTokenRef.current =
-              null;
-
-
-            setCart([]);
-
-            setManualQuantities({});
-
-            setHasLoadedOnce(
-              true
-            );
-
-
-            router.replace(
-              '/login'
-            );
-
-
-            return;
-
-          }
-
-
-          const response =
-            await fetch(
-              `${API_URL}/cart`,
-              {
-                method: 'GET',
-
-                headers: {
-                  Accept:
-                    'application/json',
-
-                  Authorization:
-                    `Bearer ${accessToken}`,
-                },
-
-              }
-            );
-
-
-          const data =
-            await response.json();
-
-
-          if (
-            response.status === 401 ||
-            response.status === 403
-          ) {
-
-            accessTokenRef.current =
-              null;
-
-
-            setCart([]);
-
-            setManualQuantities({});
-
-            setHasLoadedOnce(
-              true
-            );
-
-
-            router.replace(
-              '/login'
-            );
-
-
-            return;
-
-          }
-
-
-          if (!response.ok) {
-
-            console.log(
-              'GET CART ERROR:',
-              data
-            );
-
-
-            setHasLoadedOnce(
-              true
-            );
-
-
-            return;
-
-          }
-
-
-          const items:
-            CartItem[] =
-            Array.isArray(
-              data?.cart?.items
-            )
-              ? data.cart.items
-              : [];
-
-
-          applyCartData(
-            items
-          );
-
-
-          setHasLoadedOnce(
-            true
-          );
-
-
-        } catch (error) {
-
-          console.log(
-            'LOAD CART ERROR:',
-            error
-          );
-
-
-          setHasLoadedOnce(
-            true
-          );
-
-        }
-
-      },
-      [
-        getAccessToken,
-        applyCartData,
-      ]
-    );
-
-
-  // ==========================================================
-  // LOAD WHEN PAGE FOCUSES
-  // ==========================================================
-
-  useFocusEffect(
-    useCallback(() => {
-
-      loadCart();
-
-    }, [
-      loadCart,
-    ])
-  );
-
-
-  // ==========================================================
-  // UPDATE CART ON BACKEND
-  // ==========================================================
-
-  const updateCartOnBackend =
-    useCallback(
-      async (
-        productId: string,
-        quantity: number
-      ) => {
-
-        try {
-
-          const accessToken =
-            await getAccessToken();
-
-
-          if (!accessToken) {
-
-            router.replace(
-              '/login'
-            );
-
-
-            return false;
-
-          }
-
-
-          const response =
-            await fetch(
-              `${API_URL}/cart/update`,
-              {
-                method: 'PUT',
-
-                headers: {
-                  Accept:
-                    'application/json',
-
-                  'Content-Type':
-                    'application/json',
-
-                  Authorization:
-                    `Bearer ${accessToken}`,
-                },
-
-                body:
-                  JSON.stringify({
-                    productId,
-                    quantity,
-                  }),
-
-              }
-            );
-
-
-          const data =
-            await response.json();
-
-
-          if (
-            response.status === 401 ||
-            response.status === 403
-          ) {
-
-            accessTokenRef.current =
-              null;
-
-
-            router.replace(
-              '/login'
-            );
-
-
-            return false;
-
-          }
-
-
-          if (!response.ok) {
-
-            console.log(
-              'UPDATE CART ERROR:',
-              data
-            );
-
-
-            return false;
-
-          }
-
-
-          if (data?.cart) {
-
-            const updatedItems:
-              CartItem[] =
-              Array.isArray(
-                data.cart.items
-              )
-                ? data.cart.items
-                : [];
-
-
-            applyCartData(
-              updatedItems
-            );
-
-          }
-
-
-          return true;
-
-        } catch (error) {
-
-          console.log(
-            'UPDATE CART ERROR:',
-            error
-          );
-
-
-          return false;
-
-        }
-
-      },
-      [
-        getAccessToken,
-        applyCartData,
-      ]
-    );
-
-
-  // ==========================================================
-  // UPDATE QUANTITY
-  // ==========================================================
-
-  const updateQuantity =
-    async (
-      productId: string,
-      change: number
-    ) => {
-
-      if (
-        updatingProduct ===
-        productId
-      ) {
-
-        return;
-
+  const mutationBusy = useRef(false);
+  const loadRevision = useRef(0);
+  const formatPrice = useCallback((price: number) => '$' + (Number(price) || 0).toFixed(2), []);
+  const applyCartData = useCallback((items: CartItem[]) => {
+    setCart(items);
+    const quantities: Record<string, string> = {};
+    items.forEach(item => { if (item.product?._id) quantities[item.product._id] = String(item.quantity); });
+    setManualQuantities(quantities);
+  }, []);
+
+  const loadCart = useCallback(async () => {
+    if (mutationBusy.current) return;
+    const revision = ++loadRevision.current;
+    try {
+      const token = await getValidAccessToken();
+      if (revision !== loadRevision.current) return;
+      accessTokenRef.current = token;
+      if (!token) { applyCartData([]); router.replace('/login'); return; }
+      const response = await request(API_URL + '/cart', { headers: { Authorization: 'Bearer ' + token } });
+      const data = await response.json();
+      if (revision !== loadRevision.current) return;
+      if (response.status === 401) { await logoutLocal(); applyCartData([]); router.replace('/login'); return; }
+      if (!response.ok) throw new Error(data.message || 'Could not load your cart.');
+      applyCartData(Array.isArray(data.cart?.items) ? data.cart.items : []);
+    } catch (error) {
+      if (revision === loadRevision.current) Alert.alert('Cart unavailable', error instanceof Error ? error.message : 'Check your connection and try again.');
+    } finally {
+      if (revision === loadRevision.current) setHasLoadedOnce(true);
+    }
+  }, [applyCartData]);
+
+  useFocusEffect(useCallback(() => {
+    void loadCart();
+    return () => { loadRevision.current++; };
+  }, [loadCart]));
+
+  const mutateCart = async (productId: string, quantity?: number) => {
+    if (mutationBusy.current) return;
+    mutationBusy.current = true;
+    const revision = ++loadRevision.current;
+    setUpdatingProduct(productId);
+    try {
+      const token = await getValidAccessToken();
+      if (revision !== loadRevision.current) return;
+      if (!token) { router.replace('/login'); return; }
+      const response = await request(API_URL + (quantity === undefined ? '/cart/remove' : '/cart/update'), {
+        method: quantity === undefined ? 'DELETE' : 'PUT',
+        headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productId, ...(quantity === undefined ? {} : { quantity }) }),
+      });
+      const data = await response.json();
+      if (revision !== loadRevision.current) return;
+      if (response.status === 401) { await logoutLocal(); router.replace('/login'); return; }
+      if (!response.ok) throw new Error(data.message || 'Could not update your cart.');
+      if (!Array.isArray(data.cart?.items)) throw new Error('Cart response was incomplete. Reopen your cart to check the change.');
+      applyCartData(data.cart.items);
+    } catch (error) {
+      if (revision === loadRevision.current) {
+        applyCartData(cart);
+        Alert.alert('Check your cart', (error instanceof Error ? error.message : 'Connection interrupted.') + ' Reopen the cart to confirm its latest contents.');
       }
-
-
-      const currentItem =
-        cart.find(
-          item =>
-            item.product?._id ===
-            productId
-        );
-
-
-      if (!currentItem) {
-
-        return;
-
-      }
-
-
-      const newQuantity =
-        currentItem.quantity +
-        change;
-
-
-      if (
-        newQuantity < 1
-      ) {
-
-        await removeProduct(
-          productId
-        );
-
-
-        return;
-
-      }
-
-
-      setCart(
-        previous =>
-          previous.map(
-            item => {
-
-              if (
-                item.product?._id !==
-                productId
-              ) {
-
-                return item;
-
-              }
-
-
-              return {
-                ...item,
-
-                quantity:
-                  newQuantity,
-
-              };
-
-            }
-          )
-      );
-
-
-      setManualQuantities(
-        previous => ({
-          ...previous,
-
-          [productId]:
-            String(
-              newQuantity
-            ),
-
-        })
-      );
-
-
-      setUpdatingProduct(
-        productId
-      );
-
-
-      const success =
-        await updateCartOnBackend(
-          productId,
-          newQuantity
-        );
-
-
-      if (!success) {
-
-        await loadCart();
-
-      }
-
-
-      setUpdatingProduct(
-        null
-      );
-
-    };
-
-
-  // ==========================================================
-  // MANUAL QUANTITY CHANGE
-  // ==========================================================
-
-  const handleManualQuantityChange =
-    (
-      productId: string,
-      value: string
-    ) => {
-
-      const numbersOnly =
-        value.replace(
-          /[^0-9]/g,
-          ''
-        );
-
-
-      setManualQuantities(
-        previous => ({
-          ...previous,
-
-          [productId]:
-            numbersOnly,
-
-        })
-      );
-
-    };
-
-
-  // ==========================================================
-  // MANUAL QUANTITY SUBMIT
-  // ==========================================================
-
-  const handleManualQuantitySubmit =
-    async (
-      productId: string
-    ) => {
-
-      if (
-        updatingProduct ===
-        productId
-      ) {
-
-        return;
-
-      }
-
-
-      const typedValue =
-        manualQuantities[
-          productId
-        ];
-
-
-      const quantity =
-        Number(
-          typedValue
-        );
-
-
-      if (
-        !typedValue ||
-        !Number.isFinite(
-          quantity
-        ) ||
-        quantity < 1
-      ) {
-
-        await removeProduct(
-          productId
-        );
-
-
-        return;
-
-      }
-
-
-      const currentItem =
-        cart.find(
-          item =>
-            item.product?._id ===
-            productId
-        );
-
-
-      if (
-        currentItem &&
-        currentItem.quantity ===
-          quantity
-      ) {
-
-        setManualQuantities(
-          previous => ({
-            ...previous,
-
-            [productId]:
-              String(
-                quantity
-              ),
-
-          })
-        );
-
-
-        return;
-
-      }
-
-
-      setCart(
-        previous =>
-          previous.map(
-            item => {
-
-              if (
-                item.product?._id !==
-                productId
-              ) {
-
-                return item;
-
-              }
-
-
-              return {
-                ...item,
-
-                quantity,
-
-              };
-
-            }
-          )
-      );
-
-
-      setUpdatingProduct(
-        productId
-      );
-
-
-      const success =
-        await updateCartOnBackend(
-          productId,
-          quantity
-        );
-
-
-      if (!success) {
-
-        await loadCart();
-
-      }
-
-
-      setUpdatingProduct(
-        null
-      );
-
-    };
-
-
-  // ==========================================================
-  // REMOVE PRODUCT
-  // ==========================================================
-
-  const removeProduct =
-    async (
-      productId: string
-    ) => {
-
-      if (
-        updatingProduct ===
-        productId
-      ) {
-
-        return;
-
-      }
-
-
-      try {
-
-        const accessToken =
-          await getAccessToken();
-
-
-        if (!accessToken) {
-
-          router.replace(
-            '/login'
-          );
-
-
-          return;
-
-        }
-
-
-        setUpdatingProduct(
-          productId
-        );
-
-
-        const response =
-          await fetch(
-            `${API_URL}/cart/remove`,
-            {
-              method: 'DELETE',
-
-              headers: {
-                Accept:
-                  'application/json',
-
-                'Content-Type':
-                  'application/json',
-
-                Authorization:
-                  `Bearer ${accessToken}`,
-              },
-
-              body:
-                JSON.stringify({
-                  productId,
-                }),
-
-            }
-          );
-
-
-        const data =
-          await response.json();
-
-
-        if (
-          response.status === 401 ||
-          response.status === 403
-        ) {
-
-          accessTokenRef.current =
-            null;
-
-
-          router.replace(
-            '/login'
-          );
-
-
-          return;
-
-        }
-
-
-        if (!response.ok) {
-
-          console.log(
-            'REMOVE PRODUCT ERROR:',
-            data
-          );
-
-
-          return;
-
-        }
-
-
-        if (data?.cart) {
-
-          const updatedItems:
-            CartItem[] =
-            Array.isArray(
-              data.cart.items
-            )
-              ? data.cart.items
-              : [];
-
-
-          applyCartData(
-            updatedItems
-          );
-
-        } else {
-
-          setCart([]);
-
-          setManualQuantities({});
-
-        }
-
-
-      } catch (error) {
-
-        console.log(
-          'REMOVE PRODUCT ERROR:',
-          error
-        );
-
-      } finally {
-
-        setUpdatingProduct(
-          null
-        );
-
-      }
-
-    };
-
+    } finally {
+      mutationBusy.current = false;
+      setUpdatingProduct(null);
+    }
+  };
+  const removeProduct = (productId: string) => mutateCart(productId);
+  const updateQuantity = async (productId: string, change: number) => {
+    const item = cart.find(value => value.product?._id === productId);
+    if (!item || mutationBusy.current) return;
+    const quantity = item.quantity + change;
+    if (!Number.isSafeInteger(quantity)) return;
+    await mutateCart(productId, quantity < 1 ? undefined : quantity);
+  };
+  const handleManualQuantityChange = (productId: string, value: string) => {
+    if (!mutationBusy.current) setManualQuantities(previous => ({ ...previous, [productId]: value }));
+  };
+  const handleManualQuantitySubmit = async (productId: string) => {
+    if (mutationBusy.current) return;
+    const value = manualQuantities[productId];
+    const quantity = Number(value);
+    const current = cart.find(item => item.product?._id === productId)?.quantity;
+    if (!value?.trim() || !Number.isSafeInteger(quantity) || quantity < 1) {
+      setManualQuantities(previous => ({ ...previous, [productId]: String(current ?? 1) }));
+      Alert.alert('Invalid quantity', 'Enter a whole number of at least 1. Use remove to delete an item.');
+      return;
+    }
+    if (quantity !== current) await mutateCart(productId, quantity);
+  };
 
   // ==========================================================
   // TOTAL
@@ -1062,7 +321,7 @@ export default function Cart() {
 
   const canCheckout =
     total >=
-    MINIMUM_ORDER;
+    MINIMUM_ORDER && !updatingProduct;
 
 
   const remainingAmount =

@@ -1,3 +1,5 @@
+import { useTimeouts } from '../hooks/useTimeouts';
+import { request } from '../services/request';
 import {
   View,
   Text,
@@ -11,7 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getValidAccessToken } from '../services/authService';
+
 import {
   router,
   useLocalSearchParams,
@@ -23,6 +25,8 @@ import {
   useRef,
   useState,
 } from 'react';
+
+import { getValidAccessToken } from '../services/authService';
 
 
 /* =========================================================
@@ -365,6 +369,7 @@ const formatPrice = (
 ========================================================= */
 
 export default function ProductDetails() {
+  const scheduleTimeout = useTimeouts();
 
 
   /* =======================================================
@@ -537,7 +542,7 @@ export default function ProductDetails() {
     ]).start();
 
 
-    setTimeout(() => {
+    scheduleTimeout(() => {
 
       Animated.parallel([
 
@@ -624,7 +629,7 @@ export default function ProductDetails() {
     ]).start();
 
 
-    setTimeout(() => {
+    scheduleTimeout(() => {
 
       Animated.parallel([
 
@@ -663,24 +668,52 @@ export default function ProductDetails() {
      CHECK LOGIN
   ======================================================= */
 
- const checkLogin = async () => {
-  try {
-    const [accessToken, loginStatus, savedUser] = await Promise.all([
-      getValidAccessToken(),
-      AsyncStorage.getItem('isLoggedIn'),
-      AsyncStorage.getItem('user'),
-    ]);
+  const checkLogin = async () => {
 
-    const loggedIn = !!accessToken && (loginStatus === 'true' || !!savedUser);
+    try {
 
-    setIsLoggedIn(loggedIn);
+      const [
+        accessToken,
+        loginStatus,
+        savedUser,
+      ] = await Promise.all([
 
-    return accessToken;
-  } catch (error) {
-    setIsLoggedIn(false);
-    return null;
-  }
-};
+        getValidAccessToken(),
+
+        AsyncStorage.getItem(
+          'isLoggedIn'
+        ),
+
+        AsyncStorage.getItem(
+          'user'
+        ),
+
+      ]);
+
+
+      const loggedIn =
+        !!accessToken &&
+        (
+          loginStatus === 'true' ||
+          !!savedUser
+        );
+
+
+      setIsLoggedIn(
+        loggedIn
+      );
+
+
+      return accessToken;
+
+    } catch (error) {
+
+      throw error;
+
+    }
+
+  };
+
 
   /* =======================================================
      LOAD PRODUCT
@@ -713,7 +746,7 @@ export default function ProductDetails() {
 
 
     const timeout =
-      setTimeout(() => {
+      scheduleTimeout(() => {
 
         controller.abort();
 
@@ -744,7 +777,7 @@ export default function ProductDetails() {
 
 
       const response =
-        await fetch(
+        await request(
           `${API_URL}/products/${productId}`,
           {
             method: 'GET',
@@ -817,10 +850,10 @@ export default function ProductDetails() {
         'AbortError'
       ) {
 
-        console.log(
+        if (__DEV__) { console.log(
           'LOAD PRODUCT ERROR:',
           error
-        );
+        ); }
 
       }
 
@@ -858,7 +891,8 @@ export default function ProductDetails() {
 
     try {
 
-      const accessToken = await getValidAccessToken();
+      const accessToken =
+        await getValidAccessToken();
 
 
       if (!accessToken) {
@@ -873,7 +907,7 @@ export default function ProductDetails() {
 
 
       const response =
-        await fetch(
+        await request(
           `${API_URL}/favorites`,
           {
             method: 'GET',
@@ -892,8 +926,7 @@ export default function ProductDetails() {
       if (!response.ok) {
 
         if (
-          response.status === 401 ||
-          response.status === 403
+          response.status === 401
         ) {
 
           setIsFavorite(
@@ -954,10 +987,10 @@ export default function ProductDetails() {
 
     } catch (error) {
 
-      console.log(
+      if (__DEV__) { console.log(
         'LOAD FAVORITE STATUS ERROR:',
         error
-      );
+      ); }
 
     }
 
@@ -987,9 +1020,11 @@ export default function ProductDetails() {
      The API request runs in the background.
   ======================================================= */
 
+  const favoriteBusyRef = useRef(false);
+  const cartBusyRef = useRef(false);
   const toggleFavorite = () => {
 
-    if (updatingFavorite) {
+    if (favoriteBusyRef.current) {
       return;
     }
 
@@ -1031,9 +1066,8 @@ export default function ProductDetails() {
     );
 
 
-    setUpdatingFavorite(
-      true
-    );
+    favoriteBusyRef.current = true;
+    setUpdatingFavorite(true);
 
 
     /*
@@ -1047,9 +1081,7 @@ export default function ProductDetails() {
       try {
 
         const accessToken =
-          await AsyncStorage.getItem(
-            'accessToken'
-          );
+          await getValidAccessToken();
 
 
         if (!accessToken) {
@@ -1087,7 +1119,7 @@ export default function ProductDetails() {
 
 
         const response =
-          await fetch(
+          await request(
             endpoint,
             {
 
@@ -1125,7 +1157,7 @@ export default function ProductDetails() {
 
         if (!response.ok) {
 
-          console.log(
+          if (__DEV__) { console.log(
 
             nextFavorite
               ? 'ADD FAVORITE ERROR:'
@@ -1134,7 +1166,7 @@ export default function ProductDetails() {
             data?.message ||
               'Unable to update favorite.'
 
-          );
+          ); }
 
 
           /*
@@ -1149,8 +1181,7 @@ export default function ProductDetails() {
 
 
           if (
-            response.status === 401 ||
-            response.status === 403
+            response.status === 401
           ) {
 
             setIsLoggedIn(
@@ -1182,10 +1213,10 @@ export default function ProductDetails() {
 
       } catch (error) {
 
-        console.log(
+        if (__DEV__) { console.log(
           'TOGGLE FAVORITE ERROR:',
           error
-        );
+        ); }
 
 
         /*
@@ -1199,9 +1230,8 @@ export default function ProductDetails() {
 
       } finally {
 
-        setUpdatingFavorite(
-          false
-        );
+        favoriteBusyRef.current = false;
+        setUpdatingFavorite(false);
 
       }
 
@@ -1215,6 +1245,7 @@ export default function ProductDetails() {
   ======================================================= */
 
   const addToCart = async () => {
+    if (cartBusyRef.current) return;
 
     if (!isLoggedIn) {
 
@@ -1247,15 +1278,12 @@ export default function ProductDetails() {
 
     try {
 
-      setAddingToCart(
-        true
-      );
+      cartBusyRef.current = true;
+      setAddingToCart(true);
 
 
       const accessToken =
-        await AsyncStorage.getItem(
-          'accessToken'
-        );
+        await getValidAccessToken();
 
 
       if (!accessToken) {
@@ -1270,7 +1298,7 @@ export default function ProductDetails() {
 
 
       const response =
-        await fetch(
+        await request(
           `${API_URL}/cart/add`,
           {
 
@@ -1327,10 +1355,10 @@ export default function ProductDetails() {
 
     } catch (error) {
 
-      console.log(
+      if (__DEV__) { console.log(
         'ADD TO CART ERROR:',
         error
-      );
+      ); }
 
 
       showAlert(
@@ -1340,9 +1368,8 @@ export default function ProductDetails() {
 
     } finally {
 
-      setAddingToCart(
-        false
-      );
+      cartBusyRef.current = false;
+      setAddingToCart(false);
 
     }
 
@@ -2245,10 +2272,6 @@ export default function ProductDetails() {
 const styles =
   StyleSheet.create({
 
-    // ===================================================
-    // MAIN
-    // ===================================================
-
     container: {
 
       flex: 1,
@@ -2275,10 +2298,6 @@ const styles =
 
     },
 
-
-    // ===================================================
-    // ERROR
-    // ===================================================
 
     errorContainer: {
 
@@ -2425,10 +2444,6 @@ const styles =
     },
 
 
-    // ===================================================
-    // HEADER
-    // ===================================================
-
     header: {
 
       flexDirection:
@@ -2511,10 +2526,6 @@ const styles =
     },
 
 
-    // ===================================================
-    // IMAGE
-    // ===================================================
-
     image: {
 
       height:
@@ -2571,10 +2582,6 @@ const styles =
 
     },
 
-
-    /* =================================================
-       FAVORITE BUTTON
-    ================================================= */
 
     favoriteButton: {
 
@@ -2690,10 +2697,6 @@ const styles =
 
     },
 
-
-    // ===================================================
-    // INFO CARD
-    // ===================================================
 
     infoCard: {
 
@@ -2814,10 +2817,6 @@ const styles =
 
     },
 
-
-    // ===================================================
-    // PRICE
-    // ===================================================
 
     priceSection: {
 
@@ -3004,10 +3003,6 @@ const styles =
     },
 
 
-    // ===================================================
-    // OUT OF STOCK
-    // ===================================================
-
     outOfStockBadge: {
 
       alignSelf:
@@ -3059,10 +3054,6 @@ const styles =
 
     },
 
-
-    // ===================================================
-    // DESCRIPTION
-    // ===================================================
 
     divider: {
 
@@ -3149,10 +3140,6 @@ const styles =
     },
 
 
-    // ===================================================
-    // CART
-    // ===================================================
-
     cartButton: {
 
       marginTop:
@@ -3226,10 +3213,6 @@ const styles =
 
     },
 
-
-    // ===================================================
-    // CART / STOCK ALERT
-    // ===================================================
 
     productAlert: {
 
@@ -3393,10 +3376,6 @@ const styles =
 
     },
 
-
-    // ===================================================
-    // FAVORITE ALERT
-    // ===================================================
 
     favoriteAlert: {
 

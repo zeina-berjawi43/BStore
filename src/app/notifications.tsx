@@ -1,9 +1,13 @@
+import { syncPush, PushState } from '../services/pushService';
 import {
   View,
   Text,
   StyleSheet,
   Pressable,
   ScrollView,
+  Alert,
+  Linking,
+  AppState,
 } from 'react-native';
 
 import { Ionicons } from '@expo/vector-icons';
@@ -15,7 +19,7 @@ import {
   updateNotificationSetting,
 } from '../services/authService';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 
 // =========================================================
@@ -23,6 +27,10 @@ import { useEffect, useState } from 'react';
 // =========================================================
 
 export default function Notifications() {
+  const [deviceState, setDeviceState] = useState<PushState | 'error'>('disabled');
+  const savingRef = useRef(false);
+  const [busy, setBusy] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   const [
     notificationsEnabled,
@@ -36,30 +44,38 @@ export default function Notifications() {
 
   useEffect(() => {
 
-    loadNotificationSetting();
-
+    void loadNotificationSetting();
+    const listener = AppState.addEventListener('change', state => {
+      if (state === 'active' && !savingRef.current) void loadNotificationSetting();
+    });
+    return () => listener.remove();
   }, []);
 
 
   const loadNotificationSetting =
     async () => {
-
+      setBusy(true);
+      setLoadFailed(false);
       try {
 
         const enabled =
           await getNotificationSetting();
 
-        setNotificationsEnabled(
-          enabled
-        );
+        setNotificationsEnabled(enabled);
+        try { setDeviceState(await syncPush()); }
+        catch { setDeviceState('error'); }
 
       } catch (error) {
+        setLoadFailed(true);
+        Alert.alert('Connection Error', 'Could not load notification settings. Please reopen this page to retry.');
 
-        console.log(
+        if (__DEV__) { console.log(
           'ERROR LOADING NOTIFICATION SETTING:',
           error
-        );
+        ); }
 
+      } finally {
+        setBusy(false);
       }
 
     };
@@ -71,6 +87,9 @@ export default function Notifications() {
 
   const toggleNotifications =
     async () => {
+      if (busy || loadFailed || savingRef.current) return;
+      savingRef.current = true;
+      setBusy(true);
 
       const newValue =
         !notificationsEnabled;
@@ -84,12 +103,20 @@ export default function Notifications() {
 
 
       try {
-
+        if (newValue) {
+          const state = await syncPush(true, true);
+          setDeviceState(state);
+          if (state !== 'ready') {
+            throw new Error(state === 'denied' ? 'Allow notifications in your phone settings first.' : 'Notifications require a signed-in native app build.');
+          }
+        }
         const savedValue =
           await updateNotificationSetting(
             newValue
           );
 
+
+        if (!savedValue) setDeviceState('disabled');
 
         // Use backend value
 
@@ -98,17 +125,17 @@ export default function Notifications() {
         );
 
 
-        console.log(
+        if (__DEV__) { console.log(
           'NOTIFICATION SETTING UPDATED:',
           savedValue
-        );
+        ); }
 
       } catch (error) {
 
-        console.log(
+        if (__DEV__) { console.log(
           'ERROR UPDATING NOTIFICATION SETTING:',
           error
-        );
+        ); }
 
 
         // Revert UI if backend update failed
@@ -116,7 +143,11 @@ export default function Notifications() {
         setNotificationsEnabled(
           !newValue
         );
+        Alert.alert('Update Failed', error instanceof Error ? error.message : 'Could not save notification settings. Please try again.');
 
+      } finally {
+        savingRef.current = false;
+        setBusy(false);
       }
 
     };
@@ -274,7 +305,7 @@ export default function Notifications() {
               }
             >
               {notificationsEnabled
-                ? 'You will receive notifications'
+                ? (deviceState === 'ready' ? 'This device is registered' : 'Device setup needs attention')
                 : 'Notifications are turned off'}
             </Text>
 
@@ -282,6 +313,10 @@ export default function Notifications() {
 
 
           <Pressable
+            disabled={busy || loadFailed}
+            accessibilityRole="switch"
+            accessibilityState={{ checked: notificationsEnabled, disabled: busy || loadFailed }}
+            accessibilityLabel="Notifications"
             style={[
               styles.switch,
 
@@ -348,7 +383,7 @@ export default function Notifications() {
               }
             >
               {notificationsEnabled
-                ? 'Notifications are enabled'
+                ? (deviceState === 'ready' ? 'Notifications are enabled' : 'Notifications need setup')
                 : 'Notifications are disabled'}
             </Text>
 
@@ -359,7 +394,7 @@ export default function Notifications() {
               }
             >
               {notificationsEnabled
-                ? 'Stay updated with important updates from BStore.'
+                ? (deviceState === 'ready' ? 'Receive offers and order updates from BStore.' : 'Check phone permissions and retry device registration below.')
                 : 'You can turn them back on anytime.'}
             </Text>
 
@@ -367,6 +402,19 @@ export default function Notifications() {
 
         </View>
 
+        <Pressable disabled={busy} onPress={() => {
+          if (deviceState === 'denied') { void Linking.openSettings(); return; }
+          savingRef.current = true;
+          setBusy(true);
+          void syncPush(true).then(setDeviceState).catch(error => {
+            setDeviceState('error'); Alert.alert('Notifications', error.message);
+          }).finally(() => { savingRef.current = false; setBusy(false); });
+        }} style={{ padding: 20 }}>
+          <Text>{deviceState === 'denied' ? 'Open phone settings' : 'Retry device registration'}</Text>
+        </Pressable>
+        {loadFailed && <Pressable onPress={() => { void loadNotificationSetting(); }} style={{ padding: 20 }}>
+          <Text>Retry loading settings</Text>
+        </Pressable>}
       </ScrollView>
 
     </View>

@@ -1,5 +1,7 @@
+import { request } from '../services/request';
 import {
   View,
+  Alert,
   Text,
   Pressable,
   StyleSheet,
@@ -219,6 +221,8 @@ export default function Favorites() {
     setInitialLoadFinished,
   ] = useState(false);
 
+  const mutationBusy = useRef(false);
+  const loadRevision = useRef(0);
   const accessTokenRef =
     useRef<string | null>(null);
 
@@ -243,12 +247,12 @@ export default function Favorites() {
 
         } catch (error) {
 
-          console.log(
+          if (__DEV__) { console.log(
             'GET TOKEN ERROR:',
             error
-          );
+          ); }
 
-          return null;
+          throw error;
 
         }
 
@@ -295,16 +299,12 @@ export default function Favorites() {
 
         } catch (error) {
 
-          console.log(
+          if (__DEV__) { console.log(
             'CHECK LOGIN ERROR:',
             error
-          );
+          ); }
 
-          setIsLoggedIn(
-            false
-          );
-
-          return false;
+          throw error;
 
         }
 
@@ -322,6 +322,8 @@ export default function Favorites() {
   const loadFavorites =
     useCallback(
       async () => {
+        if (mutationBusy.current) return;
+        const revision = ++loadRevision.current;
 
         try {
 
@@ -345,7 +347,7 @@ export default function Favorites() {
           }
 
           const response =
-            await fetch(
+            await request(
               `${API_URL}/favorites`,
               {
                 method: 'GET',
@@ -362,6 +364,7 @@ export default function Favorites() {
 
           const data =
             await response.json();
+          if (revision !== loadRevision.current) return;
 
 
           // =================================================
@@ -369,8 +372,7 @@ export default function Favorites() {
           // =================================================
 
           if (
-            response.status === 401 ||
-            response.status === 403
+            response.status === 401
           ) {
 
             accessTokenRef.current =
@@ -396,11 +398,12 @@ export default function Favorites() {
           // =================================================
 
           if (!response.ok) {
+          Alert.alert('Request failed', data?.message || 'Please try again.');
 
-            console.log(
+            if (__DEV__) { console.log(
               'GET FAVORITES ERROR:',
               data
-            );
+            ); }
 
             return;
 
@@ -486,12 +489,14 @@ export default function Favorites() {
 
         } catch (error) {
 
-          console.log(
+          if (__DEV__) { console.log(
             'LOAD FAVORITES ERROR:',
             error
-          );
+          ); }
+          Alert.alert('Connection Error', error instanceof Error ? error.message : 'Please try again.');
 
         } finally {
+
 
           setInitialLoadFinished(
             true
@@ -557,13 +562,14 @@ export default function Favorites() {
         };
 
 
-      refresh();
+      void refresh().catch(() => { setInitialLoadFinished(true); Alert.alert('Connection Error', 'Could not load favorites. Please reopen this page to retry.'); });
 
 
       return () => {
 
         active =
           false;
+        loadRevision.current++;
 
       };
 
@@ -584,15 +590,14 @@ export default function Favorites() {
       productId: string
     ) => {
 
-      if (
-        updatingProduct ===
-        productId
-      ) {
+      if (mutationBusy.current) {
 
         return;
 
       }
 
+      mutationBusy.current = true;
+      loadRevision.current++;
       try {
 
         const accessToken =
@@ -613,7 +618,7 @@ export default function Favorites() {
         );
 
         const response =
-          await fetch(
+          await request(
             `${API_URL}/favorites/remove`,
             {
               method: 'DELETE',
@@ -645,8 +650,7 @@ export default function Favorites() {
         // =================================================
 
         if (
-          response.status === 401 ||
-          response.status === 403
+          response.status === 401
         ) {
 
           accessTokenRef.current =
@@ -672,11 +676,12 @@ export default function Favorites() {
         // =================================================
 
         if (!response.ok) {
+          Alert.alert('Request failed', data?.message || 'Please try again.');
 
-          console.log(
+          if (__DEV__) { console.log(
             'REMOVE FAVORITE ERROR:',
             data
-          );
+          ); }
 
           return;
 
@@ -699,12 +704,14 @@ export default function Favorites() {
 
       } catch (error) {
 
-        console.log(
+        if (__DEV__) { console.log(
           'REMOVE FAVORITE ERROR:',
           error
-        );
+        ); }
+          Alert.alert('Connection Error', error instanceof Error ? error.message : 'Please try again.');
 
       } finally {
+        mutationBusy.current = false;
 
         setUpdatingProduct(
           null
@@ -745,15 +752,14 @@ export default function Favorites() {
 
       }
 
-      if (
-        updatingProduct ===
-        product.id
-      ) {
+      if (mutationBusy.current) {
 
         return;
 
       }
 
+      mutationBusy.current = true;
+      loadRevision.current++;
       try {
 
         const accessToken =
@@ -774,7 +780,7 @@ export default function Favorites() {
         );
 
         const response =
-          await fetch(
+          await request(
             `${API_URL}/cart/add`,
             {
               method: 'POST',
@@ -812,8 +818,7 @@ export default function Favorites() {
         // =================================================
 
         if (
-          response.status === 401 ||
-          response.status === 403
+          response.status === 401
         ) {
 
           accessTokenRef.current =
@@ -837,11 +842,12 @@ export default function Favorites() {
         // =================================================
 
         if (!response.ok) {
+          Alert.alert('Request failed', data?.message || 'Please try again.');
 
-          console.log(
+          if (__DEV__) { console.log(
             'ADD TO CART ERROR:',
             data
-          );
+          ); }
 
           return;
 
@@ -859,12 +865,14 @@ export default function Favorites() {
 
       } catch (error) {
 
-        console.log(
+        if (__DEV__) { console.log(
           'ADD TO CART ERROR:',
           error
-        );
+        ); }
+          Alert.alert('Connection Error', error instanceof Error ? error.message : 'Please try again.');
 
       } finally {
+        mutationBusy.current = false;
 
         setUpdatingProduct(
           null

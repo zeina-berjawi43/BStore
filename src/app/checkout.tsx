@@ -1,3 +1,5 @@
+import { request } from '../services/request';
+import { getCheckoutAttempt } from '../services/checkoutAttempt';
 import {
   View,
   Text,
@@ -21,10 +23,11 @@ import {
 
 import {
   useCallback,
+  useRef,
   useState,
 } from 'react';
 
-import { getValidAccessToken } from '../services/authService';
+import { getValidAccessToken, logoutLocal } from '../services/authService';
 
 
 // =========================================================
@@ -74,6 +77,8 @@ type CartResponse = {
 
 
 type User = {
+  _id?: string;
+  id?: string;
   firstName?: string;
   lastName?: string;
   name?: string;
@@ -118,6 +123,7 @@ const readJsonResponse = async (
 // ============================================================
 
 export default function Checkout() {
+  const orderInFlight = useRef(false);
 
   const [user, setUser] =
     useState<User | null>(null);
@@ -162,10 +168,10 @@ export default function Checkout() {
         await AsyncStorage.getItem("user");
 
 
-      console.log(
+      if (__DEV__) { console.log(
         "CHECKOUT STORED USER:",
         storedUser
-      );
+      ); }
 
 
       if (!storedUser) {
@@ -181,20 +187,20 @@ export default function Checkout() {
         JSON.parse(storedUser);
 
 
-      console.log(
+      if (__DEV__) { console.log(
         "CHECKOUT USER:",
         parsedUser
-      );
+      ); }
 
 
       setUser(parsedUser);
 
     } catch (error) {
 
-      console.log(
+      if (__DEV__) { console.log(
         "LOAD USER ERROR:",
         error
-      );
+      ); }
 
 
       setUser(null);
@@ -216,10 +222,10 @@ export default function Checkout() {
         await getAccessToken();
 
 
-      console.log(
+      if (__DEV__) { console.log(
         "CHECKOUT TOKEN EXISTS:",
         !!token
-      );
+      ); }
 
 
       if (!token) {
@@ -234,7 +240,7 @@ export default function Checkout() {
 
 
       const response =
-        await fetch(
+        await request(
           `${API_URL}/cart`,
           {
             method: "GET",
@@ -256,11 +262,11 @@ export default function Checkout() {
         );
 
 
-      console.log(
+      if (__DEV__) { console.log(
         "GET CART RESPONSE:",
         response.status,
         data
-      );
+      ); }
 
 
       // ======================================================
@@ -268,16 +274,10 @@ export default function Checkout() {
       // ======================================================
 
       if (
-        response.status === 401 ||
-        response.status === 403
+        response.status === 401
       ) {
 
-        await AsyncStorage.multiRemove([
-          "accessToken",
-          "refreshToken",
-          "user",
-          "isLoggedIn",
-        ]);
+        await logoutLocal();
 
 
         router.replace("/login");
@@ -319,19 +319,19 @@ export default function Checkout() {
             : [];
 
 
-        console.log(
+        if (__DEV__) { console.log(
           "CHECKOUT CART ITEMS:",
           items.length
-        );
+        ); }
 
 
         setCart(items);
 
       } else {
 
-        console.log(
+        if (__DEV__) { console.log(
           "CHECKOUT: NO CART"
-        );
+        ); }
 
 
         setCart([]);
@@ -340,10 +340,10 @@ export default function Checkout() {
 
     } catch (error) {
 
-      console.log(
+      if (__DEV__) { console.log(
         "LOAD CART ERROR:",
         error
-      );
+      ); }
 
 
       Alert.alert(
@@ -377,10 +377,10 @@ export default function Checkout() {
 
     } catch (error) {
 
-      console.log(
+      if (__DEV__) { console.log(
         "LOAD CHECKOUT DATA ERROR:",
         error
-      );
+      ); }
 
     } finally {
 
@@ -470,46 +470,46 @@ export default function Checkout() {
 
   const placeOrder = async () => {
 
-    console.log(
+    if (__DEV__) { console.log(
       "================================"
-    );
+    ); }
 
 
-    console.log(
+    if (__DEV__) { console.log(
       "PLACE ORDER BUTTON PRESSED"
-    );
+    ); }
 
 
-    console.log(
+    if (__DEV__) { console.log(
       "USER:",
       user
-    );
+    ); }
 
 
-    console.log(
+    if (__DEV__) { console.log(
       "DISPLAY NAME:",
       displayName
-    );
+    ); }
 
 
-    console.log(
+    if (__DEV__) { console.log(
       "CART LENGTH:",
       cart.length
-    );
+    ); }
 
 
-    console.log(
+    if (__DEV__) { console.log(
       "PLACING ORDER:",
       placingOrder
-    );
+    ); }
 
 
-    console.log(
+    if (__DEV__) { console.log(
       "================================"
-    );
+    ); }
 
 
-    if (placingOrder) {
+    if (orderInFlight.current) {
       return;
     }
 
@@ -581,6 +581,7 @@ export default function Checkout() {
 
     try {
 
+      orderInFlight.current = true;
       setPlacingOrder(true);
 
 
@@ -588,20 +589,15 @@ export default function Checkout() {
         await getAccessToken();
 
 
-      console.log(
+      if (__DEV__) { console.log(
         "ACCESS TOKEN EXISTS:",
         !!token
-      );
+      ); }
 
 
       if (!token) {
 
-        await AsyncStorage.multiRemove([
-          "accessToken",
-          "refreshToken",
-          "user",
-          "isLoggedIn",
-        ]);
+        await logoutLocal();
 
 
         Alert.alert(
@@ -622,19 +618,27 @@ export default function Checkout() {
       }
 
 
-      console.log(
+      if (__DEV__) { console.log(
         "CREATING ORDER..."
-      );
+      ); }
 
 
-      console.log(
+      if (__DEV__) { console.log(
         "SHIPPING ADDRESS:",
         user.address
-      );
+      ); }
 
+      const userId = user._id || user.id;
+      if (!userId) {
+        Alert.alert('Account Error', 'Please sign in again before placing your order.');
+        return;
+      }
+      const attempt = await getCheckoutAttempt(userId, user.address, cart.map(item => ({
+        productId: item.product?._id || '', quantity: item.quantity,
+      })));
 
       const response =
-        await fetch(
+        await request(
           `${API_URL}/orders/create`,
           {
             method: "POST",
@@ -652,6 +656,7 @@ export default function Checkout() {
 
             body:
               JSON.stringify({
+                idempotencyKey: attempt.key,
                 shippingAddress:
                   user.address.trim(),
               }),
@@ -665,24 +670,18 @@ export default function Checkout() {
         );
 
 
-      console.log(
+      if (__DEV__) { console.log(
         "CREATE ORDER RESPONSE:",
         response.status,
         data
-      );
+      ); }
 
 
       if (
-        response.status === 401 ||
-        response.status === 403
+        response.status === 401
       ) {
 
-        await AsyncStorage.multiRemove([
-          "accessToken",
-          "refreshToken",
-          "user",
-          "isLoggedIn",
-        ]);
+        await logoutLocal();
 
 
         Alert.alert(
@@ -739,11 +738,12 @@ export default function Checkout() {
         data?.order
       ) {
 
-        console.log(
+        if (__DEV__) { console.log(
           "ORDER CREATED SUCCESSFULLY:",
           data.order
-        );
+        ); }
 
+        await AsyncStorage.removeItem(attempt.storageKey);
 
         await AsyncStorage.removeItem(
           "cart"
@@ -780,20 +780,21 @@ export default function Checkout() {
 
     } catch (error) {
 
-      console.log(
+      if (__DEV__) { console.log(
         "PLACE ORDER ERROR:",
         error
-      );
+      ); }
 
 
       Alert.alert(
         "Connection Error",
-        "Could not connect to the server. Please check your internet connection and try again."
+        "We could not confirm the result. Please check My Orders before trying again, because your order may already have been placed."
       );
 
 
     } finally {
 
+      orderInFlight.current = false;
       setPlacingOrder(false);
 
     }

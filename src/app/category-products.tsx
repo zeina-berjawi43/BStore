@@ -1,5 +1,8 @@
+import { useTimeouts } from '../hooks/useTimeouts';
+import { request } from '../services/request';
 import {
   View,
+  Alert,
   Text,
   StyleSheet,
   Pressable,
@@ -11,7 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getValidAccessToken } from '../services/authService';
+
 import {
   router,
   useFocusEffect,
@@ -25,6 +28,8 @@ import {
   useRef,
   useState,
 } from 'react';
+
+import { getValidAccessToken } from '../services/authService';
 
 
 /* =========================================================
@@ -386,15 +391,7 @@ const FavoriteButton = memo(
        * ===================================================
        */
 
-      requestAnimationFrame(() => {
 
-        onFavoriteChange(
-          nextFavorite
-            ? 'added'
-            : 'removed'
-        );
-
-      });
 
 
       /*
@@ -408,9 +405,7 @@ const FavoriteButton = memo(
         try {
 
           const accessToken =
-            await AsyncStorage.getItem(
-              'accessToken'
-            );
+            await getValidAccessToken();
 
 
           if (!accessToken) {
@@ -459,7 +454,7 @@ const FavoriteButton = memo(
 
 
           const response =
-            await fetch(
+            await request(
               endpoint,
               {
                 method,
@@ -512,8 +507,7 @@ const FavoriteButton = memo(
            */
 
           if (
-            response.status === 401 ||
-            response.status === 403
+            response.status === 401
           ) {
 
             favoriteRef.current =
@@ -551,10 +545,10 @@ const FavoriteButton = memo(
 
           if (!response.ok) {
 
-            console.log(
+            if (__DEV__) { console.log(
               'UPDATE FAVORITES ERROR:',
               data
-            );
+            ); }
 
 
             /*
@@ -595,12 +589,15 @@ const FavoriteButton = memo(
            * =================================================
            */
 
+          onFavoriteChange(nextFavorite ? 'added' : 'removed');
+
         } catch (error) {
 
-          console.log(
+          Alert.alert('Could not update favorites', error instanceof Error ? error.message : 'Please try again.');
+          if (__DEV__) { console.log(
             'TOGGLE FAVORITE ERROR:',
             error
-          );
+          ); }
 
 
           /*
@@ -690,6 +687,7 @@ const FavoriteButton = memo(
 ========================================================= */
 
 export default function CategoryProducts() {
+  const scheduleTimeout = useTimeouts();
 
   const params =
     useLocalSearchParams<{
@@ -849,7 +847,7 @@ export default function CategoryProducts() {
     ]).start();
 
 
-    setTimeout(() => {
+    scheduleTimeout(() => {
 
       Animated.parallel([
 
@@ -939,7 +937,7 @@ export default function CategoryProducts() {
       ]).start();
 
 
-      setTimeout(() => {
+      scheduleTimeout(() => {
 
         Animated.parallel([
 
@@ -985,9 +983,7 @@ export default function CategoryProducts() {
     try {
 
       const accessToken =
-        await AsyncStorage.getItem(
-          'accessToken'
-        );
+        await getValidAccessToken();
 
 
       const loginStatus =
@@ -1019,18 +1015,13 @@ export default function CategoryProducts() {
 
     } catch (error) {
 
-      console.log(
+      if (__DEV__) { console.log(
         'CHECK LOGIN ERROR:',
         error
-      );
+      ); }
 
 
-      setIsLoggedIn(
-        false
-      );
-
-
-      return null;
+      throw error;
 
     }
 
@@ -1055,9 +1046,7 @@ export default function CategoryProducts() {
 
 
       const accessToken =
-        await AsyncStorage.getItem(
-          'accessToken'
-        );
+        await getValidAccessToken();
 
 
       const headers:
@@ -1078,7 +1067,7 @@ export default function CategoryProducts() {
 
 
       const response =
-        await fetch(
+        await request(
           `${API_URL}/products`,
           {
             method: 'GET',
@@ -1093,10 +1082,10 @@ export default function CategoryProducts() {
 
       if (!response.ok) {
 
-        console.log(
+        if (__DEV__) { console.log(
           'GET PRODUCTS ERROR:',
           data
-        );
+        ); }
 
         return;
 
@@ -1113,10 +1102,10 @@ export default function CategoryProducts() {
             : [];
 
 
-      console.log(
+      if (__DEV__) { console.log(
         'PRODUCTS FROM DATABASE:',
         receivedProducts.length
-      );
+      ); }
 
 
       setProducts(
@@ -1126,10 +1115,10 @@ export default function CategoryProducts() {
 
     } catch (error) {
 
-      console.log(
+      if (__DEV__) { console.log(
         'LOAD PRODUCTS ERROR:',
         error
-      );
+      ); }
 
     } finally {
 
@@ -1151,9 +1140,7 @@ export default function CategoryProducts() {
     try {
 
       const accessToken =
-        await AsyncStorage.getItem(
-          'accessToken'
-        );
+        await getValidAccessToken();
 
 
       if (!accessToken) {
@@ -1168,7 +1155,7 @@ export default function CategoryProducts() {
 
 
       const response =
-        await fetch(
+        await request(
           `${API_URL}/cart`,
           {
             method: 'GET',
@@ -1190,8 +1177,7 @@ export default function CategoryProducts() {
 
 
       if (
-        response.status === 401 ||
-        response.status === 403
+        response.status === 401
       ) {
 
         setCartCount(
@@ -1211,10 +1197,10 @@ export default function CategoryProducts() {
 
       if (!response.ok) {
 
-        console.log(
+        if (__DEV__) { console.log(
           'GET CART ERROR:',
           data
-        );
+        ); }
 
         return;
 
@@ -1252,10 +1238,10 @@ export default function CategoryProducts() {
 
     } catch (error) {
 
-      console.log(
+      if (__DEV__) { console.log(
         'LOAD CART ERROR:',
         error
-      );
+      ); }
 
     }
 
@@ -1271,9 +1257,7 @@ export default function CategoryProducts() {
     try {
 
       const accessToken =
-        await AsyncStorage.getItem(
-          'accessToken'
-        );
+        await getValidAccessToken();
 
 
       if (!accessToken) {
@@ -1288,7 +1272,7 @@ export default function CategoryProducts() {
 
 
       const response =
-        await fetch(
+        await request(
           `${API_URL}/favorites`,
           {
             method: 'GET',
@@ -1310,8 +1294,7 @@ export default function CategoryProducts() {
 
 
       if (
-        response.status === 401 ||
-        response.status === 403
+        response.status === 401
       ) {
 
         setFavorites(
@@ -1331,10 +1314,10 @@ export default function CategoryProducts() {
 
       if (!response.ok) {
 
-        console.log(
+        if (__DEV__) { console.log(
           'GET FAVORITES ERROR:',
           data
-        );
+        ); }
 
         return;
 
@@ -1360,10 +1343,10 @@ export default function CategoryProducts() {
 
     } catch (error) {
 
-      console.log(
+      if (__DEV__) { console.log(
         'LOAD FAVORITES ERROR:',
         error
-      );
+      ); }
 
     }
 
@@ -1377,7 +1360,7 @@ export default function CategoryProducts() {
   const loadData = async () => {
 
     const loginPromise =
-      checkLogin();
+      void checkLogin().catch(() => Alert.alert('Connection Error', 'Could not verify your session. Please try again.'));
 
 
     const productsPromise =
@@ -1487,7 +1470,8 @@ export default function CategoryProducts() {
 
     try {
 
-      const accessToken = await getValidAccessToken();
+      const accessToken =
+        await getValidAccessToken();
 
 
       if (!accessToken) {
@@ -1502,7 +1486,7 @@ export default function CategoryProducts() {
 
 
       const response =
-        await fetch(
+        await request(
           `${API_URL}/cart/add`,
           {
 
@@ -1541,8 +1525,7 @@ export default function CategoryProducts() {
 
 
       if (
-        response.status === 401 ||
-        response.status === 403
+        response.status === 401
       ) {
 
         setIsLoggedIn(
@@ -1562,10 +1545,10 @@ export default function CategoryProducts() {
 
       if (!response.ok) {
 
-        console.log(
+        if (__DEV__) { console.log(
           'ADD TO CART ERROR:',
           data
-        );
+        ); }
 
 
         showAlert(
@@ -1620,10 +1603,10 @@ export default function CategoryProducts() {
 
     } catch (error) {
 
-      console.log(
+      if (__DEV__) { console.log(
         'ADD TO CART ERROR:',
         error
-      );
+      ); }
 
 
       showAlert(
@@ -2216,12 +2199,12 @@ export default function CategoryProducts() {
 
                           onError={(event) => {
 
-                            console.log(
+                            if (__DEV__) { console.log(
                               'PRODUCT IMAGE ERROR:',
                               product.name,
                               imageUrl,
                               event.nativeEvent.error
-                            );
+                            ); }
 
                           }}
                         />
@@ -2513,10 +2496,6 @@ export default function CategoryProducts() {
 const styles =
   StyleSheet.create({
 
-  /* =======================================================
-     MAIN
-  ======================================================= */
-
   container: {
     flex: 1,
     paddingTop: 20,
@@ -2530,10 +2509,6 @@ const styles =
     paddingBottom: 30,
   },
 
-
-  /* =======================================================
-     CART ALERT
-  ======================================================= */
 
   homeAlert: {
     position: 'absolute',
@@ -2592,12 +2567,6 @@ const styles =
     lineHeight: 16,
   },
 
-
-  /* =======================================================
-     FAVORITE ALERT
-
-     SAME DESIGN AS PRODUCT DETAILS
-  ======================================================= */
 
   favoriteAlert: {
     position: 'absolute',
@@ -2669,10 +2638,6 @@ const styles =
     justifyContent: 'center',
   },
 
-
-  /* =======================================================
-     HEADER
-  ======================================================= */
 
   header: {
     flexDirection: 'row',
@@ -2769,10 +2734,6 @@ const styles =
   },
 
 
-  /* =======================================================
-     RESULTS
-  ======================================================= */
-
   resultsHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2821,10 +2782,6 @@ const styles =
   },
 
 
-  /* =======================================================
-     LOADING
-  ======================================================= */
-
   loadingContainer: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -2849,10 +2806,6 @@ const styles =
     fontWeight: '600',
   },
 
-
-  /* =======================================================
-     PRODUCTS GRID
-  ======================================================= */
 
   productsGrid: {
     flexDirection: 'row',
@@ -2905,10 +2858,6 @@ const styles =
   },
 
 
-  /* =======================================================
-     DISCOUNT
-  ======================================================= */
-
   discountBadge: {
     position: 'absolute',
     top: 17,
@@ -2927,10 +2876,6 @@ const styles =
     fontWeight: '900',
   },
 
-
-  /* =======================================================
-     FAVORITE
-  ======================================================= */
 
   favoriteButton: {
     position: 'absolute',
@@ -2961,10 +2906,6 @@ const styles =
   },
 
 
-  /* =======================================================
-     PRODUCT INFO
-  ======================================================= */
-
   productName: {
     marginTop: 12,
     fontSize: 15,
@@ -2989,10 +2930,6 @@ const styles =
     color: '#C94C4C',
   },
 
-
-  /* =======================================================
-     PRICE
-  ======================================================= */
 
   productBottom: {
     marginTop: 10,
@@ -3038,10 +2975,6 @@ const styles =
   },
 
 
-  /* =======================================================
-     ADD TO CART
-  ======================================================= */
-
   addButton: {
     width: 34,
     height: 34,
@@ -3056,10 +2989,6 @@ const styles =
     backgroundColor: '#B8B2A9',
   },
 
-
-  /* =======================================================
-     EMPTY
-  ======================================================= */
 
   emptyContainer: {
     alignItems: 'center',
