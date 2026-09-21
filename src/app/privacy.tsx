@@ -124,11 +124,25 @@ export default function Privacy() {
             <Text style={styles.heading}>Data Retention</Text>
           </View>
           <Text style={styles.text}>
-            A specific retention period for historical invoices has not yet
-            been established. We will update this policy when the retention
-            period or applicable retention criteria are determined. For
-            questions about a historical invoice or its information, contact
-            us using the email below.
+            We retain personal information for as long as necessary to provide
+            our services and meet applicable legal, accounting, and legitimate
+            business requirements.
+            {'\n\n'}
+            Invoices and related accounting records are retained for 10 years
+            from the end of the year to which they relate, in accordance with
+            applicable Lebanese tax and accounting requirements.
+            {'\n\n'}
+            If you delete your account, historical invoices and related
+            transaction records may remain for the applicable retention period.
+            These records may contain customer details recorded at the time
+            of the transaction.
+            {'\n\n'}
+            When the applicable retention period expires, personal information
+            will be deleted or anonymized unless further retention is required
+            by law.
+            {'\n\n'}
+            You may contact us for information about retained records
+            associated with your account.
           </Text>
         </View>
 

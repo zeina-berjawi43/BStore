@@ -4,11 +4,14 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
+  Linking,
 } from 'react-native';
 
 import { Ionicons } from '@expo/vector-icons';
 
 import { router } from 'expo-router';
+
+const SUPPORT_EMAIL = 'b.storelb@gmail.com';
 
 export default function Help() {
   return (
@@ -228,6 +231,35 @@ export default function Help() {
 
         </View>
 
+
+        {/* ====================================================
+            CONTACT SUPPORT
+        ==================================================== */}
+
+        <View style={styles.sectionHeader}>
+          <View style={styles.sectionAccent} />
+          <Text style={styles.sectionTitle}>Contact Support</Text>
+        </View>
+
+        <View style={styles.card}>
+          <Pressable
+            style={styles.faqRow}
+            accessibilityRole="link"
+            accessibilityLabel={`Email ${SUPPORT_EMAIL}`}
+            onPress={() => Linking.openURL(`mailto:${SUPPORT_EMAIL}`)}
+          >
+            <View style={styles.faqIcon}>
+              <Ionicons name="mail-outline" size={21} color="#E35B3F" />
+            </View>
+            <View style={styles.faqText}>
+              <Text style={styles.faqTitle}>Email Us</Text>
+              <Text style={styles.faqAnswer}>
+                {SUPPORT_EMAIL}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={19} color="#817B71" />
+          </Pressable>
+        </View>
 
         {/* ====================================================
             VERSION
