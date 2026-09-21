@@ -37,6 +37,23 @@ type Product = {
   availability?: boolean;
 };
 
+type Department = {
+  id: string;
+  name: string;
+  image: string;
+  order: number;
+  active: boolean;
+};
+
+const departmentIcons: Record<string, keyof typeof Ionicons.glyphMap> = {
+  'Sweets & Chocolate': 'ice-cream-outline',
+  'Snacks & Nuts': 'fast-food-outline',
+  'Personal Care': 'flower-outline',
+  'Cleaning Products': 'sparkles-outline',
+  'Coffee & Beverages': 'cafe-outline',
+  Grocery: 'basket-outline',
+};
+
 type TopSellingProduct = Product;
 
 type OfferProduct = Product & {
@@ -155,6 +172,9 @@ export default function Index() {
     },
   ]);
 
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [departmentsLoading, setDepartmentsLoading] = useState(true);
+  const [departmentsError, setDepartmentsError] = useState('');
   const [categoriesLoading, setCategoriesLoading] = useState(false);
 
   const [cartCount, setCartCount] = useState(0);
@@ -263,6 +283,35 @@ export default function Index() {
       setSlides([]);
     } finally {
       setSlidesLoading(false);
+    }
+  };
+
+  const loadDepartments = async () => {
+    try {
+      setDepartmentsLoading(true);
+      setDepartmentsError('');
+      const response = await request(`${API_URL}/departments`, {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+      });
+      if (!response.ok) throw new Error('Could not load departments.');
+      const data = await response.json();
+      if (!Array.isArray(data.departments)) throw new Error('Invalid departments response.');
+      setDepartments(data.departments
+        .filter((item: any) => item && item.active !== false && (item._id || item.id))
+        .map((item: any) => ({
+          id: String(item._id ?? item.id),
+          name: String(item.name ?? ''),
+          image: buildImageUrl(item.image),
+          order: Number(item.order) || 0,
+          active: item.active !== false,
+        }))
+        .filter((item: Department) => item.name.trim().length > 0)
+        .sort((a: Department, b: Department) => a.order - b.order || a.name.localeCompare(b.name)));
+    } catch (error) {
+      setDepartmentsError(error instanceof Error ? error.message : 'Could not load departments.');
+    } finally {
+      setDepartmentsLoading(false);
     }
   };
 
@@ -970,7 +1019,7 @@ export default function Index() {
         });
       }
       // Public sections can load without waiting for a token refresh.
-      const requests: Promise<unknown>[] = homeLoadedRef.current && !force ? [] : [loadSlideshow(), loadCategories()];
+      const requests: Promise<unknown>[] = homeLoadedRef.current && !force ? [] : [loadSlideshow(), loadDepartments()];
       const { token, loggedIn } = await loadData();
       if (generation !== homeGenerationRef.current) return;
       accessTokenRef.current = token;
@@ -1399,136 +1448,52 @@ export default function Index() {
           </View>
         </View>
 
-        {/* CATEGORIES */}
-
-        <View
-          style={
-            styles.sectionHeader
-          }
-        >
-          <View
-            style={
-              styles.sectionTitleRow
-            }
-          >
-            <View
-              style={
-                styles.sectionAccent
-              }
-            />
-
-            <Text
-              style={
-                styles.sectionTitle
-              }
-            >
-              Categories
-            </Text>
+        {/* MAIN DEPARTMENTS */}
+        <View style={styles.sectionHeader}>
+          <View style={styles.sectionTitleRow}>
+            <View style={styles.sectionAccent} />
+            <Text style={styles.sectionTitle}>Shop by Department</Text>
           </View>
-
-          <Text
-            style={
-              styles.sectionSmallLabel
-            }
-          >
-            EXPLORE
-          </Text>
+          <Text style={styles.sectionSmallLabel}>EXPLORE</Text>
         </View>
 
-        {categoriesLoading ? (
-          <View
-            style={
-              styles.categoriesLoading
-            }
-          >
-            <ActivityIndicator
-              size="small"
-              color="#E35B3F"
-            />
+        {departmentsLoading && departments.length === 0 ? (
+          <View style={styles.categoriesLoading}>
+            <ActivityIndicator size="small" color="#E35B3F" />
           </View>
-        ) : categories.length >
-          0 ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={
-              false
-            }
-            contentContainerStyle={
-              styles.categories
-            }
-          >
-            {categories.map(
-              category => (
-                <Pressable
-                  key={
-                    category.id
-                  }
-                  style={
-                    styles.category
-                  }
-                  onPress={() =>
-                    openCategory(
-                      category.name
-                    )
-                  }
-                >
-                  <View
-                    style={
-                      styles.categoryIconOuter
-                    }
-                  >
-                    <View
-                      style={
-                        styles.categoryIcon
-                      }
-                    >
-                      {category.image &&
-                      category.image.trim() !==
-                        '' ? (
-                        <Image
-                          source={{
-                            uri: category.image,
-                          }}
-                          style={
-                            styles.categoryImage
-                          }
-                          contentFit="cover" cachePolicy="memory-disk"
-                        />
-                      ) : (
-                        <Ionicons
-                          name={
-                            category.icon ??
-                            'pricetag-outline'
-                          }
-                          size={24}
-                          color="#E35B3F"
-                        />
-                      )}
-                    </View>
-                  </View>
-
-                  <Text
-                    style={
-                      styles.categoryName
-                    }
-                    numberOfLines={2}
-                  >
-                    {
-                      category.name
-                    }
-                  </Text>
-                </Pressable>
-              )
-            )}
-          </ScrollView>
+        ) : departments.length > 0 ? (
+          <View style={styles.departmentGrid}>
+            {departments.map(department => (
+              <Pressable
+                key={department.id}
+                style={styles.departmentCard}
+                onPress={() => router.push({
+                  pathname: '/department-categories',
+                  params: { id: department.id, name: department.name },
+                })}
+              >
+                <View style={styles.departmentVisual}>
+                  {department.image ? (
+                    <Image source={{ uri: department.image }} style={styles.departmentImage} contentFit="cover" cachePolicy="memory-disk" />
+                  ) : (
+                    <Ionicons name={departmentIcons[department.name] ?? 'grid-outline'} size={34} color="#E35B3F" />
+                  )}
+                </View>
+                <Text style={styles.departmentName} numberOfLines={2}>{department.name}</Text>
+                <View style={styles.departmentExplore}>
+                  <Text style={styles.departmentExploreText}>Explore categories</Text>
+                  <Ionicons name="arrow-forward" size={13} color="#E35B3F" />
+                </View>
+              </Pressable>
+            ))}
+          </View>
         ) : (
-          <Text
-            style={
-              styles.emptyText
-            }
-          >
-            No categories available.
-          </Text>
+          <View style={styles.departmentEmpty}>
+            <Text style={styles.emptyText}>{departmentsError || 'No departments available.'}</Text>
+            <Pressable onPress={() => void loadDepartments()} style={styles.departmentRetry}>
+              <Text style={styles.departmentExploreText}>Retry</Text>
+            </Pressable>
+          </View>
         )}
 
         {/* TOP SELLING */}
@@ -3137,6 +3102,37 @@ const styles = StyleSheet.create({
     marginBottom: 26,
   },
 
+  departmentGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 12,
+  },
+  departmentCard: {
+    width: '48%',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E7DED1',
+    backgroundColor: '#FFFFFF',
+    padding: 12,
+    minHeight: 178,
+  },
+  departmentVisual: {
+    height: 96,
+    borderRadius: 12,
+    backgroundColor: '#F8F2EA',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    marginBottom: 10,
+  },
+  departmentImage: { width: '100%', height: '100%' },
+  departmentName: { fontSize: 13, fontWeight: '800', color: '#171717', minHeight: 34 },
+  departmentExplore: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 5 },
+  departmentExploreText: { color: '#E35B3F', fontSize: 10, fontWeight: '700' },
+  departmentEmpty: { paddingVertical: 16, alignItems: 'center' },
+  departmentRetry: { padding: 12 },
   categories: {
     gap: 12,
     paddingBottom: 10,
