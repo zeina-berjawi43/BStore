@@ -129,6 +129,7 @@ const buildImageUrl = (image: any): string => {
 
 export default function Index() {
   const scheduleTimeout = useTimeouts();
+  const [initialLoading, setInitialLoading] = useState(true);
   const [products, setProducts] = useState<Product[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
   const [productsError, setProductsError] = useState('');
@@ -994,6 +995,8 @@ export default function Index() {
       homeLoadedRef.current = true;
     } catch (error) {
       if (__DEV__) console.log('HOME LOAD ERROR:', error);
+    } finally {
+      if (generation === homeGenerationRef.current) setInitialLoading(false);
     }
   };
 
@@ -2230,6 +2233,55 @@ export default function Index() {
           </Text>
         </Pressable>
       </View>
+
+      {initialLoading && <StartupLoading />}
+    </View>
+  );
+}
+
+function StartupLoading() {
+  const progress = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.timing(progress, {
+        toValue: 3,
+        duration: 1050,
+        useNativeDriver: true,
+      })
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [progress]);
+
+  return (
+    <View style={styles.startupLoading}>
+      <Image
+        source={require('../../assets/images/loading-screen.png')}
+        style={styles.startupImage}
+        contentFit="contain"
+      />
+      <View style={styles.startupDots}>
+        {[0, 1, 2].map(index => (
+          <Animated.View
+            key={index}
+            style={[
+              styles.startupDot,
+              {
+                opacity: progress.interpolate({
+                  inputRange: [0, 1, 2, 3],
+                  outputRange: [
+                    index === 0 ? 1 : 0.25,
+                    index === 1 ? 1 : 0.25,
+                    index === 2 ? 1 : 0.25,
+                    index === 0 ? 1 : 0.25,
+                  ],
+                }),
+              },
+            ]}
+          />
+        ))}
+      </View>
     </View>
   );
 }
@@ -2611,6 +2663,31 @@ function RecentProduct({
 }
 
 const styles = StyleSheet.create({
+  startupLoading: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: '#FFFFFF',
+    zIndex: 9999,
+    elevation: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  startupImage: {
+    width: '100%',
+    height: '100%',
+  },
+  startupDots: {
+    position: 'absolute',
+    bottom: '18%',
+    flexDirection: 'row',
+    gap: 9,
+    alignSelf: 'center',
+  },
+  startupDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#E35B3F',
+  },
   container: {
     flex: 1,
     backgroundColor: '#F7F3EC',

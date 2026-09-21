@@ -4,260 +4,185 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
+  Linking,
 } from 'react-native';
 
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 
+const SUPPORT_EMAIL = 'b.storelb@gmail.com';
+
 export default function Privacy() {
   return (
     <View style={styles.container}>
-
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}
       >
-
-        {/* =================================================
-            HEADER
-        ================================================= */}
-
         <View style={styles.header}>
-
           <Pressable
             style={styles.backButton}
             onPress={() => router.push('/settings')}
+            accessibilityLabel="Back to settings"
           >
-
-            <Ionicons
-              name="arrow-back"
-              size={22}
-              color="#171717"
-            />
-
+            <Ionicons name="arrow-back" size={22} color="#171717" />
           </Pressable>
-
-
           <View style={styles.headerText}>
-
-            <Text style={styles.title}>
-              Privacy Policy
-            </Text>
-
-            <Text style={styles.subtitle}>
-              Last updated: August 2026
-            </Text>
-
+            <Text style={styles.title}>Privacy Policy</Text>
+            <Text style={styles.subtitle}>Last updated: September 21, 2026</Text>
           </View>
-
         </View>
 
-
-        {/* =================================================
-            PRIVACY INTRO
-        ================================================= */}
-
         <View style={styles.introCard}>
-
           <View style={styles.introIcon}>
-
             <Ionicons
               name="shield-checkmark-outline"
               size={25}
               color="#E35B3F"
             />
-
           </View>
-
           <View style={styles.introTextContainer}>
-
-            <Text style={styles.introTitle}>
-              Your Privacy Matters
-            </Text>
-
+            <Text style={styles.introTitle}>Your Privacy Matters</Text>
             <Text style={styles.introText}>
-              We respect your privacy and are committed
-              to protecting your personal information.
+              This policy explains how BStore uses account and order information,
+              and what happens when you delete your account.
             </Text>
-
           </View>
-
         </View>
-
-
-        {/* =================================================
-            YOUR PRIVACY
-        ================================================= */}
 
         <View style={styles.card}>
-
           <View style={styles.headingRow}>
-
             <View style={styles.headingAccent} />
-
-            <Text style={styles.heading}>
-              Your Privacy
-            </Text>
-
+            <Text style={styles.heading}>Information We Collect</Text>
           </View>
-
           <Text style={styles.text}>
-            We respect your privacy
-            and are committed to protecting your
-            personal information.
+            When you use BStore, we collect information needed for your account
+            and orders, including your name, phone number, delivery address,
+            optional email address, and order details. We also process login
+            verification information and device notification information when
+            applicable.
           </Text>
-
         </View>
-
-
-        {/* =================================================
-            INFORMATION WE COLLECT
-        ================================================= */}
 
         <View style={styles.card}>
-
           <View style={styles.headingRow}>
-
             <View style={styles.headingAccent} />
-
-            <Text style={styles.heading}>
-              Information We Collect
-            </Text>
-
+            <Text style={styles.heading}>How We Use Information</Text>
           </View>
-
           <Text style={styles.text}>
-            We may collect information such as
-            your name, email address, phone number,
-            shipping information, and order details
-            when you use our app.
+            We use this information to manage your account, verify login
+            requests, process and deliver orders, provide customer support,
+            create invoices, and send notifications when enabled.
           </Text>
-
         </View>
-
-
-        {/* =================================================
-            HOW WE USE
-        ================================================= */}
 
         <View style={styles.card}>
-
           <View style={styles.headingRow}>
-
             <View style={styles.headingAccent} />
-
-            <Text style={styles.heading}>
-              How We Use Your Information
-            </Text>
-
+            <Text style={styles.heading}>Account Deletion</Text>
           </View>
-
           <Text style={styles.text}>
-            Your information may be used to process
-            orders, provide customer support, improve
-            our services, and provide you with a
-            better shopping experience.
+            You can request deletion of your BStore account using the Delete
+            Account option in your account screen. You will be asked to confirm
+            your choice. If you have an active order (Pending, Confirmed,
+            Preparing, or Shipped), account deletion is blocked until the order
+            is no longer active. Contact us if you need assistance.
           </Text>
-
         </View>
-
-
-        {/* =================================================
-            DATA PROTECTION
-        ================================================= */}
 
         <View style={styles.card}>
-
           <View style={styles.headingRow}>
-
             <View style={styles.headingAccent} />
-
-            <Text style={styles.heading}>
-              Data Protection
-            </Text>
-
+            <Text style={styles.heading}>What Deletion Removes</Text>
           </View>
-
           <Text style={styles.text}>
-            We take reasonable steps to protect
-            your personal information from
-            unauthorized access, modification,
-            or disclosure.
+            When account deletion succeeds, BStore deletes your customer
+            account, cart, favorites, login sessions, and associated push
+            notification device and delivery records. Historical orders are
+            detached from the deleted account, and their shipping address is
+            cleared.
           </Text>
-
         </View>
-
-
-        {/* =================================================
-            YOUR RIGHTS
-        ================================================= */}
 
         <View style={styles.card}>
-
           <View style={styles.headingRow}>
-
             <View style={styles.headingAccent} />
-
-            <Text style={styles.heading}>
-              Your Rights
-            </Text>
-
+            <Text style={styles.heading}>Historical Orders and Invoices</Text>
           </View>
-
           <Text style={styles.text}>
-            You may request access to, correction
-            of, or deletion of your personal
-            information where applicable.
+            Deleting your account does not automatically delete historical
+            orders or invoices. Invoices may still contain customer details
+            recorded when they were created, such as a name, phone number,
+            email address, or address. These invoice details are not erased by
+            the account deletion action.
           </Text>
-
         </View>
-
-
-        {/* =================================================
-            CONTACT
-        ================================================= */}
 
         <View style={styles.card}>
-
           <View style={styles.headingRow}>
-
             <View style={styles.headingAccent} />
-
-            <Text style={styles.heading}>
-              Contact Us
-            </Text>
-
+            <Text style={styles.heading}>Data Retention</Text>
           </View>
-
           <Text style={styles.text}>
-            If you have any questions about this
-            Privacy Policy, please contact our
-            support team.
+            A specific retention period for historical invoices has not yet
+            been established. We will update this policy when the retention
+            period or applicable retention criteria are determined. For
+            questions about a historical invoice or its information, contact
+            us using the email below.
           </Text>
-
         </View>
 
+        <View style={styles.card}>
+          <View style={styles.headingRow}>
+            <View style={styles.headingAccent} />
+            <Text style={styles.heading}>Data Protection</Text>
+          </View>
+          <Text style={styles.text}>
+            We take reasonable steps to protect personal information from
+            unauthorized access, modification, and disclosure.
+          </Text>
+        </View>
 
-        {/* =================================================
-            FOOTER
-        ================================================= */}
+        <View style={styles.card}>
+          <View style={styles.headingRow}>
+            <View style={styles.headingAccent} />
+            <Text style={styles.heading}>Your Requests</Text>
+          </View>
+          <Text style={styles.text}>
+            You can contact us to ask about your information or request
+            access, correction, or deletion where applicable. Account
+            deletion does not automatically remove historical invoice details.
+          </Text>
+        </View>
+
+        <View style={styles.card}>
+          <View style={styles.headingRow}>
+            <View style={styles.headingAccent} />
+            <Text style={styles.heading}>Contact Us</Text>
+          </View>
+          <Text style={styles.text}>
+            For privacy questions, account deletion assistance, or questions
+            about retained invoice information, email us at:
+          </Text>
+          <Pressable
+            accessibilityRole="link"
+            accessibilityLabel={`Email ${SUPPORT_EMAIL}`}
+            onPress={() => Linking.openURL(`mailto:${SUPPORT_EMAIL}`)}
+          >
+            <Text style={[styles.text, { color: '#E35B3F', marginTop: 8 }]}>
+              {SUPPORT_EMAIL}
+            </Text>
+          </Pressable>
+        </View>
 
         <View style={styles.footerContainer}>
-
           <View style={styles.footerDot} />
-
-          <Text style={styles.footer}>
-            BStore v1.0.0
-          </Text>
-
+          <Text style={styles.footer}>BStore v1.0.0</Text>
         </View>
-
       </ScrollView>
-
     </View>
   );
 }
-
 
 // =========================================================
 // STYLES

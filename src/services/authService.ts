@@ -125,8 +125,28 @@ const saveAuthData = async (
     );
   }
 };
+const clearLocalAccountData = async (): Promise<void> => {
+  const savedUser = await AsyncStorage.getItem('user');
 
-export const logoutLocal = clearTokens;
+  let userId: string | undefined;
+
+  if (savedUser) {
+    try {
+      const user: User = JSON.parse(savedUser);
+      userId = user._id || user.id;
+    } catch {
+      // Invalid saved user data.
+    }
+  }
+
+  if (userId) {
+    await AsyncStorage.removeItem(`pendingCheckout:${userId}`);
+  }
+
+  await clearTokens();
+};
+
+export const logoutLocal = clearLocalAccountData;
 
 // ============================================================
 // AUTH REQUEST HELPER
@@ -733,8 +753,62 @@ export const isAdmin = async (
 
     return false;
   }
-};
+};// ============================================================
+// DELETE ACCOUNT
+// ============================================================
 
+export const deleteAccount = async (): Promise<void> => {
+  const accessToken = await getValidAccessToken();
+
+  if (!accessToken) {
+    throw new Error('Please log in again.');
+  }
+
+  const response = await request(`${API_URL}/users/me`, {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Accept: 'application/json',
+    },
+  });
+
+  let data: { message?: string } = {};
+
+  try {
+    data = await response.json();
+  } catch {
+    data = {};
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      data.message ||
+        'Unable to delete your account. Please try again.'
+    );
+  }
+
+  // The server has confirmed account deletion.
+  try {
+    await logoutLocal();
+  } catch (error) {
+    if (__DEV__) {
+      console.error('Local cleanup failed:', error);
+    }
+
+    // Try to clear the session independently.
+    try {
+      await clearTokens();
+    } catch (tokenError) {
+      if (__DEV__) {
+        console.error('Token cleanup failed:', tokenError);
+      }
+    }
+
+    throw new Error(
+      'Your account was deleted, but some data could not be cleared from this device. Please clear BStore app data in your phone settings.'
+    );
+  }
+};
 // ============================================================
 // API URL EXPORT
 // ============================================================

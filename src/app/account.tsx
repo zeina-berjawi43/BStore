@@ -5,6 +5,7 @@ import {
   Pressable,
   ScrollView,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 
 import {
@@ -17,11 +18,13 @@ import { Ionicons } from '@expo/vector-icons';
 import {
   useCallback,
   useState,
+  useRef,
 } from 'react';
 
 import {
   fetchCurrentUser,
   logout as authLogout,
+  deleteAccount,
   User,
 } from '../services/authService';
 
@@ -33,6 +36,8 @@ import {
 export default function Account() {
   const [user, setUser] =
     useState<User | null>(null);
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const deletionInProgress = useRef(false);
 
   // =======================================================
   // LOAD USER
@@ -89,6 +94,67 @@ export default function Account() {
         'Something went wrong while logging out.'
       );
     }
+  };
+
+  // =======================================================
+  // DELETE ACCOUNT
+  // =======================================================
+
+  const handleDeleteAccount = () => {
+    if (deletionInProgress.current) return;
+
+    Alert.alert(
+      'Delete Account',
+      'Are you sure you want to permanently delete your account? This cannot be undone. Some commercial records may be retained.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Account',
+          style: 'destructive',
+          onPress: async () => {
+            if (deletionInProgress.current) return;
+            deletionInProgress.current = true;
+            setDeletingAccount(true);
+
+            try {
+              await deleteAccount();
+              setUser(null);
+              router.replace('/');
+            } catch (error: unknown) {
+  const message =
+    error instanceof Error
+      ? error.message
+      : 'Unable to delete your account. Please try again.';
+
+  const deletedOnServer = message.startsWith(
+    'Your account was deleted, but'
+  );
+
+  Alert.alert(
+    deletedOnServer
+      ? 'Account Deleted — Device Cleanup Needed'
+      : 'Account Deletion Failed',
+    message,
+    [
+      {
+        text: 'OK',
+        onPress: () => {
+          if (deletedOnServer) {
+            setUser(null);
+            router.replace('/');
+          }
+        },
+      },
+    ]
+  );
+}finally {
+              deletionInProgress.current = false;
+              setDeletingAccount(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   // =======================================================
@@ -438,7 +504,22 @@ export default function Account() {
           </Text>
 
         </Pressable>
-
+        <Pressable
+          style={[styles.deleteAccountButton, deletingAccount && styles.disabledButton]}
+          onPress={handleDeleteAccount}
+          disabled={deletingAccount}
+          accessibilityRole="button"
+          accessibilityLabel="Delete Account"
+        >
+          {deletingAccount ? (
+            <ActivityIndicator size="small" color="#B42318" />
+          ) : (
+            <Ionicons name="trash-outline" size={19} color="#B42318" />
+          )}
+          <Text style={styles.deleteAccountText}>
+            {deletingAccount ? 'Deleting Account...' : 'Delete Account'}
+          </Text>
+        </Pressable>
       </ScrollView>
 
     </View>
@@ -886,5 +967,26 @@ const styles = StyleSheet.create({
 
     letterSpacing: 0.1,
   },
+disabledButton: {
+  opacity: 0.5,
+},
 
+deleteAccountButton: {
+  marginTop: 14,
+  minHeight: 53,
+  borderRadius: 16,
+  borderWidth: 1,
+  borderColor: '#E9B7B3',
+  backgroundColor: '#FFF5F4',
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 8,
+},
+
+deleteAccountText: {
+  color: '#B42318',
+  fontSize: 14,
+  fontWeight: '800',
+},
 });
