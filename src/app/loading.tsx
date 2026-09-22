@@ -16,7 +16,7 @@ export default function Loading() {
       <Image
         source={require('../../assets/images/loading-screen.png')}
         style={styles.image}
-        resizeMode="contain"
+        resizeMode="cover"
       />
     </View>
   );
@@ -25,12 +25,14 @@ export default function Loading() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F7F3EC',
+    backgroundColor: '#e7ded1',
     justifyContent: 'center',
     alignItems: 'center',
   },
+
   image: {
-    width: 220,
-    height: 220,
+    ...StyleSheet.absoluteFill,
+    width: '100%',
+    height: '100%',
   },
 });

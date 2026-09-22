@@ -212,8 +212,13 @@ export default function Favorites() {
   ] = useState(false);
 
   const [
-    updatingProduct,
-    setUpdatingProduct,
+    removingProduct,
+    setRemovingProduct,
+  ] = useState<string | null>(null);
+
+  const [
+    addingToCartProduct,
+    setAddingToCartProduct,
   ] = useState<string | null>(null);
 
   const [
@@ -613,7 +618,7 @@ export default function Favorites() {
 
         }
 
-        setUpdatingProduct(
+        setRemovingProduct(
           productId
         );
 
@@ -713,7 +718,7 @@ export default function Favorites() {
       } finally {
         mutationBusy.current = false;
 
-        setUpdatingProduct(
+        setRemovingProduct(
           null
         );
 
@@ -775,7 +780,7 @@ export default function Favorites() {
 
         }
 
-        setUpdatingProduct(
+        setAddingToCartProduct(
           product.id
         );
 
@@ -874,7 +879,7 @@ export default function Favorites() {
       } finally {
         mutationBusy.current = false;
 
-        setUpdatingProduct(
+        setAddingToCartProduct(
           null
         );
 
@@ -1125,8 +1130,12 @@ export default function Favorites() {
           {favorites.map(
             product => {
 
-              const itemUpdating =
-                updatingProduct ===
+              const itemRemoving =
+                removingProduct ===
+                product.id;
+
+              const itemAddingToCart =
+                addingToCartProduct ===
                 product.id;
 
               const originalPrice =
@@ -1402,7 +1411,7 @@ export default function Favorites() {
                           event.stopPropagation();
 
                           if (
-                            !itemUpdating
+                            !itemAddingToCart
                           ) {
 
                             addToCart(
@@ -1415,11 +1424,12 @@ export default function Favorites() {
 
                         disabled={
                           outOfStock ||
-                          itemUpdating
+                          itemAddingToCart ||
+                          itemRemoving
                         }
                       >
 
-                        {itemUpdating ? (
+                        {itemAddingToCart ? (
 
                           <Text
                             style={
@@ -1466,7 +1476,7 @@ export default function Favorites() {
                           event.stopPropagation();
 
                           if (
-                            !itemUpdating
+                            !itemRemoving
                           ) {
 
                             removeFavorite(
@@ -1478,7 +1488,8 @@ export default function Favorites() {
                         }}
 
                         disabled={
-                          itemUpdating
+                          itemRemoving ||
+                          itemAddingToCart
                         }
                       >
 

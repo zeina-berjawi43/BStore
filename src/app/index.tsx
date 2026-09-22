@@ -1399,20 +1399,6 @@ export default function Index() {
                     }
                     contentFit="cover" cachePolicy="memory-disk"
                   />
-
-                  <View
-                    style={
-                      styles.slideBadge
-                    }
-                  >
-                    <Text
-                      style={
-                        styles.slideBadgeText
-                      }
-                    >
-                      BSTORE
-                    </Text>
-                  </View>
                 </Animated.View>
               </View>
             )}
