@@ -22,7 +22,7 @@ async function register(ask: boolean, enable: boolean): Promise<PushState> {
   const session = (await readTokens()).refreshToken;
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('default', {
-      name: 'BStore notifications', importance: Notifications.AndroidImportance.DEFAULT, sound: 'default',
+      name: 'BStore notifications', importance: Notifications.AndroidImportance.DEFAULT,
     });
   }
   const enabled = enable || await getNotificationSetting();

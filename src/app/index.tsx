@@ -1438,7 +1438,7 @@ export default function Index() {
         <View style={styles.sectionHeader}>
           <View style={styles.sectionTitleRow}>
             <View style={styles.sectionAccent} />
-            <Text style={styles.sectionTitle}>Shop by Department</Text>
+            <Text style={styles.sectionTitle}>Shop by Categories</Text>
           </View>
           <Text style={styles.sectionSmallLabel}>EXPLORE</Text>
         </View>
@@ -1460,16 +1460,24 @@ export default function Index() {
               >
                 <View style={styles.departmentVisual}>
                   {department.image ? (
-                    <Image source={{ uri: department.image }} style={styles.departmentImage} contentFit="cover" cachePolicy="memory-disk" />
+                    <Image
+                      source={{ uri: department.image }}
+                      style={styles.departmentImage}
+                      contentFit="cover"
+                      cachePolicy="memory-disk"
+                    />
                   ) : (
-                    <Ionicons name={departmentIcons[department.name] ?? 'grid-outline'} size={34} color="#E35B3F" />
+                    <Ionicons
+                      name={departmentIcons[department.name] ?? 'grid-outline'}
+                      size={34}
+                      color="#E35B3F"
+                    />
                   )}
                 </View>
-                <Text style={styles.departmentName} numberOfLines={2}>{department.name}</Text>
-                <View style={styles.departmentExplore}>
-                  <Text style={styles.departmentExploreText}>Explore categories</Text>
-                  <Ionicons name="arrow-forward" size={13} color="#E35B3F" />
-                </View>
+
+                <Text style={styles.departmentName} numberOfLines={2}>
+                  {department.name}
+                </Text>
               </Pressable>
             ))}
           </View>
@@ -3092,31 +3100,44 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: 12,
-    marginBottom: 12,
+    rowGap: 18,
+    marginBottom: 20,
   },
   departmentCard: {
-    width: '48%',
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#E7DED1',
-    backgroundColor: '#FFFFFF',
-    padding: 12,
-    minHeight: 178,
+    width: '31%',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    backgroundColor: 'transparent',
+    padding: 0,
   },
   departmentVisual: {
-    height: 96,
-    borderRadius: 12,
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: 18,
     backgroundColor: '#F8F2EA',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
-    marginBottom: 10,
   },
-  departmentImage: { width: '100%', height: '100%' },
-  departmentName: { fontSize: 13, fontWeight: '800', color: '#171717', minHeight: 34 },
-  departmentExplore: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 5 },
-  departmentExploreText: { color: '#E35B3F', fontSize: 10, fontWeight: '700' },
+  departmentImage: {
+    width: '100%',
+    height: '100%',
+  },
+  departmentName: {
+    marginTop: 8,
+    paddingHorizontal: 2,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '700',
+    color: '#171717',
+    textAlign: 'center',
+    minHeight: 32,
+  },
+  departmentExploreText: {
+    color: '#E35B3F',
+    fontSize: 10,
+    fontWeight: '700',
+  },
   departmentEmpty: { paddingVertical: 16, alignItems: 'center' },
   departmentRetry: { padding: 12 },
   categories: {
