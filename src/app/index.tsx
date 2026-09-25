@@ -18,7 +18,7 @@ import { Image } from 'expo-image';
 import { fetchCatalog, readPublicCatalog } from '../services/catalogService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState, useRef, useEffect } from 'react';
+import { useCallback, useState, useRef, useEffect, useMemo } from 'react';
 import { getValidAccessToken } from '../services/authService';
 
 const API_URL = 'https://mystore-backend-u6ey.onrender.com';
@@ -583,8 +583,8 @@ export default function Index() {
     offerTranslate,
   ]);
 
-  const panResponder = useRef(
-    PanResponder.create({
+  const panResponder = useMemo(
+    () => PanResponder.create({
       onStartShouldSetPanResponder: () => false,
 
       onMoveShouldSetPanResponder: (
@@ -617,8 +617,9 @@ export default function Index() {
           goToPreviousSlide();
         }
       },
-    })
-  ).current;
+    }),
+    [goToNextSlide, goToPreviousSlide]
+  );
 
   const scrollToOffers = () => {
     scrollViewRef.current?.scrollTo({

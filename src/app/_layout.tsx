@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react';
 import { AppState, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { installForegroundHandler, notificationDestination, syncPush } from '../services/pushService';
 import { onSessionChanged } from '../services/tokenStorage';
 
@@ -37,12 +38,15 @@ export default function RootLayout() {
     return () => { tap.remove(); rotation.remove(); foreground.remove(); };
   }, [navigation?.key]);
   return (
-    <Stack
-      initialRouteName="index"
-      screenOptions={{
-        headerShown: false,
-      }}
-    />
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#F7F3EC' }} edges={Platform.OS === 'android' ? ['top', 'bottom', 'left', 'right'] : []}>
+      <Stack
+        initialRouteName="index"
+        screenOptions={{
+          headerShown: false,
+          ...(Platform.OS === 'android' ? { statusBarStyle: 'dark' as const } : {}),
+        }}
+      />
+    </SafeAreaView>
   );
 }
 
