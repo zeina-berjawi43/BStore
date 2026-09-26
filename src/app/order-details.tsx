@@ -174,7 +174,8 @@ const getImageUrl = (
 
   }
 
-  return `${API_URL}/uploads/${image}`;
+    const path = image.trim().replace(/\\/g, '/').replace(/^\/+/, '');
+    return `${API_URL}/${path.startsWith('uploads/') ? path : `uploads/${path}`}`;
 };
 
 
@@ -398,7 +399,7 @@ export default function OrderDetails() {
           response.status === 401
         ) {
 
-          await logoutLocal();
+          await logoutLocal(accessToken);
 
           router.replace(
             '/login'

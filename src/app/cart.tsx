@@ -1,4 +1,5 @@
 import { request } from '../services/request';
+import { cartTotal, currentCartPrices } from '../services/cartPricing';
 import {
   View,
   Text,
@@ -195,6 +196,7 @@ export default function Cart() {
   const loadRevision = useRef(0);
   const formatPrice = useCallback((price: number) => '$' + (Number(price) || 0).toFixed(2), []);
   const applyCartData = useCallback((items: CartItem[]) => {
+    items = currentCartPrices(items);
     setCart(items);
     const quantities: Record<string, string> = {};
     items.forEach(item => { if (item.product?._id) quantities[item.product._id] = String(item.quantity); });
@@ -212,10 +214,11 @@ export default function Cart() {
       const response = await request(API_URL + '/cart', { headers: { Authorization: 'Bearer ' + token } });
       const data = await response.json();
       if (revision !== loadRevision.current) return;
-      if (response.status === 401) { await logoutLocal(); applyCartData([]); router.replace('/login'); return; }
+      if (response.status === 401) { await logoutLocal(token); applyCartData([]); router.replace('/login'); return; }
       if (!response.ok) throw new Error(data.message || 'Could not load your cart.');
       applyCartData(Array.isArray(data.cart?.items) ? data.cart.items : []);
     } catch (error) {
+      if (revision === loadRevision.current) applyCartData([]);
       if (revision === loadRevision.current) Alert.alert('Cart unavailable', error instanceof Error ? error.message : 'Check your connection and try again.');
     } finally {
       if (revision === loadRevision.current) setHasLoadedOnce(true);
@@ -243,7 +246,7 @@ export default function Cart() {
       });
       const data = await response.json();
       if (revision !== loadRevision.current) return;
-      if (response.status === 401) { await logoutLocal(); router.replace('/login'); return; }
+      if (response.status === 401) { await logoutLocal(token); router.replace('/login'); return; }
       if (!response.ok) throw new Error(data.message || 'Could not update your cart.');
       if (!Array.isArray(data.cart?.items)) throw new Error('Cart response was incomplete. Reopen your cart to check the change.');
       applyCartData(data.cart.items);
@@ -286,33 +289,7 @@ export default function Cart() {
   // ==========================================================
 
   const total =
-    cart.reduce(
-      (
-        sum,
-        item
-      ) => {
-
-        const price =
-          Number(
-            item.price
-          ) || 0;
-
-
-        const quantity =
-          Number(
-            item.quantity
-          ) || 0;
-
-
-        return (
-          sum +
-          price *
-          quantity
-        );
-
-      },
-      0
-    );
+    cartTotal(cart);
 
 
   // ==========================================================
@@ -336,7 +313,7 @@ export default function Cart() {
     () => {
 
       if (
-        !canCheckout
+        !canCheckout || mutationBusy.current
       ) {
 
         return;

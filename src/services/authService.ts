@@ -1,8 +1,10 @@
 import { request } from './request';
-import { readTokens, updateTokens, clearTokens, applyRefresh, acknowledgeLogout } from './tokenStorage';
+import { readTokens, updateTokens, clearTokens, applyRefresh, acknowledgeLogout, saveSessionUser, readSessionUser, getSessionSnapshot } from './tokenStorage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const API_URL = 'https://mystore-backend-u6ey.onrender.com';
+
+export class PhoneVerificationRequiredError extends Error {}
 
 // ============================================================
 // TYPES
@@ -105,28 +107,15 @@ const isTokenExpired = (token: string): boolean => {
 // ============================================================
 
 const saveAuthData = async (
-  data: AuthResponse
+  data: AuthResponse,
+  expectedRevision: number
 ): Promise<void> => {
   if (data.accessToken && data.refreshToken) {
-    await updateTokens({ accessToken: data.accessToken, refreshToken: data.refreshToken });
-  }
-
-  if (data.user) {
-    await AsyncStorage.setItem(
-      'user',
-      JSON.stringify(data.user)
-    );
-  }
-
-  if (data.accessToken && data.user) {
-    await AsyncStorage.setItem(
-      'isLoggedIn',
-      'true'
-    );
+    await updateTokens({ accessToken: data.accessToken, refreshToken: data.refreshToken }, data.user, undefined, expectedRevision);
   }
 };
-const clearLocalAccountData = async (): Promise<void> => {
-  const savedUser = await AsyncStorage.getItem('user');
+const clearLocalAccountData = async (expectedAccessToken?: string | null): Promise<void> => {
+  const savedUser = await readSessionUser().catch(() => null);
 
   let userId: string | undefined;
 
@@ -139,11 +128,11 @@ const clearLocalAccountData = async (): Promise<void> => {
     }
   }
 
+  await clearTokens(expectedAccessToken);
   if (userId) {
-    await AsyncStorage.removeItem(`pendingCheckout:${userId}`);
+    // Best-effort bookkeeping must never prevent secure logout.
+    await AsyncStorage.removeItem(`pendingCheckout:${userId}`).catch(() => {});
   }
-
-  await clearTokens();
 };
 
 export const logoutLocal = clearLocalAccountData;
@@ -183,6 +172,9 @@ const authPost = async (
   }
 
   if (!response.ok) {
+    if (path === 'login' && response.status === 403 && data.requiresPhoneVerification === true) {
+      throw new PhoneVerificationRequiredError(data.message || 'Please verify your phone number.');
+    }
     throw new Error(
       data.message || 'Request failed.'
     );
@@ -228,12 +220,14 @@ export const loginUser = async (
   phone: string,
   password: string
 ): Promise<AuthResponse> => {
+  await readTokens();
+  const revision = getSessionSnapshot().revision;
   const data = await authPost('login', {
     phone: phone.trim(),
     password,
   });
 
-  await saveAuthData(data);
+  await saveAuthData(data, revision);
 
   return data;
 };
@@ -256,6 +250,8 @@ export const verifyRegistrationOTP = async (
   phone: string,
   otp: string
 ): Promise<AuthResponse> => {
+  await readTokens();
+  const revision = getSessionSnapshot().revision;
   const data = await authPost(
     'verify-registration-otp',
     {
@@ -264,7 +260,7 @@ export const verifyRegistrationOTP = async (
     }
   );
 
-  await saveAuthData(data);
+  await saveAuthData(data, revision);
 
   return data;
 };
@@ -324,7 +320,7 @@ export const getSavedUser = async (
 ): Promise<User | null> => {
   try {
     const savedUser =
-      await AsyncStorage.getItem('user');
+      await readSessionUser();
 
     if (!savedUser) return null;
 
@@ -356,10 +352,13 @@ export const refreshAccessToken = async (
 let refreshInFlight: Promise<string | null> | null = null;
 
 const performRefresh = async (): Promise<string | null> => {
-  const refreshToken =
-    await (await readTokens()).refreshToken;
+  const credentials = await readTokens();
+  const refreshToken = credentials.refreshToken;
 
-  if (!refreshToken) return null;
+  if (!refreshToken) {
+    if (credentials.accessToken) await clearTokens(credentials.accessToken);
+    return null;
+  }
 
   const response = await request(
     `${API_URL}/auth/refresh-token`,
@@ -418,13 +417,17 @@ const performRefresh = async (): Promise<string | null> => {
 
 export const getValidAccessToken = async (
 ): Promise<string | null> => {
+  const revision = getSessionSnapshot().revision;
   const token = await getAccessToken();
+  if (getSessionSnapshot().revision !== revision) throw new Error('Your session changed. Please try again.');
 
   if (token && !isTokenExpired(token)) {
     return token;
   }
 
-  return refreshAccessToken();
+  const refreshed = await refreshAccessToken();
+  if (refreshed && getSessionSnapshot().revision !== revision) throw new Error('Your session changed. Please try again.');
+  return refreshed;
 };
 
 // ============================================================
@@ -437,6 +440,7 @@ export const changePassword = async (
   confirmPassword: string
 ): Promise<AuthResponse> => {
   const token = await getValidAccessToken();
+  const revision = getSessionSnapshot().revision;
 
   if (!token) {
     throw new Error('Please log in again.');
@@ -457,7 +461,7 @@ export const changePassword = async (
   }
 
   // Replace revoked credentials with the new session before returning.
-  await saveAuthData(data);
+  await saveAuthData(data, revision);
 
   return data;
 };
@@ -527,7 +531,7 @@ export const fetchCurrentUser = async (
   }
 
   if (response.status === 401) {
-    await logoutLocal();
+    await logoutLocal(accessToken);
 
     throw new Error('Session expired');
   }
@@ -545,10 +549,7 @@ export const fetchCurrentUser = async (
     );
   }
 
-  await AsyncStorage.setItem(
-    'user',
-    JSON.stringify(data.user)
-  );
+  await saveSessionUser(accessToken, data.user);
 
   return data.user;
 };
@@ -594,7 +595,7 @@ export const getNotificationSetting = async (
     response.status === 401 ||
     response.status === 403
   ) {
-    await logoutLocal();
+    await logoutLocal(accessToken);
 
     throw new Error('Session expired.');
   }
@@ -613,13 +614,10 @@ export const getNotificationSetting = async (
   const currentUser = await getSavedUser();
 
   if (currentUser) {
-    await AsyncStorage.setItem(
-      'user',
-      JSON.stringify({
+    await saveSessionUser(accessToken, {
         ...currentUser,
         notificationsEnabled: enabled,
-      })
-    );
+      });
   }
 
   return enabled;
@@ -671,7 +669,7 @@ export const updateNotificationSetting = async (
     response.status === 401 ||
     response.status === 403
   ) {
-    await logoutLocal();
+    await logoutLocal(accessToken);
 
     throw new Error('Session expired.');
   }
@@ -690,20 +688,10 @@ export const updateNotificationSetting = async (
   const currentUser = await getSavedUser();
 
   if (currentUser) {
-    await AsyncStorage.setItem(
-      'user',
-      JSON.stringify({
+    await saveSessionUser(accessToken, {
         ...currentUser,
         notificationsEnabled: savedValue,
-      })
-    );
-  } else {
-    await AsyncStorage.setItem(
-      'user',
-      JSON.stringify({
-        notificationsEnabled: savedValue,
-      })
-    );
+      });
   }
 
   return savedValue;
@@ -789,7 +777,7 @@ export const deleteAccount = async (): Promise<void> => {
 
   // The server has confirmed account deletion.
   try {
-    await logoutLocal();
+    await logoutLocal(accessToken);
   } catch (error) {
     if (__DEV__) {
       console.error('Local cleanup failed:', error);
@@ -797,7 +785,7 @@ export const deleteAccount = async (): Promise<void> => {
 
     // Try to clear the session independently.
     try {
-      await clearTokens();
+      await clearTokens(accessToken);
     } catch (tokenError) {
       if (__DEV__) {
         console.error('Token cleanup failed:', tokenError);

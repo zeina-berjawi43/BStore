@@ -1,4 +1,4 @@
-import { updateTokens } from '../services/tokenStorage';
+import { updateTokens, saveSessionUser } from '../services/tokenStorage';
 import { request } from '../services/request';
 import {
   View,
@@ -11,7 +11,6 @@ import {
   ActivityIndicator,
 } from 'react-native';
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import {
   router,
@@ -84,7 +83,7 @@ export default function EditAccount() {
 
       if (!accessToken) {
 
-        await logoutLocal();
+        await logoutLocal(accessToken);
 
         router.replace('/login');
 
@@ -125,7 +124,7 @@ export default function EditAccount() {
         response.status === 401
       ) {
 
-        await logoutLocal();
+        await logoutLocal(accessToken);
 
         router.replace('/login');
 
@@ -179,10 +178,7 @@ export default function EditAccount() {
         user.address || ''
       );
 
-      await AsyncStorage.setItem(
-        'user',
-        JSON.stringify(user)
-      );
+      await saveSessionUser(accessToken, user);
 
     } catch (error: any) {
 
@@ -429,7 +425,7 @@ export default function EditAccount() {
 
         if (!accessToken) {
 
-          await logoutLocal();
+          await logoutLocal(accessToken);
 
           router.replace('/login');
 
@@ -505,7 +501,7 @@ export default function EditAccount() {
           profileResponse.status === 401
         ) {
 
-          await logoutLocal();
+          await logoutLocal(accessToken);
 
           router.replace('/login');
 
@@ -543,12 +539,7 @@ export default function EditAccount() {
 
         if (updatedProfileUser) {
 
-          await AsyncStorage.setItem(
-            'user',
-            JSON.stringify(
-              updatedProfileUser
-            )
-          );
+          await saveSessionUser(accessToken, updatedProfileUser);
 
           const updatedFullName =
             updatedProfileUser.name ||
@@ -628,7 +619,7 @@ export default function EditAccount() {
           phoneResponse.status === 401
         ) {
 
-          await logoutLocal();
+          await logoutLocal(accessToken);
 
           router.replace('/login');
 
@@ -750,7 +741,7 @@ export default function EditAccount() {
 
         if (!accessToken) {
 
-          await logoutLocal();
+          await logoutLocal(accessToken);
 
           router.replace('/login');
 
@@ -808,7 +799,7 @@ export default function EditAccount() {
           response.status === 401
         ) {
 
-          await logoutLocal();
+          await logoutLocal(accessToken);
 
           router.replace('/login');
 
@@ -840,7 +831,7 @@ export default function EditAccount() {
           data.accessToken
         ) {
 
-          await updateTokens({ accessToken: data.accessToken });
+          await updateTokens({ accessToken: data.accessToken }, data.user, accessToken);
         }
 
 
@@ -850,12 +841,7 @@ export default function EditAccount() {
 
         if (data.user) {
 
-          await AsyncStorage.setItem(
-            'user',
-            JSON.stringify(
-              data.user
-            )
-          );
+          if (!data.accessToken) await saveSessionUser(accessToken, data.user);
 
           const fullName =
             data.user.name ||
@@ -1851,4 +1837,3 @@ const styles =
     },
 
   });
-

@@ -11,6 +11,22 @@ let webTokens: Tokens | null = null;
 let cachedTokens: Tokens | null = null;
 let queue: Promise<unknown> = Promise.resolve();
 const listeners = new Set<() => void>();
+const snapshotListeners = new Set<() => void>();
+let sessionSnapshot = { ready: false, authenticated: false, revision: 0 };
+export const getSessionSnapshot = () => sessionSnapshot;
+export function subscribeSession(listener: () => void) {
+  snapshotListeners.add(listener);
+  return () => { snapshotListeners.delete(listener); };
+}
+function publishSession(tokens: Tokens, changed = false) {
+  sessionSnapshot = {
+    ready: true,
+    authenticated: !!(tokens.accessToken || tokens.refreshToken),
+    revision: sessionSnapshot.revision + (changed ? 1 : 0),
+  };
+  snapshotListeners.forEach(listener => listener());
+  if (changed) listeners.forEach(listener => listener());
+}
 export function onSessionChanged(listener: () => void) {
   listeners.add(listener);
   return () => { listeners.delete(listener); };
@@ -56,21 +72,51 @@ async function read(): Promise<Tokens> {
   }
   await AsyncStorage.multiRemove(LEGACY_KEYS);
   cachedTokens = tokens;
+  if (!sessionSnapshot.ready) publishSession(tokens);
   return tokens;
 }
 
 export const readTokens = (): Promise<Tokens> => serialized(read);
 
-export const updateTokens = (tokens: Partial<Tokens>): Promise<void> => serialized(async () => {
+export const readSessionUser = (): Promise<string | null> => serialized(async () => {
+  const tokens = await read();
+  return tokens.accessToken || tokens.refreshToken ? AsyncStorage.getItem('user') : null;
+});
+
+export const updateTokens = (tokens: Partial<Tokens>, user?: object, expectedAccessToken?: string, expectedRevision?: number): Promise<void> => serialized(async () => {
   const current = await read();
+  if (expectedRevision !== undefined && expectedRevision !== sessionSnapshot.revision) {
+    throw new Error('Your session changed. Please try again.');
+  }
+  if (expectedAccessToken !== undefined && current.accessToken !== expectedAccessToken) {
+    throw new Error('Your session changed. Please try again.');
+  }
+  const changed = tokens.refreshToken !== undefined && tokens.refreshToken !== current.refreshToken;
   const pendingLogouts = [...new Set([...(current.pendingLogouts || []),
     ...(tokens.refreshToken && current.refreshToken && tokens.refreshToken !== current.refreshToken ? [current.refreshToken] : []),
   ])];
-  await persist({ ...current, ...tokens, pendingLogouts });
-  await AsyncStorage.multiRemove(LEGACY_KEYS);
-  if (tokens.refreshToken !== undefined && tokens.refreshToken !== current.refreshToken) {
-    listeners.forEach(listener => listener());
+  // Clear the old profile before installing another session, even if a later write fails.
+  if (changed) await AsyncStorage.multiRemove(['user', 'isLoggedIn']);
+  const next = { ...current, ...tokens, pendingLogouts };
+  await persist(next);
+  try {
+    if (user) {
+      await AsyncStorage.setItem('user', JSON.stringify(user));
+      await AsyncStorage.setItem('isLoggedIn', 'true');
+    }
+    await AsyncStorage.multiRemove(LEGACY_KEYS);
+  } finally {
+    if (changed) publishSession(next, true);
   }
+});
+
+// Profile writes share the token queue so a late response cannot overwrite a new login.
+export const saveSessionUser = (expectedAccessToken: string, user: object): Promise<void> => serialized(async () => {
+  const current = await read();
+  if (!current.accessToken || current.accessToken !== expectedAccessToken) {
+    throw new Error('Your session changed. Please try again.');
+  }
+  await AsyncStorage.setItem('user', JSON.stringify(user));
 });
 
 async function clear(): Promise<void> {
@@ -79,11 +125,17 @@ async function clear(): Promise<void> {
   const current = await read();
   const pendingLogouts = [...new Set([...(current.pendingLogouts || []), ...(current.refreshToken ? [current.refreshToken] : [])])];
   await persist({ ...EMPTY, pendingLogouts });
+  // Secure logout already succeeded: discard mounted screens even if plaintext cleanup fails.
+  publishSession(EMPTY, true);
   await AsyncStorage.multiRemove([...LEGACY_KEYS, 'user', 'isLoggedIn']);
-  listeners.forEach(listener => listener());
 }
 
-export const clearTokens = (): Promise<void> => serialized(clear);
+export const clearTokens = (expectedAccessToken?: string | null): Promise<void> => serialized(async () => {
+  if (expectedAccessToken !== undefined && (await read()).accessToken !== expectedAccessToken) {
+    throw new Error('Your session changed. Please try again.');
+  }
+  await clear();
+});
 
 export const acknowledgeLogout = (token: string): Promise<void> => serialized(async () => {
   const current = await read();

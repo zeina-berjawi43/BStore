@@ -1,3 +1,4 @@
+import { getSessionSnapshot } from '../services/tokenStorage';
 import {
   View,
   Text,
@@ -38,6 +39,7 @@ export default function Account() {
     useState<User | null>(null);
   const [deletingAccount, setDeletingAccount] = useState(false);
   const deletionInProgress = useRef(false);
+  const logoutInProgress = useRef(false);
 
   // =======================================================
   // LOAD USER
@@ -72,6 +74,8 @@ export default function Account() {
   // =======================================================
 
   const logout = async () => {
+    if (logoutInProgress.current) return;
+    logoutInProgress.current = true;
     try {
       await authLogout();
 
@@ -81,7 +85,7 @@ export default function Account() {
         'LOGOUT COMPLETED SUCCESSFULLY'
       ); }
 
-      router.replace('/');
+      // The root session lifecycle resets navigation as soon as local logout succeeds.
 
     } catch (error) {
       if (__DEV__) { console.log(
@@ -93,6 +97,8 @@ export default function Account() {
         'Logout Error',
         'Something went wrong while logging out.'
       );
+    } finally {
+      logoutInProgress.current = false;
     }
   };
 
@@ -102,6 +108,7 @@ export default function Account() {
 
   const handleDeleteAccount = () => {
     if (deletionInProgress.current) return;
+    const revision = getSessionSnapshot().revision;
 
     Alert.alert(
       'Delete Account',
@@ -112,6 +119,7 @@ export default function Account() {
           text: 'Delete Account',
           style: 'destructive',
           onPress: async () => {
+            if (revision !== getSessionSnapshot().revision) return;
             if (deletionInProgress.current) return;
             deletionInProgress.current = true;
             setDeletingAccount(true);

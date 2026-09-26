@@ -8,6 +8,7 @@ import {
   Pressable,
   ScrollView,
   Animated,
+  ActivityIndicator,
   Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -460,7 +461,6 @@ const FavoriteButton = memo(
    DEPARTMENT CATEGORIES
 ========================================================= */
 export default function DepartmentCategories() {
-  const scheduleTimeout = useTimeouts();
   const params =
     useLocalSearchParams<{
       id?: string;
@@ -476,6 +476,13 @@ export default function DepartmentCategories() {
     typeof params.name === 'string'
       ? params.name
       : 'Category';
+  return <DepartmentCategoriesScreen key={departmentId} departmentId={departmentId} departmentName={departmentName} />;
+}
+
+function DepartmentCategoriesScreen({ departmentId, departmentName }: { departmentId: string; departmentName: string }) {
+  const cartPending = useRef(false);
+  const [addingProduct, setAddingProduct] = useState<string | null>(null);
+  const scheduleTimeout = useTimeouts();
   /* =======================================================
      STATES
   ======================================================= */
@@ -1081,6 +1088,9 @@ export default function DepartmentCategories() {
     ) {
       return;
     }
+    if (cartPending.current) return;
+    cartPending.current = true;
+    setAddingProduct(product._id);
     try {
       const accessToken =
         await getValidAccessToken();
@@ -1173,6 +1183,9 @@ export default function DepartmentCategories() {
       showAlert(
         'Could not add product to cart.'
       );
+    } finally {
+      cartPending.current = false;
+      setAddingProduct(null);
     }
   };
   /* =======================================================
@@ -1753,7 +1766,7 @@ export default function DepartmentCategories() {
                       <Pressable
                         style={[
                           styles.addButton,
-                          isOutOfStock &&
+                          (isOutOfStock || addingProduct !== null) &&
                             styles.addButtonDisabled,
                         ]}
                         onPress={(event) => {
@@ -1763,15 +1776,11 @@ export default function DepartmentCategories() {
                           );
                         }}
                         hitSlop={5}
-                        disabled={
-                          isOutOfStock
-                        }
+                        disabled={isOutOfStock || addingProduct !== null}
                       >
-                        <Ionicons
-                          name="add"
-                          size={20}
-                          color="#FFFFFF"
-                        />
+                        {addingProduct === product._id ? <ActivityIndicator size="small" color="#FFFFFF" /> : (
+                        <Ionicons name="add" size={20} color="#FFFFFF" />
+                        )}
                       </Pressable>
                     </View>
                   </Pressable>

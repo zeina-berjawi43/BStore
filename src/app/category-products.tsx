@@ -8,6 +8,7 @@ import {
   Pressable,
   ScrollView,
   Animated,
+  ActivityIndicator,
   Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -460,7 +461,6 @@ const FavoriteButton = memo(
    CATEGORY PRODUCTS
 ========================================================= */
 export default function CategoryProducts() {
-  const scheduleTimeout = useTimeouts();
   const params =
     useLocalSearchParams<{
       category?: string;
@@ -469,6 +469,13 @@ export default function CategoryProducts() {
     typeof params.category === 'string'
       ? params.category
       : 'ALL';
+  return <CategoryProductsScreen key={category} category={category} />;
+}
+
+function CategoryProductsScreen({ category }: { category: string }) {
+  const cartPending = useRef(false);
+  const [addingProduct, setAddingProduct] = useState<string | null>(null);
+  const scheduleTimeout = useTimeouts();
   /* =======================================================
      STATES
   ======================================================= */
@@ -1092,6 +1099,9 @@ export default function CategoryProducts() {
     ) {
       return;
     }
+    if (cartPending.current) return;
+    cartPending.current = true;
+    setAddingProduct(product._id);
     try {
       const accessToken =
         await getValidAccessToken();
@@ -1184,6 +1194,9 @@ export default function CategoryProducts() {
       showAlert(
         'Could not add product to cart.'
       );
+    } finally {
+      cartPending.current = false;
+      setAddingProduct(null);
     }
   };
   /* =======================================================
@@ -1780,7 +1793,7 @@ export default function CategoryProducts() {
                       <Pressable
                         style={[
                           styles.addButton,
-                          isOutOfStock &&
+                          (isOutOfStock || addingProduct !== null) &&
                             styles.addButtonDisabled,
                         ]}
                         onPress={(event) => {
@@ -1790,15 +1803,11 @@ export default function CategoryProducts() {
                           );
                         }}
                         hitSlop={5}
-                        disabled={
-                          isOutOfStock
-                        }
+                        disabled={isOutOfStock || addingProduct !== null}
                       >
-                        <Ionicons
-                          name="add"
-                          size={20}
-                          color="#FFFFFF"
-                        />
+                        {addingProduct === product._id ? <ActivityIndicator size="small" color="#FFFFFF" /> : (
+                        <Ionicons name="add" size={20} color="#FFFFFF" />
+                        )}
                       </Pressable>
                     </View>
                   </Pressable>

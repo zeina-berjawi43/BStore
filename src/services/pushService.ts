@@ -2,7 +2,7 @@ import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { API_URL, getValidAccessToken, getSavedUser, getNotificationSetting, flushPendingLogouts } from './authService';
-import { readTokens } from './tokenStorage';
+import { getSessionSnapshot, readTokens } from './tokenStorage';
 import { request } from './request';
 
 export type PushState = 'ready' | 'needs-permission' | 'denied' | 'disabled' | 'unsupported' | 'signed-out';
@@ -64,9 +64,10 @@ export async function notificationDestination(data: Record<string, unknown>) {
 export function installForegroundHandler() {
   if (Platform.OS === 'web' || Constants.appOwnership === 'expo') return;
   Notifications.setNotificationHandler({ handleNotification: async notification => {
+    const revision = getSessionSnapshot().revision;
     const user = await getSavedUser();
     const tokens = await readTokens();
-    const show = !!tokens.refreshToken && user?.notificationsEnabled !== false
+    const show = revision === getSessionSnapshot().revision && !!tokens.refreshToken && user?.notificationsEnabled !== false
       && String(user?._id || user?.id) === notification.request.content.data?.userId;
     return { shouldShowBanner: show, shouldShowList: show, shouldPlaySound: show, shouldSetBadge: false };
   } });

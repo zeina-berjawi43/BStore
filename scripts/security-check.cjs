@@ -20,7 +20,11 @@ function setup(fetchImpl, initial = {}, config = {}) {
   const asyncStorage = {
     getItem: async key => storage.get(key) ?? null,
     setItem: async (key, value) => { storage.set(key, value); },
-    multiRemove: async keys => { keys.forEach(key => storage.delete(key)); },
+    removeItem: async key => { storage.delete(key); },
+    multiRemove: async keys => {
+      if (config.failCleanup && keys.includes('user')) throw Error('cleanup unavailable');
+      keys.forEach(key => storage.delete(key));
+    },
   };
   function load(file) {
     if (cache.has(file)) return cache.get(file);
@@ -44,11 +48,264 @@ function setup(fetchImpl, initial = {}, config = {}) {
   return { storage, secure, push: load(path.resolve(__dirname, '../src/services/pushService.ts')), tokens: load(path.resolve(__dirname, '../src/services/tokenStorage.ts')), auth: load(path.resolve(__dirname, '../src/services/authService.ts')), request: load(path.resolve(__dirname, '../src/services/request.ts')).request,
     getCheckoutAttempt: load(path.resolve(__dirname, '../src/services/checkoutAttempt.ts')).getCheckoutAttempt,
     catalog: load(path.resolve(__dirname, '../src/services/catalogService.ts')),
-    shopping: load(path.resolve(__dirname, '../src/services/shoppingService.ts')) };
+    shopping: load(path.resolve(__dirname, '../src/services/shoppingService.ts')),
+    pricing: load(path.resolve(__dirname, '../src/services/cartPricing.ts')),
+    routes: load(path.resolve(__dirname, '../src/services/sessionRoutes.ts')) };
 }
 
 const reply = (status, data) => ({ ok: status >= 200 && status < 300, status, json: async () => data });
 const token = exp => 'header.' + Buffer.from(JSON.stringify({ exp, sid: 'session' })).toString('base64url') + '.signature';
+
+test('restoration publishes a session once; refresh preserves navigation, logout and login replace it', async () => {
+  const { tokens } = setup(() => {}, { accessToken: 'a', refreshToken: 'r' });
+  assert.equal(tokens.getSessionSnapshot().ready, false);
+  await tokens.readTokens();
+  const restored = tokens.getSessionSnapshot();
+  assert.equal(restored.authenticated, true);
+  await tokens.applyRefresh('r', 'renewed');
+  assert.equal(tokens.getSessionSnapshot(), restored);
+  await tokens.clearTokens();
+  assert.equal(tokens.getSessionSnapshot().authenticated, false);
+  assert.equal(tokens.getSessionSnapshot().revision, restored.revision + 1);
+  await tokens.updateTokens({ accessToken: 'b', refreshToken: 's' }, { id: 'B' });
+  assert.equal(tokens.getSessionSnapshot().revision, restored.revision + 2);
+});
+
+test('session listeners only see the replacement account profile', async () => {
+  const { tokens, storage } = setup(() => {}, { accessToken: 'a', refreshToken: 'r', user: JSON.stringify({ id: 'A' }) });
+  const seen = [];
+  tokens.onSessionChanged(() => seen.push(JSON.parse(storage.get('user')).id));
+  await tokens.updateTokens({ accessToken: 'b', refreshToken: 's' }, { id: 'B' });
+  assert.deepEqual(seen, ['B']);
+  await assert.rejects(tokens.saveSessionUser('a', { id: 'A' }), /session changed/);
+  await assert.rejects(tokens.updateTokens({ accessToken: 'late-phone-token' }, { id: 'A' }, 'a'), /session changed/);
+  assert.equal(JSON.parse(await tokens.readSessionUser()).id, 'B');
+});
+
+test('plaintext cleanup failure cannot retain authenticated navigation or expose the cached user', async () => {
+  const config = {};
+  const { tokens, auth, storage } = setup(() => {}, { accessToken: 'a', refreshToken: 'r', user: JSON.stringify({ id: 'A' }) }, config);
+  await tokens.readTokens();
+  config.failCleanup = true;
+  await assert.rejects(tokens.clearTokens(), /cleanup unavailable/);
+  assert.equal(tokens.getSessionSnapshot().authenticated, false);
+  assert.equal(tokens.getSessionSnapshot().revision, 1);
+  assert.equal(await auth.getSavedUser(), null);
+  assert.ok(storage.has('user'), 'simulates the failed cleanup');
+});
+
+test('an old unauthorized response cannot log out a replacement account', async () => {
+  const { tokens, auth } = setup(() => {}, { accessToken: 'a', refreshToken: 'r' });
+  await tokens.updateTokens({ accessToken: 'b', refreshToken: 's' }, { id: 'B' });
+  await assert.rejects(auth.logoutLocal('a'), /session changed/);
+  assert.equal((await tokens.readTokens()).accessToken, 'b');
+});
+
+test('old bearer credentials are rejected before any network mutation', async () => {
+  const { request } = setup(() => assert.fail('must not send a stale request'), { accessToken: 'b', refreshToken: 's' });
+  await assert.rejects(request('https://example.invalid/cart/add', {
+    method: 'POST', headers: { Authorization: 'Bearer a' },
+  }), error => error.status === 409);
+});
+
+test('token lookup overlapping an account change cannot borrow the new account credentials', async () => {
+  const { tokens, auth } = setup(() => {}, { accessToken: token(Date.now() / 1000 + 300), refreshToken: 'r' });
+  await tokens.readTokens();
+  const change = tokens.updateTokens({ accessToken: 'b', refreshToken: 's' }, { id: 'B' });
+  const lookup = auth.getValidAccessToken();
+  await change;
+  await assert.rejects(lookup, /session changed/);
+});
+
+test('a late login response cannot reopen a session after logout', async () => {
+  let finish, started;
+  const ready = new Promise(resolve => { started = resolve; });
+  const { tokens, auth } = setup(() => new Promise(resolve => { finish = resolve; started(); }));
+  const login = auth.loginUser('phone', 'password');
+  await ready;
+  await tokens.clearTokens();
+  finish(reply(200, { accessToken: 'a', refreshToken: 'r', user: { id: 'A' } }));
+  await assert.rejects(login, /session changed/);
+  assert.equal(tokens.getSessionSnapshot().authenticated, false);
+});
+
+test('current cart prices match backend checkout pricing and reject missing products', () => {
+  const { pricing } = setup(() => {});
+  const old = [{ product: { _id: 'one', discountedPrice: 12.34 }, quantity: 2, price: 9 }];
+  assert.equal(pricing.currentCartPrices(old)[0].price, 12.34);
+  assert.equal(old[0].price, 9, 'does not mutate the response or historical orders');
+  assert.equal(pricing.cartTotal([{ price: 0.47, quantity: 289 }, { price: 14.17, quantity: 1 }]), 150, 'floating point error must not block a cart at the minimum');
+  assert.throws(() => pricing.currentCartPrices([{ product: null, quantity: 1, price: 10 }]), /no longer available/);
+  assert.throws(() => pricing.currentCartPrices([{ product: { _id: 'one' }, quantity: 0, price: 10 }]), /invalid/);
+});
+
+test('a refilled cart does not replay a completed order when local attempt cleanup failed', async () => {
+  const { getCheckoutAttempt } = setup(() => {});
+  const items = [{ productId: 'one', quantity: 1 }];
+  const first = await getCheckoutAttempt('A', 'Address', items, 'cart:revision-1');
+  const retry = await getCheckoutAttempt('A', 'Address', items, 'cart:revision-1');
+  const refilled = await getCheckoutAttempt('A', 'Address', items, 'cart:revision-2');
+  assert.equal(first.key, retry.key);
+  assert.notEqual(first.key, refilled.key);
+});
+
+test('all app routes are classified and a session reset removes history and preloaded private routes', () => {
+  const { routes } = setup(() => {});
+  const all = [...routes.publicRoutes, ...routes.privateRoutes, ...routes.guestRoutes];
+  const files = fs.readdirSync(path.resolve(__dirname, '../src/app')).filter(f => f.endsWith('.tsx') && f !== '_layout.tsx').map(f => f.slice(0, -4));
+  assert.deepEqual([...all].sort(), files.sort());
+  assert.equal(new Set(all).size, all.length);
+  const { StackRouter } = require('expo-router/build/react-navigation/routers/StackRouter');
+  const router = StackRouter({ initialRouteName: 'index' });
+  const options = { routeNames: all, routeParamList: {}, routeGetIdList: {} };
+  let state = router.getInitialState(options);
+  for (const name of ['account', 'orders', 'order-details', 'cart', 'checkout']) {
+    state = router.getStateForAction(state, { type: 'PUSH', payload: { name, params: { userId: 'A' } } }, options);
+  }
+  state = router.getStateForAction(state, { type: 'PRELOAD', payload: { name: 'favorites' } }, options);
+  state = router.getStateForAction(state, { type: 'RESET', payload: routes.cleanSessionNavigationState() }, options);
+  state = router.getRehydratedState(state, options);
+  assert.deepEqual(Array.from(state.routes, route => route.name), ['index']);
+  assert.equal(state.preloadedRoutes.length, 0);
+  assert.equal(router.getStateForAction(state, { type: 'GO_BACK' }, options), null);
+});
+
+function screenFunction(file, name, context) {
+  const source = fs.readFileSync(path.resolve(__dirname, '../src/app', file), 'utf8');
+  const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let fn;
+  function walk(node) {
+    if (ts.isVariableDeclaration(node) && node.name.getText(ast) === name) fn = node.initializer;
+    ts.forEachChild(node, walk);
+  }
+  walk(ast);
+  assert.ok(fn, `${name} exists in ${file}`);
+  const code = ts.transpileModule('exports.handler = ' + fn.getText(ast), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const exports = {};
+  vm.runInNewContext(code, { exports, __DEV__: false, console, ...context });
+  return exports.handler;
+}
+
+for (const file of ['category-products.tsx', 'department-categories.tsx']) {
+  test(`${file}: synchronous cart lock blocks repeated/different-product taps and recovers after failure`, async () => {
+    let release, calls = 0, adding;
+    const gate = new Promise(resolve => { release = resolve; });
+    const busy = { current: false };
+    const add = screenFunction(file, 'addToCart', {
+      isLoggedIn: true, cartPending: busy, setAddingProduct: value => { adding = value; },
+      getValidAccessToken: async () => { await gate; return 'access'; },
+      request: async () => { calls++; throw Error('offline'); }, API_URL: 'https://example.invalid',
+      showAlert: () => {}, router: { push: () => {} },
+    });
+    const first = add({ _id: 'one', name: 'One' });
+    await add({ _id: 'one' });
+    await add({ _id: 'two' });
+    assert.equal(busy.current, true);
+    assert.equal(adding, 'one');
+    release();
+    await first;
+    assert.equal(calls, 1);
+    assert.equal(busy.current, false);
+    assert.equal(adding, null);
+    await add({ _id: 'one' });
+    assert.equal(calls, 2, 'explicit retry is possible');
+  });
+}
+
+test('checkout cannot open while an onBlur cart mutation is pending before React rerenders', () => {
+  let pushes = 0;
+  const busy = { current: true };
+  const checkout = screenFunction('cart.tsx', 'handleCheckout', { canCheckout: true, mutationBusy: busy, router: { push: () => { pushes++; } } });
+  checkout();
+  assert.equal(pushes, 0);
+  busy.current = false;
+  checkout();
+  assert.equal(pushes, 1);
+});
+
+test('root layout gates restoration, remounts on account changes, protects private routes and resets history', async () => {
+  const { tokens, routes } = setup(() => {}, { accessToken: 'a', refreshToken: 'r' });
+  const resets = [];
+  const slots = [];
+  let cursor = 0, effects = [];
+  const hooks = {
+    useSyncExternalStore: (_subscribe, snapshot) => snapshot(),
+    useRef: initial => { const i = cursor++; return slots[i] ??= { current: initial }; },
+    useState: initial => { const i = cursor++; if (!(i in slots)) slots[i] = initial; return [slots[i], value => { slots[i] = value; }]; },
+    useEffect: effect => effects.push(effect),
+  };
+  const Stack = Object.assign(() => null, { Screen: () => null, Protected: () => null });
+  const navigation = { isReady: () => true, resetRoot: state => resets.push(state) };
+  const mocks = {
+    react: hooks,
+    'expo-router': { Stack, router: {}, useRootNavigationState: () => ({ key: 'root' }), useNavigationContainerRef: () => navigation },
+    'react-native': { Platform: { OS: 'web' }, View: 'View', Text: 'Text', Pressable: 'Pressable', ActivityIndicator: 'ActivityIndicator' },
+    'react-native-safe-area-context': { SafeAreaView: 'SafeAreaView' },
+    'expo-notifications': {}, 'expo-constants': {},
+    '../services/tokenStorage': tokens, '../services/sessionRoutes': routes,
+    '../services/pushService': { installForegroundHandler: () => {}, syncPush: async () => {} },
+  };
+  const exports = {};
+  const code = ts.transpileModule(fs.readFileSync(path.resolve(__dirname, '../src/app/_layout.tsx'), 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true },
+  }).outputText;
+  vm.runInNewContext(code, { exports, require: name => mocks[name] ?? require(name) });
+  function render() {
+    cursor = 0; effects = [];
+    const child = exports.default().props.children;
+    effects.forEach(effect => effect());
+    return child;
+  }
+  assert.notEqual(render().type, Stack, 'private screens cannot mount before storage is restored');
+  await tokens.readTokens();
+  const restored = render();
+  assert.equal(restored.type, Stack);
+  assert.equal(resets.length, 0, 'restoration preserves incoming deep links');
+  await tokens.updateTokens({ accessToken: 'b', refreshToken: 's' }, { id: 'B' });
+  const switched = render();
+  assert.notEqual(switched.key, restored.key, 'all old React screen state is unmounted');
+  assert.equal(resets.length, 1);
+  assert.equal(resets[0].routes[0].name, 'index');
+  await tokens.applyRefresh('s', 'renewed');
+  assert.equal(render().key, switched.key, 'normal refresh does not interrupt navigation');
+  assert.equal(resets.length, 1);
+  await tokens.clearTokens();
+  const loggedOut = render();
+  assert.notEqual(loggedOut.key, switched.key);
+  assert.equal(loggedOut.props.children.find(child => child.type === Stack.Protected).props.guard, false);
+  assert.equal(resets.length, 2);
+});
+
+test('foreground notifications cannot show the old account during a session switch', async () => {
+  let handler;
+  const { tokens, push } = setup(() => {}, {
+    accessToken: 'a', refreshToken: 'r', user: JSON.stringify({ id: 'A' }),
+  }, { notifications: { setNotificationHandler: value => { handler = value; } } });
+  await tokens.readTokens();
+  push.installForegroundHandler();
+  const pending = handler.handleNotification({ request: { content: { data: { userId: 'A' } } } });
+  await tokens.updateTokens({ accessToken: 'b', refreshToken: 's' }, { id: 'B' });
+  assert.equal((await pending).shouldShowBanner, false);
+});
+
+test('unverified login signals OTP recovery without saving a session', async () => {
+  const { auth, storage, tokens } = setup(async () => reply(403, {
+    message: 'Please verify your phone number', requiresPhoneVerification: true,
+  }));
+  await assert.rejects(auth.loginUser('phone', 'password'), error => error instanceof auth.PhoneVerificationRequiredError);
+  assert.equal((await tokens.readTokens()).refreshToken, null);
+  assert.equal(storage.has('isLoggedIn'), false);
+});
+
+test('invalid login and unrelated forbidden responses do not trigger OTP recovery', async () => {
+  for (const status of [401, 403]) {
+    const { auth } = setup(async () => reply(status, { message: 'Login rejected' }));
+    await assert.rejects(auth.loginUser('phone', 'password'), error =>
+      !(error instanceof auth.PhoneVerificationRequiredError) && error.message === 'Login rejected');
+  }
+});
 
 test('valid access tokens do not cause refresh requests', async () => {
   const value = token(Date.now() / 1000 + 300);
@@ -176,7 +433,7 @@ test('home and search reuse product requests and never persist private prices', 
   const { catalog, storage } = setup(async () => {
     calls++;
     return reply(200, { products: [{ _id: 'one', name: 'Chocolate', price: 10, discountedPrice: 8 }] });
-  });
+  }, { accessToken: 'signed-in', refreshToken: 'session' });
   const [home, search] = await Promise.all([catalog.fetchCatalog('signed-in'), catalog.fetchCatalog('signed-in')]);
   assert.equal(calls, 1);
   assert.equal(home[0].price, 10);
@@ -192,7 +449,7 @@ test('home and search reuse product requests and never persist private prices', 
 test('guest catalog never reuses an authenticated price snapshot', async () => {
   const { catalog } = setup(async (url, options) => reply(200, { products: [{
     _id: 'one', name: 'Chocolate', ...(options.headers.Authorization ? { price: 10 } : {}),
-  }] }));
+  }] }), { accessToken: 'signed-in', refreshToken: 'session' });
   await catalog.fetchCatalog('signed-in');
   const guest = await catalog.fetchCatalog(null);
   assert.equal(guest[0].price, undefined);
@@ -203,7 +460,7 @@ test('search cart and favorite actions use the correct endpoints without trustin
   const { shopping } = setup(async (url, options) => {
     calls.push({ url, options });
     return reply(200, {});
-  });
+  }, { accessToken: 'access', refreshToken: 'session' });
   await shopping.addProductToCart('product', 'access');
   await shopping.setProductFavorite('product', true, 'access');
   await shopping.setProductFavorite('product', false, 'access');
@@ -217,7 +474,7 @@ test('search cart and favorite actions use the correct endpoints without trustin
 });
 
 test('failed search mutations report failure instead of success', async () => {
-  const { shopping } = setup(async () => reply(400, { message: 'Product is out of stock' }));
+  const { shopping } = setup(async () => reply(400, { message: 'Product is out of stock' }), { accessToken: 'access', refreshToken: 'session' });
   await assert.rejects(shopping.addProductToCart('product', 'access'), /out of stock/);
 });
 

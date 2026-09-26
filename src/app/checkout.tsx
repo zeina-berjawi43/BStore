@@ -1,4 +1,5 @@
 import { request } from '../services/request';
+import { cartTotal, currentCartPrices } from '../services/cartPricing';
 import { getCheckoutAttempt } from '../services/checkoutAttempt';
 import {
   View,
@@ -43,6 +44,7 @@ const API_URL =
 // =========================================================
 
 type BackendProduct = {
+  discountedPrice?: number;
   _id: string;
   name: string;
   description?: string;
@@ -71,6 +73,7 @@ type CartItem = {
 
 type CartResponse = {
   _id: string;
+  updatedAt?: string;
   user: string;
   items: CartItem[];
 };
@@ -131,6 +134,7 @@ export default function Checkout() {
 
   const [cart, setCart] =
     useState<CartItem[]>([]);
+  const [cartRevision, setCartRevision] = useState<string | undefined>();
 
 
   const [loading, setLoading] =
@@ -277,7 +281,7 @@ export default function Checkout() {
         response.status === 401
       ) {
 
-        await logoutLocal();
+        await logoutLocal(token);
 
 
         router.replace("/login");
@@ -325,7 +329,8 @@ export default function Checkout() {
         ); }
 
 
-        setCart(items);
+        setCart(currentCartPrices(items));
+        setCartRevision(cartData.updatedAt ? `${cartData._id}:${cartData.updatedAt}` : undefined);
 
       } else {
 
@@ -440,12 +445,7 @@ export default function Checkout() {
   // ==========================================================
 
   const totalPrice =
-    cart.reduce(
-      (total, item) =>
-        total +
-        getItemTotal(item),
-      0
-    );
+    cartTotal(cart);
 
 
   const formattedTotal =
@@ -597,7 +597,7 @@ export default function Checkout() {
 
       if (!token) {
 
-        await logoutLocal();
+        await logoutLocal(token);
 
 
         Alert.alert(
@@ -635,7 +635,7 @@ export default function Checkout() {
       }
       const attempt = await getCheckoutAttempt(userId, user.address, cart.map(item => ({
         productId: item.product?._id || '', quantity: item.quantity,
-      })));
+      })), cartRevision);
 
       const response =
         await request(
@@ -681,7 +681,7 @@ export default function Checkout() {
         response.status === 401
       ) {
 
-        await logoutLocal();
+        await logoutLocal(token);
 
 
         Alert.alert(
@@ -743,11 +743,9 @@ export default function Checkout() {
           data.order
         ); }
 
-        await AsyncStorage.removeItem(attempt.storageKey);
-
-        await AsyncStorage.removeItem(
-          "cart"
-        );
+        // The server already confirmed success. Local cleanup failure must not
+        // turn it into a failed-order message or invite another submission.
+        await AsyncStorage.multiRemove([attempt.storageKey, "cart"]).catch(() => {});
 
 
         setCart([]);

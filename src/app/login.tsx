@@ -14,6 +14,7 @@ import { useState } from 'react';
 
 import {
   loginUser,
+  PhoneVerificationRequiredError,
 } from '../services/authService';
 
 export default function Login() {
@@ -88,6 +89,11 @@ export default function Login() {
       router.replace('/');
 
     } catch (error: any) {
+      if (error instanceof PhoneVerificationRequiredError) {
+        setPassword('');
+        router.push({ pathname: '/verify-otp', params: { phone: cleanPhone, mode: 'register' } });
+        return;
+      }
       if (__DEV__) { console.log(
         'LOGIN ERROR:',
         error?.message

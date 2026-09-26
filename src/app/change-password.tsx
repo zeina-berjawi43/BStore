@@ -110,7 +110,7 @@ export default function ChangePassword() {
         [
           {
             text: 'OK',
-            onPress: () => router.back(),
+            onPress: () => router.canGoBack() ? router.back() : router.replace('/account'),
           },
         ]
       );

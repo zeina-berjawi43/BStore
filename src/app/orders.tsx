@@ -196,7 +196,7 @@ export default function Orders() {
           response.status === 401
         ) {
 
-          await logoutLocal();
+          await logoutLocal(accessToken);
 
           setOrders([]);
 

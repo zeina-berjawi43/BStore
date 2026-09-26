@@ -12,7 +12,12 @@ export async function request(
 ): Promise<Response> {
   const headers = options.headers as Record<string, string> | undefined;
   const authenticated = !!(headers?.Authorization || headers?.authorization);
-  const session = authenticated ? (await readTokens()).refreshToken : null;
+  const credentials = authenticated ? await readTokens() : null;
+  const session = credentials?.refreshToken;
+  if (authenticated && (!credentials?.accessToken ||
+      (headers?.Authorization || headers?.authorization) !== `Bearer ${credentials.accessToken}`)) {
+    throw new RequestError('Your session changed. Please reload this page.', 409);
+  }
   const verifySession = async () => {
     if (authenticated && (await readTokens()).refreshToken !== session) {
       throw new RequestError('Your session changed. Please reload this page.', 409);
