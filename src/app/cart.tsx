@@ -1,3 +1,5 @@
+import { ProductImage } from '../components/product-image';
+import { ImageFrame } from '../services/image-frame';
 import { request } from '../services/request';
 import { cartTotal, currentCartPrices } from '../services/cartPricing';
 import {
@@ -6,7 +8,6 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
-  Image,
   TextInput,
   Alert,
 } from 'react-native';
@@ -62,6 +63,7 @@ type BackendProduct = {
   discountedPrice?: number;
 
   image?: string;
+  imageFrame?: ImageFrame | null;
 
   category?: {
     _id?: string;
@@ -581,7 +583,7 @@ export default function Cart() {
 
                       {imageUrl ? (
 
-                        <Image
+                        <ProductImage imageFrame={product.imageFrame}
                           source={{
                             uri:
                               imageUrl,

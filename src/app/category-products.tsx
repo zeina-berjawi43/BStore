@@ -1,3 +1,6 @@
+import { getFinalPrice } from '../services/product-price';
+import { ProductImage } from '../components/product-image';
+import { ImageFrame } from '../services/image-frame';
 import { useTimeouts } from '../hooks/useTimeouts';
 import { request } from '../services/request';
 import {
@@ -9,7 +12,6 @@ import {
   ScrollView,
   Animated,
   ActivityIndicator,
-  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -42,6 +44,7 @@ type Product = {
   discount?: number;
   discountedPrice?: number;
   image: string;
+  imageFrame?: ImageFrame | null;
   category?: {
     _id?: string;
     name?: string;
@@ -102,38 +105,6 @@ const getImageUrl = (
 /* =========================================================
    FINAL PRICE
 ========================================================= */
-const getFinalPrice = (
-  product: Product
-) => {
-  const originalPrice =
-    Number(product.price) || 0;
-  const discount =
-    Number(product.discount) || 0;
-  if (
-    product.discountedPrice !== undefined &&
-    product.discountedPrice !== null
-  ) {
-    return Number(
-      product.discountedPrice
-    );
-  }
-  if (
-    discount <= 0
-  ) {
-    return Number(
-      originalPrice.toFixed(2)
-    );
-  }
-  const finalPrice =
-    originalPrice -
-    (
-      originalPrice *
-      discount
-    ) / 100;
-  return Number(
-    finalPrice.toFixed(2)
-  );
-};
 /* =========================================================
    FORMAT USD PRICE
 ========================================================= */
@@ -1617,7 +1588,7 @@ function CategoryProductsScreen({ category }: { category: string }) {
                       }
                     >
                       {imageUrl ? (
-                        <Image
+                        <ProductImage imageFrame={product.imageFrame}
                           source={{
                             uri:
                               imageUrl,
@@ -1631,7 +1602,7 @@ function CategoryProductsScreen({ category }: { category: string }) {
                               'PRODUCT IMAGE ERROR:',
                               product.name,
                               imageUrl,
-                              event.nativeEvent.error
+                              event.error
                             ); }
                           }}
                         />

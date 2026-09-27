@@ -455,6 +455,19 @@ test('guest catalog never reuses an authenticated price snapshot', async () => {
   assert.equal(guest[0].price, undefined);
 });
 
+test('product framing survives public catalog caching and a fresh app session without private prices', async () => {
+  const imageFrame = { zoom: 2, x: -.5, y: .75 };
+  const first = setup(async () => reply(200, { products: [{ _id: 'framed', name: 'Fixture', image: '/original.jpg', imageFrame, price: 10 }] }), { accessToken: 'fixture-access', refreshToken: 'fixture-session' });
+  const products = await first.catalog.fetchCatalog('fixture-access');
+  assert.deepEqual(JSON.parse(JSON.stringify(products[0].imageFrame)), imageFrame);
+  const saved = first.storage.get('publicCatalog:v1');
+  const restarted = setup(async () => { throw new Error('Offline fixture: no network'); }, { 'publicCatalog:v1': saved });
+  const restored = await restarted.catalog.readPublicCatalog();
+  assert.deepEqual(JSON.parse(JSON.stringify(restored[0].imageFrame)), imageFrame);
+  assert.equal(restored[0].image, '/original.jpg');
+  assert.equal(restored[0].price, undefined);
+});
+
 test('search cart and favorite actions use the correct endpoints without trusting client prices', async () => {
   const calls = [];
   const { shopping } = setup(async (url, options) => {

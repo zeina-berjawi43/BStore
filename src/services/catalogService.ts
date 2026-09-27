@@ -1,3 +1,4 @@
+import { ImageFrame } from './image-frame';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from './authService';
 import { request } from './request';
@@ -8,6 +9,7 @@ export type CatalogProduct = {
   name: string;
   description?: string;
   image?: string;
+  imageFrame?: ImageFrame | null;
   price?: number;
   discountedPrice?: number;
   discount?: number;
@@ -33,8 +35,8 @@ function normalize(data: unknown): CatalogProduct[] {
 
 function publicOnly(products: CatalogProduct[]): CatalogProduct[] {
   // Persist display metadata only. Logged-out customers must never see cached prices.
-  return products.map(({ _id, name, description, image, discount, availability, category, brand }) => ({
-    _id, name, description, image, discount, availability, category, brand,
+  return products.map(({ _id, name, description, image, imageFrame, discount, availability, category, brand }) => ({
+    _id, name, description, image, imageFrame, discount, availability, category, brand,
   }));
 }
 

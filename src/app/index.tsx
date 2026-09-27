@@ -1,3 +1,6 @@
+import { getFinalPrice } from '../services/product-price';
+import { ProductImage } from '../components/product-image';
+import { ImageFrame } from '../services/image-frame';
 import { useTimeouts } from '../hooks/useTimeouts';
 import { setProductFavorite } from '../services/shoppingService';
 import { request } from '../services/request';
@@ -30,9 +33,11 @@ type Product = {
   name: string;
   description?: string;
   image: string;
+  imageFrame?: ImageFrame | null;
   category: string;
   brand: string;
   price?: number;
+  discountedPrice?: number;
   discount?: number;
   availability?: boolean;
 };
@@ -224,9 +229,9 @@ export default function Index() {
     };
   };
 
-  const loadSlideshow = async () => {
+  const loadSlideshow = async (showLoading = true) => {
     try {
-      setSlidesLoading(true);
+      if (showLoading) setSlidesLoading(true);
 
       const response = await request(`${API_URL}/slideshows`, {
         method: 'GET',
@@ -286,9 +291,9 @@ export default function Index() {
     }
   };
 
-  const loadDepartments = async () => {
+  const loadDepartments = async (showLoading = true) => {
     try {
-      setDepartmentsLoading(true);
+      if (showLoading) setDepartmentsLoading(true);
       setDepartmentsError('');
       const response = await request(`${API_URL}/departments`, {
         method: 'GET',
@@ -680,6 +685,8 @@ export default function Index() {
       name: product.name,
       description: product.description,
       image: buildImageUrl(product.image),
+      imageFrame: product.imageFrame,
+      discountedPrice: product.discountedPrice == null ? undefined : Number(product.discountedPrice),
       category:
         typeof product.category === 'string'
           ? product.category
@@ -1020,14 +1027,14 @@ export default function Index() {
         });
       }
       // Public sections can load without waiting for a token refresh.
-      const requests: Promise<unknown>[] = homeLoadedRef.current && !force ? [] : [loadSlideshow(), loadDepartments()];
+      const requests: Promise<unknown>[] = homeLoadedRef.current && !force ? [] : [loadSlideshow(!force), loadDepartments(!force)];
       const { token, loggedIn } = await loadData();
       if (generation !== homeGenerationRef.current) return;
       accessTokenRef.current = token;
       setIsLoggedIn(loggedIn);
       if (!loggedIn) {
-        setProducts(current => current.map(({ price, ...product }) => product));
-        setOfferProducts(current => current.map(({ price, ...product }) => product));
+        setProducts(current => current.map(({ price, discountedPrice, ...product }) => product));
+        setOfferProducts(current => current.map(({ price, discountedPrice, ...product }) => product));
       }
       requests.push(loadProducts(token, force));
       const previous = sectionsRef.current;
@@ -1212,6 +1219,9 @@ export default function Index() {
     offerProducts[
       activeOfferIndex
     ];
+
+  // Initial loading owns the screen; refresh owns only RefreshControl.
+  if (initialLoading) return <StartupLoading />;
 
   return (
     <View style={styles.container}>
@@ -1786,7 +1796,7 @@ export default function Index() {
                   styles.offerVisual
                 }
               >
-                <Image
+                <ProductImage imageFrame={activeOffer.imageFrame}
                   source={{
                     uri: activeOffer.image,
                   }}
@@ -2194,7 +2204,7 @@ export default function Index() {
         </Pressable>
       </View>
 
-      {initialLoading && <StartupLoading />}
+
     </View>
   );
 }
@@ -2336,7 +2346,7 @@ function TopSellingProductRow({
             styles.topSellingImageBox
           }
         >
-          <Image
+          <ProductImage imageFrame={product.imageFrame}
             source={{
               uri: product.image,
             }}
@@ -2542,7 +2552,7 @@ function RecentProduct({
             styles.recentImageBox
           }
         >
-          <Image
+          <ProductImage imageFrame={product.imageFrame}
             source={{
               uri: product.image,
             }}
@@ -2612,9 +2622,8 @@ function RecentProduct({
             }
           >
             $
-            {Number(
-              product.price
-            ).toFixed(2)}
+            {getFinalPrice(product).toFixed(2)}
+            {getFinalPrice(product) < Number(product.price) && <Text style={{ textDecorationLine: "line-through", color: "#817B71", fontSize: 9 }}> ${Number(product.price).toFixed(2)}</Text>}
           </Text>
         ) : null}
       </Pressable>

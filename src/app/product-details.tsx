@@ -1,3 +1,5 @@
+import { ProductImage } from '../components/product-image';
+import { ImageFrame } from '../services/image-frame';
 import { useTimeouts } from '../hooks/useTimeouts';
 import { request } from '../services/request';
 import {
@@ -6,7 +8,6 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
-  Image,
   Animated,
 } from 'react-native';
 
@@ -67,6 +68,7 @@ type Product = {
   discountedPrice?: number;
 
   image: string;
+  imageFrame?: ImageFrame | null;
 
   category?: Category | string;
 
@@ -1883,7 +1885,7 @@ export default function ProductDetails() {
 
           {imageUrl ? (
 
-            <Image
+            <ProductImage imageFrame={product.imageFrame} presentation="original"
               source={{
                 uri:
                   imageUrl,

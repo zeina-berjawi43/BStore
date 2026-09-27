@@ -1,6 +1,6 @@
+import { ProductImage } from '../components/product-image';
 import { useCallback, useDeferredValue, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { API_URL, getValidAccessToken } from '../services/authService';
@@ -20,6 +20,7 @@ export default function Search() {
   const query = useDeferredValue(searchText.trim().toLowerCase());
   const [products, setProducts] = useState<CatalogProduct[]>(peekPublicCatalog);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
   const [favoritesReady, setFavoritesReady] = useState(false);
@@ -31,11 +32,14 @@ export default function Search() {
   const load = useCallback(async (generation: number, force = false) => {
     setError('');
     setLoading(true);
+    setRefreshing(force);
     setFavoritesReady(false);
     setFavoriteIds(new Set());
     let liveProductsLoaded = false;
     void readPublicCatalog().then(cached => {
-      if (epoch.current === generation && !liveProductsLoaded) setProducts(cached);
+      if (epoch.current === generation && !liveProductsLoaded && cached.length) {
+        setProducts(current => current.length ? current : cached);
+      }
     });
     try {
       const token = await getValidAccessToken();
@@ -61,7 +65,7 @@ export default function Search() {
     } catch (err) {
       if (epoch.current === generation) setError(err instanceof Error ? err.message : 'Could not load products.');
     } finally {
-      if (epoch.current === generation) setLoading(false);
+      if (epoch.current === generation) { setLoading(false); setRefreshing(false); }
     }
   }, []);
 
@@ -145,17 +149,17 @@ export default function Search() {
       </Pressable>}
       <View style={styles.resultsHeader}>
         <Text style={styles.sectionTitle}>{query ? `${results.length} ${results.length === 1 ? 'product' : 'products'}` : 'Find your favorites'}</Text>
-        {loading && <ActivityIndicator size="small" color="#E35B3F" />}
+
       </View>
       <FlatList
         data={results} keyExtractor={item => item._id} numColumns={2}
         contentContainerStyle={styles.list} columnWrapperStyle={styles.row}
         keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" showsVerticalScrollIndicator={false}
         initialNumToRender={6} maxToRenderPerBatch={6} windowSize={5}
-        refreshing={loading} onRefresh={() => void load(++epoch.current, true)}
+        refreshing={refreshing} onRefresh={() => void load(++epoch.current, true)}
         extraData={{ favoriteIds, pending, favoritesReady }}
         ListEmptyComponent={<View style={styles.empty}>
-          <Ionicons name="search-outline" size={38} color="#E35B3F" />
+          {loading && !refreshing && products.length === 0 ? <ActivityIndicator size="large" color="#E35B3F" /> : <Ionicons name="search-outline" size={38} color="#E35B3F" />}
           <Text style={styles.emptyTitle}>{!query ? "Find what you're looking for" : loading ? 'Loading products...' : error ? 'Products are unavailable' : 'No products found'}</Text>
           <Text style={styles.secondary}>{!query ? 'Search by product, category or brand' : loading ? 'Your results will appear here' : 'Try another search or pull down to refresh'}</Text>
         </View>}
@@ -175,7 +179,7 @@ export default function Search() {
               <Pressable onPress={() => router.push({ pathname: '/product-details', params: { id: item._id } })}
                 accessibilityRole="button" accessibilityLabel={`View ${item.name}`}>
                 <View style={styles.imageBox}>
-                  {uri ? <Image source={{ uri }} style={styles.image} contentFit="contain" cachePolicy="memory-disk" recyclingKey={item._id} />
+                  {uri ? <ProductImage imageFrame={item.imageFrame} source={{ uri }} style={styles.image} contentFit="contain" cachePolicy="memory-disk" recyclingKey={item._id} />
                     : <Ionicons name="cube-outline" size={38} color="#E35B3F" />}
                   {onSale && <View style={styles.discount}><Text style={styles.discountText}>-{Number(item.discount || 0)}%</Text></View>}
                 </View>

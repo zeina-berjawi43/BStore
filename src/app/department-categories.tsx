@@ -1,3 +1,5 @@
+import { ProductImage } from '../components/product-image';
+import { ImageFrame } from '../services/image-frame';
 import { useTimeouts } from '../hooks/useTimeouts';
 import { request } from '../services/request';
 import {
@@ -9,7 +11,6 @@ import {
   ScrollView,
   Animated,
   ActivityIndicator,
-  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -42,6 +43,7 @@ type Product = {
   discount?: number;
   discountedPrice?: number;
   image: string;
+  imageFrame?: ImageFrame | null;
   category?: {
     _id?: string;
     name?: string;
@@ -1590,7 +1592,7 @@ function DepartmentCategoriesScreen({ departmentId, departmentName }: { departme
                       }
                     >
                       {imageUrl ? (
-                        <Image
+                        <ProductImage imageFrame={product.imageFrame}
                           source={{
                             uri:
                               imageUrl,
@@ -1604,7 +1606,7 @@ function DepartmentCategoriesScreen({ departmentId, departmentName }: { departme
                               'PRODUCT IMAGE ERROR:',
                               product.name,
                               imageUrl,
-                              event.nativeEvent.error
+                              event.error
                             ); }
                           }}
                         />

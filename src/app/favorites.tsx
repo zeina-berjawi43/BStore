@@ -1,3 +1,5 @@
+import { ProductImage } from '../components/product-image';
+import { ImageFrame } from '../services/image-frame';
 import { request } from '../services/request';
 import {
   View,
@@ -6,7 +8,6 @@ import {
   Pressable,
   StyleSheet,
   ScrollView,
-  Image,
 } from 'react-native';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -47,6 +48,7 @@ type FavoriteProduct = {
   description?: string;
 
   image: string;
+  imageFrame?: ImageFrame | null;
 
   category: string;
 
@@ -456,6 +458,7 @@ export default function Favorites() {
                     description:
                       product.description,
 
+                    imageFrame: product.imageFrame,
                     image:
                       getImageUrl(
                         product.image
@@ -1193,7 +1196,7 @@ export default function Favorites() {
 
                     {product.image ? (
 
-                      <Image
+                      <ProductImage imageFrame={product.imageFrame}
                         source={{
                           uri:
                             product.image,

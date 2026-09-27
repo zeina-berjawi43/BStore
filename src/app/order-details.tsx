@@ -1,3 +1,5 @@
+import { ProductImage } from '../components/product-image';
+import { ImageFrame } from '../services/image-frame';
 import { request } from '../services/request';
 import {
   View,
@@ -6,7 +8,6 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
-  Image,
 } from 'react-native';
 
 import { Ionicons } from '@expo/vector-icons';
@@ -43,6 +44,7 @@ type Product = {
   name: string;
 
   image?: string;
+  imageFrame?: ImageFrame | null;
 
   category?: {
     _id?: string;
@@ -485,7 +487,9 @@ export default function OrderDetails() {
   // LOADING
   // =======================================================
 
-  if (loading) {
+  // A focus refetch keeps the current order visible; a different order still
+  // owns its initial loading screen.
+  if (loading && (!order || order._id !== orderId)) {
 
     return (
 
@@ -1248,7 +1252,7 @@ export default function OrderDetails() {
 
                   {imageUrl ? (
 
-                    <Image
+                    <ProductImage imageFrame={product?.imageFrame}
                       source={{
                         uri:
                           imageUrl,
