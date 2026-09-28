@@ -271,7 +271,7 @@ export default function Settings() {
                   styles.rowTitle
                 }
               >
-                Help & Support
+                Help
               </Text>
 
 
@@ -280,7 +280,83 @@ export default function Settings() {
                   styles.rowSubtitle
                 }
               >
-                Get help and support
+                FAQs and app information
+              </Text>
+
+            </View>
+
+
+            <View
+              style={
+                styles.chevronContainer
+              }
+            >
+
+              <Ionicons
+                name="chevron-forward"
+                size={18}
+                color="#817B71"
+              />
+
+            </View>
+
+          </Pressable>
+
+
+          <View
+            style={
+              styles.divider
+            }
+          />
+
+
+          <Pressable
+            style={
+              styles.row
+            }
+            onPress={() =>
+              router.push(
+                '/contact-us'
+              )
+            }
+          >
+
+            <View
+              style={
+                styles.iconContainer
+              }
+            >
+
+              <Ionicons
+                name="chatbubbles-outline"
+                size={22}
+                color="#E35B3F"
+              />
+
+            </View>
+
+
+            <View
+              style={
+                styles.rowText
+              }
+            >
+
+              <Text
+                style={
+                  styles.rowTitle
+                }
+              >
+                Contact Us
+              </Text>
+
+
+              <Text
+                style={
+                  styles.rowSubtitle
+                }
+              >
+                WhatsApp and email
               </Text>
 
             </View>

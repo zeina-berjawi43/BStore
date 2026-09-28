@@ -10,7 +10,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 
-const SUPPORT_EMAIL = 'b.storelb@gmail.com';
+import { BSTORE_SUPPORT_EMAIL as SUPPORT_EMAIL } from '../constants/contact';
 
 export default function Privacy() {
   return (

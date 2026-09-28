@@ -1,7 +1,7 @@
 // Include public catalog screens: they also hold account-specific prices/favorites in memory.
 export const publicRoutes = [
   'index', 'loading', 'category-products', 'department-categories', 'product-details',
-  'search', 'settings', 'help', 'about', 'privacy',
+  'search', 'settings', 'help', 'contact-us', 'about', 'privacy',
 ] as const;
 export const privateRoutes = [
   'account', 'edit-account', 'change-password', 'favorites', 'cart', 'checkout',
