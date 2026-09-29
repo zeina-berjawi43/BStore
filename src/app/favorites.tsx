@@ -1,3 +1,8 @@
+import { useProductPending } from '../hooks/useProductPending';
+import { useProductFeedback } from '../components/product-feedback';
+import { getFinalPrice } from '../services/product-price';
+import { setProductFavorite, ShoppingError } from '../services/shoppingService';
+import { goBackOrHome } from '../services/navigation';
 import { ProductImage } from '../components/product-image';
 import { ImageFrame } from '../services/image-frame';
 import { request } from '../services/request';
@@ -67,50 +72,6 @@ type FavoriteProduct = {
 // =========================================================
 // FINAL PRICE
 // =========================================================
-
-const getFinalPrice = (
-  product: FavoriteProduct
-) => {
-
-  const originalPrice =
-    Number(product.price) || 0;
-
-  const discount =
-    Number(product.discount) || 0;
-
-  if (
-    product.discountedPrice !== undefined &&
-    product.discountedPrice !== null
-  ) {
-
-    return Number(
-      product.discountedPrice
-    );
-
-  }
-
-  if (
-    discount <= 0
-  ) {
-
-    return Number(
-      originalPrice.toFixed(2)
-    );
-
-  }
-
-  return Number(
-    (
-      originalPrice -
-      (
-        originalPrice *
-        discount
-      ) / 100
-    ).toFixed(2)
-  );
-
-};
-
 
 // =========================================================
 // FORMAT USD PRICE
@@ -213,22 +174,16 @@ export default function Favorites() {
     setIsLoggedIn,
   ] = useState(false);
 
-  const [
-    removingProduct,
-    setRemovingProduct,
-  ] = useState<string | null>(null);
-
-  const [
-    addingToCartProduct,
-    setAddingToCartProduct,
-  ] = useState<string | null>(null);
+  const favoritePending = useProductPending();
+  const { hasPending: hasFavoritePending } = favoritePending;
+  const cartPending = useProductPending();
+  const { showAlert, feedback } = useProductFeedback();
 
   const [
     initialLoadFinished,
     setInitialLoadFinished,
   ] = useState(false);
 
-  const mutationBusy = useRef(false);
   const loadRevision = useRef(0);
   const accessTokenRef =
     useRef<string | null>(null);
@@ -329,7 +284,7 @@ export default function Favorites() {
   const loadFavorites =
     useCallback(
       async () => {
-        if (mutationBusy.current) return;
+        if (hasFavoritePending()) return;
         const revision = ++loadRevision.current;
 
         try {
@@ -515,6 +470,7 @@ export default function Favorites() {
       },
       [
         getAccessToken,
+        hasFavoritePending,
       ]
     );
 
@@ -532,15 +488,7 @@ export default function Favorites() {
       const refresh =
         async () => {
 
-          if (
-            !initialLoadFinished
-          ) {
 
-            setInitialLoadFinished(
-              false
-            );
-
-          }
 
           const loggedIn =
             await checkLogin();
@@ -584,7 +532,6 @@ export default function Favorites() {
     }, [
       checkLogin,
       loadFavorites,
-      initialLoadFinished,
     ])
   );
 
@@ -593,142 +540,32 @@ export default function Favorites() {
   // REMOVE FAVORITE
   // =======================================================
 
-  const removeFavorite =
-    async (
-      productId: string
-    ) => {
-
-      if (mutationBusy.current) {
-
-        return;
-
-      }
-
-      mutationBusy.current = true;
-      loadRevision.current++;
-      try {
-
-        const accessToken =
-          await getAccessToken();
-
-        if (!accessToken) {
-
-          router.replace(
-            '/login'
-          );
-
-          return;
-
-        }
-
-        setRemovingProduct(
-          productId
-        );
-
-        const response =
-          await request(
-            `${API_URL}/favorites/remove`,
-            {
-              method: 'DELETE',
-
-              headers: {
-                Accept:
-                  'application/json',
-
-                'Content-Type':
-                  'application/json',
-
-                Authorization:
-                  `Bearer ${accessToken}`,
-              },
-
-              body:
-                JSON.stringify({
-                  productId,
-                }),
-            }
-          );
-
-        const data =
-          await response.json();
-
-
-        // =================================================
-        // SESSION EXPIRED
-        // =================================================
-
-        if (
-          response.status === 401
-        ) {
-
-          accessTokenRef.current =
-            null;
-
-          setIsLoggedIn(
-            false
-          );
-
-          setFavorites([]);
-
-          router.replace(
-            '/login'
-          );
-
-          return;
-
-        }
-
-
-        // =================================================
-        // ERROR
-        // =================================================
-
-        if (!response.ok) {
-          Alert.alert('Request failed', data?.message || 'Please try again.');
-
-          if (__DEV__) { console.log(
-            'REMOVE FAVORITE ERROR:',
-            data
-          ); }
-
-          return;
-
-        }
-
-
-        // =================================================
-        // UPDATE UI IMMEDIATELY
-        // =================================================
-
-        setFavorites(
-          previous =>
-            previous.filter(
-              product =>
-                product.id !==
-                productId
-            )
-        );
-
-
-      } catch (error) {
-
-        if (__DEV__) { console.log(
-          'REMOVE FAVORITE ERROR:',
-          error
-        ); }
-          Alert.alert('Connection Error', error instanceof Error ? error.message : 'Please try again.');
-
-      } finally {
-        mutationBusy.current = false;
-
-        setRemovingProduct(
-          null
-        );
-
-      }
-
+  const removeFavorite = async (productId: string) => {
+    if (!favoritePending.begin(productId)) return;
+    loadRevision.current++;
+    const removed = favorites.find(product => product.id === productId);
+    const order = new Map(favorites.map((product, index) => [product.id, index]));
+    setFavorites(current => current.filter(product => product.id !== productId));
+    const rollback = () => {
+      if (removed) setFavorites(current => current.some(product => product.id === productId) ? current
+        : [...current, removed].sort((a, b) => (order.get(a.id) ?? Infinity) - (order.get(b.id) ?? Infinity)));
     };
-
+    try {
+      const token = await getAccessToken();
+      if (!token) { rollback(); router.replace('/login'); return; }
+      await setProductFavorite(productId, false, token);
+      showAlert('Product has been removed from your favorites.', 'Removed from Favorites');
+    } catch (error) {
+      rollback();
+      if (error instanceof ShoppingError && error.status === 401) {
+        accessTokenRef.current = null;
+        setIsLoggedIn(false);
+        router.replace('/login');
+        return;
+      }
+      Alert.alert('Could not update favorites', error instanceof Error ? error.message : 'Please try again.');
+    } finally { favoritePending.end(productId); }
+  };
 
   // =======================================================
   // ADD TO CART
@@ -760,14 +597,7 @@ export default function Favorites() {
 
       }
 
-      if (mutationBusy.current) {
-
-        return;
-
-      }
-
-      mutationBusy.current = true;
-      loadRevision.current++;
+      if (!cartPending.begin(product.id)) return;
       try {
 
         const accessToken =
@@ -783,9 +613,7 @@ export default function Favorites() {
 
         }
 
-        setAddingToCartProduct(
-          product.id
-        );
+
 
         const response =
           await request(
@@ -863,12 +691,10 @@ export default function Favorites() {
 
 
         // =================================================
-        // OPEN CART
+        // SHOW SUCCESS ON THIS PAGE
         // =================================================
 
-        router.push(
-          '/cart'
-        );
+        showAlert(product.name + ' has been added to your cart.');
 
 
       } catch (error) {
@@ -880,11 +706,7 @@ export default function Favorites() {
           Alert.alert('Connection Error', error instanceof Error ? error.message : 'Please try again.');
 
       } finally {
-        mutationBusy.current = false;
-
-        setAddingToCartProduct(
-          null
-        );
+        cartPending.end(product.id);
 
       }
 
@@ -921,14 +743,7 @@ export default function Favorites() {
   // RETURN HOME
   // =======================================================
 
-  const goBackHome =
-    () => {
-
-      router.replace(
-        '/'
-      );
-
-    };
+  const goBackHome = goBackOrHome;
 
 
   // =======================================================
@@ -942,6 +757,8 @@ export default function Favorites() {
         styles.container
       }
     >
+
+      {feedback}
 
       {/* =================================================
           HEADER
@@ -1134,12 +951,10 @@ export default function Favorites() {
             product => {
 
               const itemRemoving =
-                removingProduct ===
-                product.id;
+                favoritePending.pending.has(product.id);
 
               const itemAddingToCart =
-                addingToCartProduct ===
-                product.id;
+                cartPending.pending.has(product.id);
 
               const originalPrice =
                 Number(

@@ -189,28 +189,30 @@ function screenFunction(file, name, context) {
 }
 
 for (const file of ['category-products.tsx', 'department-categories.tsx']) {
-  test(`${file}: synchronous cart lock blocks repeated/different-product taps and recovers after failure`, async () => {
-    let release, calls = 0, adding;
+  test(`${file}: cart lock blocks duplicates, allows other products and recovers after failure`, async () => {
+    let release, calls = 0;
     const gate = new Promise(resolve => { release = resolve; });
-    const busy = { current: false };
+    const pending = new Set();
+    const busy = {
+      begin: id => { if (pending.has(id)) return false; pending.add(id); return true; },
+      end: id => pending.delete(id),
+    };
     const add = screenFunction(file, 'addToCart', {
-      isLoggedIn: true, cartPending: busy, setAddingProduct: value => { adding = value; },
+      isLoggedIn: true, cartPending: busy,
       getValidAccessToken: async () => { await gate; return 'access'; },
       request: async () => { calls++; throw Error('offline'); }, API_URL: 'https://example.invalid',
       showAlert: () => {}, router: { push: () => {} },
     });
     const first = add({ _id: 'one', name: 'One' });
     await add({ _id: 'one' });
-    await add({ _id: 'two' });
-    assert.equal(busy.current, true);
-    assert.equal(adding, 'one');
+    const second = add({ _id: 'two' });
+    assert.deepEqual([...pending], ['one', 'two']);
     release();
-    await first;
-    assert.equal(calls, 1);
-    assert.equal(busy.current, false);
-    assert.equal(adding, null);
+    await Promise.all([first, second]);
+    assert.equal(calls, 2);
+    assert.equal(pending.size, 0);
     await add({ _id: 'one' });
-    assert.equal(calls, 2, 'explicit retry is possible');
+    assert.equal(calls, 3, 'explicit retry is possible');
   });
 }
 

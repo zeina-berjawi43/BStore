@@ -1,3 +1,6 @@
+import { useProductFeedback } from '../components/product-feedback';
+import { AddToCartButton } from '../components/add-to-cart-button';
+import { getFinalPrice } from '../services/product-price';
 import { ProductImage } from '../components/product-image';
 import { useCallback, useDeferredValue, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -25,11 +28,14 @@ export default function Search() {
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
   const [favoritesReady, setFavoritesReady] = useState(false);
   const [pending, setPending] = useState<Set<string>>(new Set());
-  const [notice, setNotice] = useState('');
+  const { showAlert, feedback } = useProductFeedback();
   const pendingRef = useRef(new Set<string>());
   const epoch = useRef(0);
+  const reloadAfterMutation = useRef(false);
 
   const load = useCallback(async (generation: number, force = false) => {
+    if (pendingRef.current.size) { reloadAfterMutation.current = true; return; }
+    reloadAfterMutation.current = false;
     setError('');
     setLoading(true);
     setRefreshing(force);
@@ -55,7 +61,7 @@ export default function Search() {
             setFavoritesReady(true);
           }
         }).catch(() => {
-          if (epoch.current === generation) setNotice('Could not load favorites. Pull down to retry.');
+          if (epoch.current === generation) Alert.alert('Could not load favorites', 'Pull down to retry.');
         });
       }
       const data = await fetchCatalog(token, force);
@@ -71,7 +77,6 @@ export default function Search() {
 
   useFocusEffect(useCallback(() => {
     const generation = ++epoch.current;
-    setNotice('');
     void load(generation);
     return () => { epoch.current++; };
   }, [load]));
@@ -88,11 +93,20 @@ export default function Search() {
     setPending(new Set(pendingRef.current));
     const generation = epoch.current;
     const selected = favoriteIds.has(product._id);
-    setNotice('');
+    const applyFavorite = (value: boolean) => setFavoriteIds(current => {
+      const updated = new Set(current);
+      if (value) updated.add(product._id); else updated.delete(product._id);
+      return updated;
+    });
+    if (action === 'favorite') applyFavorite(!selected);
     try {
       const token = await getValidAccessToken();
-      if (epoch.current !== generation) return;
+      if (epoch.current !== generation) {
+        if (action === 'favorite') applyFavorite(selected);
+        return;
+      }
       if (!token) {
+        if (action === 'favorite') applyFavorite(selected);
         router.push('/login');
         return;
       }
@@ -102,15 +116,10 @@ export default function Search() {
         await setProductFavorite(product._id, !selected, token);
       }
       if (epoch.current !== generation) return;
-      if (action === 'favorite') {
-        setFavoriteIds(current => {
-          const updated = new Set(current);
-          if (selected) updated.delete(product._id); else updated.add(product._id);
-          return updated;
-        });
-      }
-      setNotice(action === 'cart' ? `${product.name} added to cart` : selected ? 'Removed from favorites' : 'Added to favorites');
+      showAlert(action === 'cart' ? product.name + ' has been added to your cart.' : selected ? 'Product has been removed from your favorites.' : 'Product has been added to your favorites.',
+        action === 'cart' ? 'Added to Cart' : selected ? 'Removed from Favorites' : 'Added to Favorites');
     } catch (err) {
+      if (action === 'favorite') applyFavorite(selected);
       if (epoch.current !== generation) return;
       if (err instanceof ShoppingError && err.status === 401) {
         router.push('/login');
@@ -120,11 +129,13 @@ export default function Search() {
     } finally {
       pendingRef.current.delete(key);
       setPending(new Set(pendingRef.current));
+      if (!pendingRef.current.size && reloadAfterMutation.current) void load(epoch.current);
     }
   };
 
   return (
     <View style={styles.container}>
+      {feedback}
       <View style={styles.header}>
         <Pressable style={styles.back} onPress={() => router.back()} accessibilityLabel="Go back" accessibilityRole="button">
           <Ionicons name="arrow-back" size={22} color="#171717" />
@@ -143,7 +154,7 @@ export default function Search() {
           <Ionicons name="close-circle" size={21} color="#8B857D" />
         </Pressable>}
       </View>
-      {!!notice && <Text style={styles.notice} accessibilityLiveRegion="polite">{notice}</Text>}
+
       {!!error && <Pressable onPress={() => void load(++epoch.current, true)} style={styles.errorBox} accessibilityRole="button">
         <Text style={styles.error}>{error} Tap to retry.</Text>
       </Pressable>}
@@ -171,8 +182,7 @@ export default function Search() {
           const favorite = favoriteIds.has(item._id);
           const hasPrice = item.price != null && Number.isFinite(Number(item.price));
           const price = Number(item.price);
-          const discounted = item.discountedPrice != null ? Number(item.discountedPrice) : price * (1 - Number(item.discount || 0) / 100);
-          const finalPrice = Number.isFinite(discounted) ? discounted : price;
+          const finalPrice = getFinalPrice(item);
           const onSale = hasPrice && finalPrice < price;
           return (
             <View style={styles.card}>
@@ -196,15 +206,12 @@ export default function Search() {
                 onPress={() => void changeProduct(item, 'favorite')}
                 accessibilityRole="button" accessibilityLabel={`${favorite ? 'Remove' : 'Add'} ${item.name} ${favorite ? 'from' : 'to'} favorites`}
                 accessibilityState={{ selected: favorite, disabled: favoriteBusy || !favoritesReady }}>
-                {favoriteBusy ? <ActivityIndicator size="small" color="#E35B3F" /> : <Ionicons name={favorite ? 'heart' : 'heart-outline'} size={22} color={favorite ? '#E35B3F' : '#777168'} />}
+                <Ionicons name={favorite ? 'heart' : 'heart-outline'} size={22} color={favorite ? '#E35B3F' : '#777168'} />
               </Pressable>
-              <Pressable style={[styles.addButton, (!available || cartBusy) && styles.disabled]} disabled={!available || cartBusy}
-                onPress={() => void changeProduct(item, 'cart')} accessibilityRole="button" accessibilityLabel={`Add ${item.name} to cart`}>
-                {cartBusy ? <ActivityIndicator color="#FFFFFF" size="small" /> : <>
-                  <Ionicons name={available ? 'cart-outline' : 'close-circle-outline'} size={17} color="#FFFFFF" />
-                  <Text style={styles.addText}>{available ? 'Add to Cart' : 'Out of stock'}</Text>
-                </>}
-              </Pressable>
+              <View style={styles.addButtonContainer}>
+                <AddToCartButton name={item.name} pending={cartBusy} unavailable={!available}
+                  onPress={() => void changeProduct(item, 'cart')} />
+              </View>
             </View>
           );
         }}
@@ -236,10 +243,7 @@ const styles = StyleSheet.create({
   prices: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
   price: { fontSize: 16, fontWeight: '900', color: '#171717' },
   oldPrice: { fontSize: 11, color: '#9C968D', textDecorationLine: 'line-through' },
-  addButton: { margin: 10, marginTop: 'auto', minHeight: 40, borderRadius: 11, flexDirection: 'row', gap: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: '#E35B3F' },
-  addText: { fontSize: 12, fontWeight: '800', color: '#FFFFFF' },
-  disabled: { opacity: 0.5 },
-  notice: { marginHorizontal: 18, marginTop: 12, color: '#27653F', fontSize: 13, fontWeight: '600' },
+  addButtonContainer: { margin: 10, marginTop: 'auto', alignItems: 'flex-end' },
   errorBox: { marginHorizontal: 18, marginTop: 10 },
   error: { color: '#A52B22', fontSize: 13 },
   empty: { alignItems: 'center', paddingVertical: 55, paddingHorizontal: 15, gap: 12 },

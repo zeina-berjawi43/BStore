@@ -1,3 +1,4 @@
+import { goBackOrHome } from '../services/navigation';
 import {
   View,
   Text,
@@ -47,9 +48,7 @@ export default function Settings() {
             style={
               styles.backButton
             }
-            onPress={() =>
-              router.push('/')
-            }
+            onPress={goBackOrHome}
           >
 
             <Ionicons

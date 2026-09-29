@@ -4,6 +4,7 @@ import { useTimeouts } from '../hooks/useTimeouts';
 import { request } from '../services/request';
 import {
   View,
+  Alert,
   Text,
   StyleSheet,
   Pressable,
@@ -1182,6 +1183,7 @@ export default function ProductDetails() {
           );
 
 
+          Alert.alert('Could not update favorites', data?.message || 'Please try again.');
           if (
             response.status === 401
           ) {
@@ -1214,6 +1216,7 @@ export default function ProductDetails() {
         );
 
       } catch (error) {
+        Alert.alert('Could not update favorites', error instanceof Error ? error.message : 'Please try again.');
 
         if (__DEV__) { console.log(
           'TOGGLE FAVORITE ERROR:',

@@ -1,7 +1,8 @@
+import { useOfferCarousel } from '../hooks/useOfferCarousel';
 import { getFinalPrice } from '../services/product-price';
 import { ProductImage } from '../components/product-image';
 import { ImageFrame } from '../services/image-frame';
-import { useTimeouts } from '../hooks/useTimeouts';
+import { useProductFeedback } from '../components/product-feedback';
 import { setProductFavorite } from '../services/shoppingService';
 import { request } from '../services/request';
 import {
@@ -150,7 +151,7 @@ const buildImageUrl = (image: any): string => {
 };
 
 export default function Index() {
-  const scheduleTimeout = useTimeouts();
+  const { showAlert, feedback } = useProductFeedback();
   const [initialLoading, setInitialLoading] = useState(true);
   const [products, setProducts] = useState<Product[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
@@ -196,20 +197,17 @@ export default function Index() {
 
   const slideTransitioningRef = useRef(false);
 
-  const offerFade = useRef(new Animated.Value(1)).current;
-  const offerTranslate = useRef(new Animated.Value(0)).current;
+  const { fade: offerFade, translate: offerTranslate, panHandlers: offerPanHandlers } = useOfferCarousel(offerProducts.length, activeOfferIndex, setActiveOfferIndex);
 
   const scrollViewRef = useRef<ScrollView>(null);
   const offersSectionY = useRef(0);
   const accessTokenRef = useRef<string | null>(null);
   const homeLoadedRef = useRef(false);
   const homeGenerationRef = useRef(0);
+  const favoriteBusy = useRef(new Set<string>());
+  const favoriteRevision = useRef(0);
+  const cartBusy = useRef(new Set<string>());
 
-  const [alertVisible, setAlertVisible] = useState(false);
-  const [alertMessage, setAlertMessage] = useState('');
-
-  const alertOpacity = useRef(new Animated.Value(0)).current;
-  const alertTranslateY = useRef(new Animated.Value(-40)).current;
 
   const getAccessToken = async () => {
     const token = await getValidAccessToken();
@@ -541,53 +539,6 @@ export default function Index() {
     slides.length,
   ]);
 
-  useEffect(() => {
-    if (offerProducts.length <= 1) return;
-
-    const interval = setInterval(() => {
-      Animated.parallel([
-        Animated.timing(offerFade, {
-          toValue: 0,
-          duration: 220,
-          useNativeDriver: true,
-        }),
-        Animated.timing(offerTranslate, {
-          toValue: -18,
-          duration: 220,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        setActiveOfferIndex(
-          (previousIndex: number) =>
-            (previousIndex + 1) %
-            offerProducts.length
-        );
-
-        offerTranslate.setValue(18);
-
-        Animated.parallel([
-          Animated.timing(offerFade, {
-            toValue: 1,
-            duration: 300,
-            useNativeDriver: true,
-          }),
-          Animated.spring(offerTranslate, {
-            toValue: 0,
-            friction: 8,
-            tension: 60,
-            useNativeDriver: true,
-          }),
-        ]).start();
-      });
-    }, 3500);
-
-    return () => clearInterval(interval);
-  }, [
-    offerProducts.length,
-    offerFade,
-    offerTranslate,
-  ]);
-
   const panResponder = useMemo(
     () => PanResponder.create({
       onStartShouldSetPanResponder: () => false,
@@ -634,45 +585,6 @@ export default function Index() {
       ),
       animated: true,
     });
-  };
-
-  const showAlert = (message: string) => {
-    setAlertMessage(message);
-    setAlertVisible(true);
-
-    alertOpacity.setValue(0);
-    alertTranslateY.setValue(-40);
-
-    Animated.parallel([
-      Animated.timing(alertOpacity, {
-        toValue: 1,
-        duration: 250,
-        useNativeDriver: true,
-      }),
-      Animated.spring(alertTranslateY, {
-        toValue: 0,
-        friction: 7,
-        tension: 70,
-        useNativeDriver: true,
-      }),
-    ]).start();
-
-    scheduleTimeout(() => {
-      Animated.parallel([
-        Animated.timing(alertOpacity, {
-          toValue: 0,
-          duration: 250,
-          useNativeDriver: true,
-        }),
-        Animated.timing(alertTranslateY, {
-          toValue: -25,
-          duration: 250,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        setAlertVisible(false);
-      });
-    }, 2200);
   };
 
   const convertProduct = (product: any): Product => {
@@ -875,9 +787,11 @@ export default function Index() {
     }
   };
 
+  const cartLoadRevision = useRef(0);
   const loadCartCount = async (
     accessToken?: string | null
   ) => {
+    const revision = ++cartLoadRevision.current;
     try {
       const token =
         accessToken ??
@@ -900,7 +814,7 @@ export default function Index() {
       );
 
       const data = await response.json();
-      if (token !== accessTokenRef.current) return;
+      if (token !== accessTokenRef.current || revision !== cartLoadRevision.current) return;
 
       if (!response.ok) {
         if (__DEV__) { console.log(
@@ -926,6 +840,7 @@ export default function Index() {
 
       setCartCount(count);
     } catch (error) {
+      if (revision !== cartLoadRevision.current) return;
       if (__DEV__) { console.log(
         'LOAD CART COUNT ERROR:',
         error
@@ -937,6 +852,8 @@ export default function Index() {
   const loadFavorites = async (
     accessToken?: string | null
   ) => {
+    const revision = favoriteRevision.current;
+    if (favoriteBusy.current.size) return;
     try {
       const token =
         accessToken ??
@@ -959,7 +876,7 @@ export default function Index() {
       );
 
       const data = await response.json();
-      if (token !== accessTokenRef.current) return;
+      if (token !== accessTokenRef.current || revision !== favoriteRevision.current) return;
 
       if (
         response.status === 401
@@ -1000,6 +917,7 @@ export default function Index() {
         convertedFavorites
       );
     } catch (error) {
+      if (revision !== favoriteRevision.current) return;
       if (__DEV__) { console.log(
         'LOAD FAVORITES ERROR:',
         error
@@ -1073,22 +991,32 @@ export default function Index() {
     });
   };
 
-  const favoriteBusy = useRef(new Set<string>());
-  const cartBusy = useRef(new Set<string>());
   const toggleFavorite = async (product: Product) => {
+    if (!isLoggedIn) { router.push('/login'); return; }
     if (favoriteBusy.current.has(product.id)) return;
     favoriteBusy.current.add(product.id);
+    favoriteRevision.current++;
     const generation = homeGenerationRef.current;
+    const selected = favorites.some(item => item.id === product.id);
+    const apply = (value: boolean) => setFavorites(current => value
+      ? current.some(item => item.id === product.id) ? current : [...current, product]
+      : current.filter(item => item.id !== product.id));
+    apply(!selected);
     try {
       const token = await getAccessToken();
-      if (!token) { router.push('/login'); return; }
-      const selected = favorites.some(item => item.id === product.id);
+      if (!token) { apply(selected); router.push('/login'); return; }
       await setProductFavorite(product.id, !selected, token);
       if (generation !== homeGenerationRef.current) return;
-      setFavorites(current => selected ? current.filter(item => item.id !== product.id)
-        : current.some(item => item.id === product.id) ? current : [...current, product]);
-    } catch (error) { showAlert(error instanceof Error ? error.message : 'Could not update favorites.'); }
-    finally { favoriteBusy.current.delete(product.id); }
+      showAlert(selected ? 'Product has been removed from your favorites.' : 'Product has been added to your favorites.',
+        selected ? 'Removed from Favorites' : 'Added to Favorites');
+    } catch (error) {
+      apply(selected);
+      if (generation !== homeGenerationRef.current) return;
+      showAlert(error instanceof Error ? error.message : 'Could not update favorites.', 'Could not update favorites');
+    } finally {
+      favoriteBusy.current.delete(product.id);
+      if (generation !== homeGenerationRef.current && !favoriteBusy.current.size) void loadFavorites();
+    }
   };
 
   const isFavorite = (
@@ -1225,53 +1153,7 @@ export default function Index() {
 
   return (
     <View style={styles.container}>
-      {alertVisible ? (
-        <Animated.View
-          style={[
-            styles.homeAlert,
-            {
-              opacity: alertOpacity,
-              transform: [
-                {
-                  translateY:
-                    alertTranslateY,
-                },
-              ],
-            },
-          ]}
-        >
-          <View style={styles.homeAlertIcon}>
-            <Ionicons
-              name="checkmark"
-              size={20}
-              color="#FFFFFF"
-            />
-          </View>
-
-          <View style={styles.homeAlertContent}>
-            <Text
-              style={styles.homeAlertTitle}
-            >
-              Added to Cart
-            </Text>
-
-            <Text
-              style={
-                styles.homeAlertMessage
-              }
-              numberOfLines={2}
-            >
-              {alertMessage}
-            </Text>
-          </View>
-
-          <Ionicons
-            name="cart-outline"
-            size={21}
-            color="#E35B3F"
-          />
-        </Animated.View>
-      ) : null}
+      {feedback}
 
       <ScrollView
         ref={scrollViewRef}
@@ -1584,41 +1466,7 @@ export default function Index() {
                       product
                     )
                   }
-                  onAddToCart={() => {
-                    const discount =
-                      Number(
-                        product.discount ||
-                          0
-                      );
-
-                    if (
-                      discount >
-                        0 &&
-                      product.price !==
-                        undefined
-                    ) {
-                      const discountedPrice =
-                        Number(
-                          (
-                            product.price *
-                            (1 -
-                              discount /
-                                100)
-                          ).toFixed(
-                            2
-                          )
-                        );
-
-                      addToCart(
-                        product,
-                        discountedPrice
-                      );
-                    } else {
-                      addToCart(
-                        product
-                      );
-                    }
-                  }}
+                  onAddToCart={() => void addToCart(product, getFinalPrice(product))}
                 />
               )
             )
@@ -1768,6 +1616,7 @@ export default function Index() {
 
         {activeOffer ? (
           <Animated.View
+            {...offerPanHandlers}
             style={[
               styles.offerShowcase,
               {
@@ -1877,12 +1726,7 @@ export default function Index() {
                       }
                     >
                       $
-                      {Number(
-                        activeOffer.price *
-                          (1 -
-                            activeOffer.discount /
-                              100)
-                      ).toFixed(2)}
+                      {getFinalPrice(activeOffer).toFixed(2)}
                     </Text>
                   </View>
                 ) : (
@@ -1920,20 +1764,7 @@ export default function Index() {
                       return;
                     }
 
-                    const discountedPrice =
-                      activeOffer.price *
-                      (1 -
-                        activeOffer.discount /
-                          100);
-
-                    addToCart(
-                      activeOffer,
-                      Number(
-                        discountedPrice.toFixed(
-                          2
-                        )
-                      )
-                    );
+                    void addToCart(activeOffer, getFinalPrice(activeOffer));
                   }}
                 >
                   <Text
@@ -2023,7 +1854,7 @@ export default function Index() {
             styles.navItem
           }
           onPress={() =>
-            router.replace('/')
+            router.dismissTo('/')
           }
         >
           <View
@@ -2418,20 +2249,13 @@ function TopSellingProductRow({
             {isLoggedIn &&
             product.price !==
               undefined ? (
-              <Text
-                style={[
-                  styles.topSellingPrice,
-                  !isAvailable
-                    ? styles.unavailableTopSellingPrice
-                    : null,
-                ]}
-                numberOfLines={1}
-              >
-                $
-                {Number(
-                  product.price
-                ).toFixed(2)}
-              </Text>
+              <View style={{ flex: 1 }}>
+                {Number(product.discount) > 0 && <Text style={{ textDecorationLine: 'line-through', color: '#817B71', fontSize: 9 }}>${Number(product.price).toFixed(2)}</Text>}
+                <Text style={[styles.topSellingPrice, !isAvailable && styles.unavailableTopSellingPrice]} numberOfLines={1}>
+                  ${getFinalPrice(product).toFixed(2)}
+                </Text>
+                {Number(product.discount) > 0 && <Text style={{ color: '#E35B3F', fontSize: 9, fontWeight: '800' }}>{product.discount}% OFF</Text>}
+              </View>
             ) : (
               <Text
                 style={
@@ -2667,59 +2491,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingTop: 19,
     paddingBottom: 20,
-  },
-
-  homeAlert: {
-    position: 'absolute',
-    top: 55,
-    left: 18,
-    right: 18,
-    zIndex: 9999,
-    minHeight: 67,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    paddingVertical: 11,
-    paddingHorizontal: 13,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E9E1D6',
-    shadowColor: '#171717',
-    shadowOffset: {
-      width: 0,
-      height: 7,
-    },
-    shadowOpacity: 0.13,
-    shadowRadius: 15,
-    elevation: 10,
-  },
-
-  homeAlertIcon: {
-    width: 41,
-    height: 41,
-    borderRadius: 21,
-    backgroundColor: '#E35B3F',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  homeAlertContent: {
-    flex: 1,
-    marginLeft: 12,
-    marginRight: 10,
-  },
-
-  homeAlertTitle: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: '#171717',
-    marginBottom: 3,
-  },
-
-  homeAlertMessage: {
-    fontSize: 11.5,
-    color: '#777168',
-    lineHeight: 16,
   },
 
   header: {

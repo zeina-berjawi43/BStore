@@ -1,15 +1,15 @@
-import { useEffect } from 'react';
+import { useCallback } from 'react';
 import { View, Image, StyleSheet } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 
 export default function Loading() {
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     const timer = setTimeout(() => {
-      router.replace('/');
+      router.dismissTo('/');
     }, 1500);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, []));
 
   return (
     <View style={styles.container}>

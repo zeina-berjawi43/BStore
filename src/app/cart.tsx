@@ -1,3 +1,4 @@
+import { goBackOrHome } from '../services/navigation';
 import { ProductImage } from '../components/product-image';
 import { ImageFrame } from '../services/image-frame';
 import { request } from '../services/request';
@@ -357,9 +358,7 @@ export default function Cart() {
             styles.backButton
           }
 
-          onPress={() =>
-            router.replace('/')
-          }
+          onPress={goBackOrHome}
         >
 
           <Ionicons
@@ -457,7 +456,7 @@ export default function Cart() {
             }
 
             onPress={() =>
-              router.replace('/')
+              router.dismissTo('/')
             }
           >
 

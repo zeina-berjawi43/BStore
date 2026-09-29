@@ -1,3 +1,5 @@
+import { useProductPending } from '../hooks/useProductPending';
+import { AddToCartButton } from '../components/add-to-cart-button';
 import { getFinalPrice } from '../services/product-price';
 import { ProductImage } from '../components/product-image';
 import { ImageFrame } from '../services/image-frame';
@@ -11,7 +13,6 @@ import {
   Pressable,
   ScrollView,
   Animated,
-  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -354,6 +355,7 @@ const FavoriteButton = memo(
                 previousFavorite
               );
             }
+            Alert.alert('Could not update favorites', data?.message || 'Please try again.');
             return;
           }
           /*
@@ -444,8 +446,7 @@ export default function CategoryProducts() {
 }
 
 function CategoryProductsScreen({ category }: { category: string }) {
-  const cartPending = useRef(false);
-  const [addingProduct, setAddingProduct] = useState<string | null>(null);
+  const cartPending = useProductPending();
   const scheduleTimeout = useTimeouts();
   /* =======================================================
      STATES
@@ -836,7 +837,9 @@ function CategoryProductsScreen({ category }: { category: string }) {
   /* =======================================================
      LOAD CART
   ======================================================= */
+  const cartLoadRevision = useRef(0);
   const loadCart = async () => {
+    const revision = ++cartLoadRevision.current;
     try {
       const accessToken =
         await getValidAccessToken();
@@ -861,6 +864,7 @@ function CategoryProductsScreen({ category }: { category: string }) {
         );
       const data =
         await response.json();
+      if (revision !== cartLoadRevision.current) return;
       if (
         response.status === 401
       ) {
@@ -903,6 +907,7 @@ function CategoryProductsScreen({ category }: { category: string }) {
         count
       );
     } catch (error) {
+      if (revision !== cartLoadRevision.current) return;
       if (__DEV__) { console.log(
         'LOAD CART ERROR:',
         error
@@ -1070,9 +1075,7 @@ function CategoryProductsScreen({ category }: { category: string }) {
     ) {
       return;
     }
-    if (cartPending.current) return;
-    cartPending.current = true;
-    setAddingProduct(product._id);
+    if (!cartPending.begin(product._id)) return;
     try {
       const accessToken =
         await getValidAccessToken();
@@ -1128,32 +1131,7 @@ function CategoryProductsScreen({ category }: { category: string }) {
         );
         return;
       }
-      if (
-        data?.cart?.items &&
-        Array.isArray(
-          data.cart.items
-        )
-      ) {
-        const count =
-          data.cart.items.reduce(
-            (
-              total: number,
-              item: any
-            ) =>
-              total +
-              (
-                Number(
-                  item.quantity
-                ) || 0
-              ),
-            0
-          );
-        setCartCount(
-          count
-        );
-      } else {
-        await loadCart();
-      }
+      await loadCart();
       showAlert(
         `${product.name} has been added to your cart.`
       );
@@ -1166,8 +1144,7 @@ function CategoryProductsScreen({ category }: { category: string }) {
         'Could not add product to cart.'
       );
     } finally {
-      cartPending.current = false;
-      setAddingProduct(null);
+      cartPending.end(product._id);
     }
   };
   /* =======================================================
@@ -1761,25 +1738,9 @@ function CategoryProductsScreen({ category }: { category: string }) {
                           </Text>
                         )}
                       </View>
-                      <Pressable
-                        style={[
-                          styles.addButton,
-                          (isOutOfStock || addingProduct !== null) &&
-                            styles.addButtonDisabled,
-                        ]}
-                        onPress={(event) => {
-                          event.stopPropagation();
-                          addToCart(
-                            product
-                          );
-                        }}
-                        hitSlop={5}
-                        disabled={isOutOfStock || addingProduct !== null}
-                      >
-                        {addingProduct === product._id ? <ActivityIndicator size="small" color="#FFFFFF" /> : (
-                        <Ionicons name="add" size={20} color="#FFFFFF" />
-                        )}
-                      </Pressable>
+                      <AddToCartButton name={product.name}
+                        pending={cartPending.pending.has(product._id)} unavailable={isOutOfStock}
+                        onPress={() => void addToCart(product)} />
                     </View>
                   </Pressable>
                 );
@@ -2225,17 +2186,6 @@ const styles =
     fontWeight: '700',
     color: '#817B71',
     lineHeight: 15,
-  },
-  addButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 12,
-    backgroundColor: '#171717',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addButtonDisabled: {
-    backgroundColor: '#B8B2A9',
   },
   emptyContainer: {
     alignItems: 'center',

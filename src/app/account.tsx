@@ -1,3 +1,4 @@
+import { goBackOrHome } from '../services/navigation';
 import { getSessionSnapshot } from '../services/tokenStorage';
 import {
   View,
@@ -201,9 +202,7 @@ export default function Account() {
 
           <Pressable
             style={styles.backButton}
-            onPress={() =>
-              router.replace('/')
-            }
+            onPress={goBackOrHome}
           >
 
             <Ionicons
@@ -439,55 +438,7 @@ export default function Account() {
           </Pressable>
 
 
-          <View style={styles.divider} />
 
-
-          {/* =================================================
-              SETTINGS
-          ================================================= */}
-
-          <Pressable
-            style={styles.row}
-            onPress={() =>
-              router.push('/settings')
-            }
-          >
-
-            <View style={styles.iconContainer}>
-
-              <Ionicons
-                name="settings-outline"
-                size={22}
-                color="#E35B3F"
-              />
-
-            </View>
-
-
-            <View style={styles.rowText}>
-
-              <Text style={styles.rowTitle}>
-                Settings
-              </Text>
-
-              <Text style={styles.rowSubtitle}>
-                App settings and preferences
-              </Text>
-
-            </View>
-
-
-            <View style={styles.chevronContainer}>
-
-              <Ionicons
-                name="chevron-forward"
-                size={18}
-                color="#817B71"
-              />
-
-            </View>
-
-          </Pressable>
 
         </View>
 
