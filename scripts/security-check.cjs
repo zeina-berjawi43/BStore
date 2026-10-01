@@ -242,9 +242,10 @@ test('root layout gates restoration, remounts on account changes, protects priva
   const navigation = { isReady: () => true, resetRoot: state => resets.push(state) };
   const mocks = {
     react: hooks,
-    'expo-router': { Stack, router: {}, useRootNavigationState: () => ({ key: 'root' }), useNavigationContainerRef: () => navigation },
+    'expo-router': { Stack, router: {}, usePathname: () => '/', useRootNavigationState: () => ({ key: 'root' }), useNavigationContainerRef: () => navigation },
     'react-native': { Platform: { OS: 'web' }, View: 'View', Text: 'Text', Pressable: 'Pressable', ActivityIndicator: 'ActivityIndicator' },
     'react-native-safe-area-context': { SafeAreaView: 'SafeAreaView' },
+    '../components/startup-screen': { StartupScreen: 'StartupScreen' },
     'expo-notifications': {}, 'expo-constants': {},
     '../services/tokenStorage': tokens, '../services/sessionRoutes': routes,
     '../services/pushService': { installForegroundHandler: () => {}, syncPush: async () => {} },

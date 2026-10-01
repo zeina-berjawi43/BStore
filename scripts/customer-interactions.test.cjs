@@ -192,7 +192,7 @@ test('Top Selling renders old/current/percentage only for offers and Recently Ad
   for (const name of ['TopSellingProductRow', 'RecentProduct']) {
     const fn = ast.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === name);
     components[name] = execute(fn.getText(ast) + '\nexports.component = ' + name, {
-      require: () => ({ jsx, jsxs: jsx }), useRef: initial => ({ current: initial }), useEffect: () => {},
+      require: () => ({ jsx, jsxs: jsx }), useRef: initial => ({ current: initial }), useState: initial => [typeof initial === 'function' ? initial() : initial], useEffect: () => {},
       Animated: { Value: class { interpolate() { return 0; } } }, styles: {}, View: 'View', Text: 'Text', Pressable: 'Pressable', ProductImage: 'ProductImage', Ionicons: 'Icon',
       getFinalPrice: pricing.getFinalPrice,
     }).component;
@@ -241,33 +241,72 @@ test('shared pricing preserves rounding, backend overrides and Recently Added of
   for (const file of ['index.tsx', 'search.tsx', 'favorites.tsx', 'category-products.tsx', 'department-categories.tsx']) assert.match(source('app/' + file), /import \{ getFinalPrice \} from '..\/services\/product-price'/);
 });
 
-test('Offers supports drag both ways, resets one auto timer, wraps index and cleans up on blur', () => {
-  const env = hooks(), timers = new Map(); let nextTimer = 0, index = 0;
-  const Animated = {
-    Value: class { constructor(value) { this.value = value; } setValue(value) { this.value = value; } stopAnimation() {} },
-    timing: (value, config) => ({ start: fn => { value.setValue(config.toValue); fn?.({ finished: true }); } }),
-    spring: (value, config) => ({ start: fn => { value.setValue(config.toValue); fn?.({ finished: true }); } }),
-    parallel: animations => ({ start: fn => { animations.forEach(animation => animation.start()); fn?.({ finished: true }); } }),
-  };
+
+test('shared native carousel wraps once, resets autoplay, pauses on touch/background and cleans up', () => {
+  const env = hooks(), timers = new Map(), scrolls = []; let next = 0, current = 0, appChange;
+  env.react.useLayoutEffect = env.react.useEffect;
   const { useOfferCarousel } = execute(source('hooks/useOfferCarousel.ts'), {
-    setTimeout: fn => { const id = ++nextTimer; timers.set(id, fn); return id; }, clearTimeout: id => timers.delete(id),
-    require: name => name === 'react' ? env.react : name === 'expo-router' ? { useFocusEffect: fn => env.react.useEffect(fn, [fn]) } : { Animated, PanResponder: { create: panHandlers => ({ panHandlers }) } },
+    setTimeout: (fn, delay) => { const id = ++next; timers.set(id, { fn, delay }); return id; },
+    clearTimeout: id => timers.delete(id),
+    require: name => name === 'react' ? env.react : name === 'expo-router'
+      ? { useFocusEffect: fn => env.react.useEffect(fn, [fn]) }
+      : { AppState: { currentState: 'active', addEventListener: (_, fn) => { appChange = fn; return { remove() {} }; } } },
   });
-  const setIndex = update => { index = update(index); };
-  const render = () => env.render(() => useOfferCarousel(3, index, setIndex));
-  render(); let carousel = render();
-  assert.equal(timers.size, 1);
-  assert.equal(carousel.panHandlers.onMoveShouldSetPanResponder(null, { dx: 2, dy: 40 }), false);
-  assert.equal(carousel.panHandlers.onMoveShouldSetPanResponder(null, { dx: -60, dy: 2 }), true);
-  carousel.panHandlers.onPanResponderGrant(); assert.equal(timers.size, 0);
-  carousel.panHandlers.onPanResponderMove(null, { dx: -60 }); assert.equal(carousel.translate.value, -30);
-  carousel.panHandlers.onPanResponderRelease(null, { dx: -60, vx: 0 });
-  assert.equal(index, 1); carousel = render(); assert.equal(timers.size, 1);
-  const tick = [...timers.values()][0]; timers.clear(); tick();
-  assert.equal(index, 2); carousel = render(); assert.equal(timers.size, 1);
-  carousel.panHandlers.onPanResponderGrant(); carousel.panHandlers.onPanResponderRelease(null, { dx: -60, vx: 0 });
-  assert.equal(index, 0); carousel = render();
-  carousel.panHandlers.onPanResponderGrant(); carousel.panHandlers.onPanResponderRelease(null, { dx: 60, vx: 0 });
-  assert.equal(index, 2); render(); assert.equal(timers.size, 1);
+  const change = value => { current = value; };
+  const render = () => env.render(() => useOfferCarousel(3, 320, change));
+  let carousel = render(); carousel.scrollRef.current = { scrollTo: args => scrolls.push(args) };
+  const countAuto = () => [...timers.values()].filter(t => t.delay === 3500).length;
+  const scroll = x => carousel.handlers.onScroll({ nativeEvent: { contentOffset: { x } } });
+  const swipe = x => {
+    carousel.handlers.onTouchStart(); carousel.handlers.onScrollBeginDrag();
+    assert.equal(countAuto(), 0); scroll(x);
+    carousel.handlers.onTouchEnd(); carousel.handlers.onScrollEndDrag();
+    carousel.handlers.onMomentumScrollEnd(); carousel.handlers.onMomentumScrollEnd();
+    carousel = render();
+  };
+  assert.equal(countAuto(), 1);
+  swipe(640); assert.equal(current, 1); assert.equal(countAuto(), 1);
+  swipe(640); assert.equal(current, 2);
+  swipe(640); assert.equal(current, 0);
+  swipe(0); assert.equal(current, 2);
+  swipe(320); assert.equal(current, 2, 'small drag snapped back does not change index');
+  carousel.handlers.onTouchStart(); assert.equal(countAuto(), 0);
+  carousel.handlers.onTouchEnd(); assert.equal(countAuto(), 1);
+  const autoEntry = [...timers].find(([, t]) => t.delay === 3500);
+  timers.delete(autoEntry[0]); autoEntry[1].fn();
+  assert.deepEqual(JSON.parse(JSON.stringify(scrolls.at(-1))), { x: 640, animated: true });
+  scroll(510); carousel.handlers.onTouchStart(); carousel.handlers.onTouchEnd();
+  assert.equal(scrolls.at(-1).x, 640, 'tap interrupting autoplay settles instead of stranding the timer');
+  scroll(640); carousel.handlers.onMomentumScrollEnd(); carousel = render();
+  assert.equal(current, 0); assert.equal(countAuto(), 1);
+  appChange('background'); assert.equal(timers.size, 0);
+  appChange('active'); assert.equal(countAuto(), 1);
   env.unmount(); assert.equal(timers.size, 0);
+});
+
+test('single-item carousel never starts autoplay', () => {
+  const env = hooks(); env.react.useLayoutEffect = env.react.useEffect;
+  const { useOfferCarousel } = execute(source('hooks/useOfferCarousel.ts'), {
+    setTimeout: () => assert.fail('single item must not auto-advance'), clearTimeout() {},
+    require: name => name === 'react' ? env.react : name === 'expo-router'
+      ? { useFocusEffect: fn => env.react.useEffect(fn, [fn]) }
+      : { AppState: { currentState: 'active', addEventListener: () => ({ remove() {} }) } },
+  });
+  env.render(() => useOfferCarousel(1, 320, () => {})); env.unmount();
+});
+
+test('framed image uses the same normalized square crop in wide, tall and square customer slots', () => {
+  const geometry = execute(source('services/image-frame.ts'));
+  for (const dimensions of [[1200, 400], [400, 1200], [600, 600]]) {
+    for (const frame of [{ zoom: 1, x: 0, y: 0 }, { zoom: 2.5, x: -1, y: 1 }, { zoom: 4, x: 1, y: -1 }]) {
+      const expected = geometry.frameGeometry(...dimensions, 1, 1, frame);
+      for (const [width, height] of [[160, 90], [90, 160], [120, 120]]) {
+        const side = Math.min(width, height);
+        const actual = geometry.frameGeometry(...dimensions, side, side, frame);
+        for (const key of ['width', 'height', 'left', 'top']) assert.ok(Math.abs(actual[key] / side - expected[key]) < 1e-9);
+      }
+    }
+  }
+  assert.match(source('components/product-image.tsx'), /Math.min\(box.width, box.height\)/);
+  assert.match(source('app/product-details.tsx'), /presentation="original"/);
 });

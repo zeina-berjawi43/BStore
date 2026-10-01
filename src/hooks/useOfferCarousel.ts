@@ -1,77 +1,98 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, PanResponder } from 'react-native';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { AppState, NativeScrollEvent, NativeSyntheticEvent, ScrollView } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 
-// Keep the existing showcase and fade/slide transition, adding a native drag gesture.
-export function useOfferCarousel(count: number, index: number, setIndex: (update: (current: number) => number) => void) {
-  const [fade] = useState(() => new Animated.Value(1));
-  const [translate] = useState(() => new Animated.Value(0));
-  const busy = useRef(false);
-  const dragging = useRef(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [focused, setFocused] = useState(false);
-  const [interaction, setInteraction] = useState(0);
-  const clearTimer = useCallback(() => {
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = null;
+// Shared by Home and Offers. Native scrolling owns drag, velocity and snapping.
+export function useOfferCarousel(count: number, width: number, onIndexChange: (index: number) => void) {
+  const [index, setIndex] = useState(0);
+  const scrollRef = useRef<ScrollView>(null);
+  const auto = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const settle = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const state = useRef({ focused: false, active: AppState.currentState === 'active', dragging: false, touching: false, moving: false, x: width });
+  const clearTimers = useCallback(() => {
+    if (auto.current) clearTimeout(auto.current);
+    if (settle.current) clearTimeout(settle.current);
+    auto.current = null; settle.current = null;
   }, []);
-  useFocusEffect(useCallback(() => {
-    setFocused(true);
-    return () => {
-      setFocused(false);
-      clearTimer();
-      fade.stopAnimation(); translate.stopAnimation();
-      fade.setValue(1); translate.setValue(0);
-      busy.current = false; dragging.current = false;
-    };
-  }, [clearTimer, fade, translate]));
-  const advance = useCallback((direction: number) => {
-    if (count <= 1 || busy.current) return;
-    busy.current = true;
-    clearTimer();
-    Animated.parallel([
-      Animated.timing(fade, { toValue: 0, duration: 220, useNativeDriver: true }),
-      Animated.timing(translate, { toValue: -18 * direction, duration: 220, useNativeDriver: true }),
-    ]).start(({ finished }) => {
-      if (!finished) { busy.current = false; return; }
-      setIndex(current => (current + direction + count) % count);
-      translate.setValue(18 * direction);
-      Animated.parallel([
-        Animated.timing(fade, { toValue: 1, duration: 300, useNativeDriver: true }),
-        Animated.spring(translate, { toValue: 0, friction: 8, tension: 60, useNativeDriver: true }),
-      ]).start(() => { busy.current = false; });
-    });
-  }, [clearTimer, count, fade, translate, setIndex]);
-  useEffect(() => {
-    clearTimer();
-    if (focused && count > 1 && !dragging.current) {
-      timer.current = setTimeout(() => advance(1), 3500);
+  const restart = useCallback(() => {
+    if (auto.current) clearTimeout(auto.current);
+    auto.current = null;
+    const s = state.current;
+    if (count < 2 || !s.focused || !s.active || s.dragging || s.touching || s.moving) return;
+    auto.current = setTimeout(() => {
+      auto.current = null;
+      state.current.moving = true;
+      scrollRef.current?.scrollTo({ x: width * 2, animated: true });
+    }, 3500);
+  }, [count, width]);
+  const finish = useCallback(() => {
+    const s = state.current;
+    if (s.dragging || !s.focused || !s.active) return;
+    if (settle.current) clearTimeout(settle.current);
+    settle.current = null;
+    const page = Math.max(0, Math.min(2, Math.round(s.x / width)));
+    if (Math.abs(s.x - page * width) > 1) return;
+    s.moving = false;
+    if (count > 1 && page !== 1) {
+      // Consume this endpoint synchronously: end-momentum and idle fallback may coincide.
+      s.x = width;
+      setIndex(current => (current + page - 1 + count) % count);
     }
-    return clearTimer;
-  }, [advance, clearTimer, count, focused, index, interaction]);
-  useEffect(() => {
-    fade.stopAnimation(); translate.stopAnimation();
-    fade.setValue(1); translate.setValue(0); busy.current = false;
-  }, [count, fade, translate]);
-  // PanResponder stores these event callbacks; it does not invoke them during render.
-  // eslint-disable-next-line react-hooks/refs
-  const panResponder = useMemo(() => PanResponder.create({
-    onStartShouldSetPanResponder: () => false,
-    onMoveShouldSetPanResponder: (_, gesture) => count > 1 && !busy.current
-      && Math.abs(gesture.dx) > 10 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.5,
-    onPanResponderGrant: () => { dragging.current = true; clearTimer(); },
-    onPanResponderMove: (_, gesture) => translate.setValue(gesture.dx * 0.5),
-    onPanResponderRelease: (_, gesture) => {
-      dragging.current = false;
-      if (Math.abs(gesture.dx) > 40 || Math.abs(gesture.vx) > 0.5) advance(gesture.dx < 0 ? 1 : -1);
-      else Animated.spring(translate, { toValue: 0, useNativeDriver: true }).start();
-      setInteraction(current => current + 1);
+    else restart();
+  }, [count, restart, width]);
+  useLayoutEffect(() => {
+    state.current.x = count > 1 ? width : 0;
+    state.current.moving = false;
+    scrollRef.current?.scrollTo({ x: state.current.x, animated: false });
+    onIndexChange(index);
+    restart();
+  }, [count, index, onIndexChange, restart, width]);
+  useFocusEffect(useCallback(() => {
+    state.current.focused = true;
+    restart();
+    const subscription = AppState.addEventListener('change', status => {
+      state.current.active = status === 'active';
+      clearTimers();
+      if (state.current.active) {
+        state.current.dragging = false; state.current.touching = false; state.current.moving = false;
+        state.current.x = count > 1 ? width : 0;
+        scrollRef.current?.scrollTo({ x: state.current.x, animated: false });
+        restart();
+      }
+    });
+    return () => {
+      state.current.focused = false;
+      state.current.dragging = false; state.current.touching = false; state.current.moving = false;
+      state.current.x = count > 1 ? width : 0;
+      scrollRef.current?.scrollTo({ x: state.current.x, animated: false });
+      clearTimers(); subscription.remove();
+    };
+  }, [clearTimers, count, restart, width]));
+  const scheduleFinish = () => {
+    if (!state.current.focused || !state.current.active) return;
+    if (settle.current) clearTimeout(settle.current);
+    settle.current = setTimeout(finish, 160);
+  };
+  const releaseTouch = () => {
+    const s = state.current;
+    s.touching = false;
+    if (!s.dragging && s.moving && s.focused && s.active) {
+      // A tap can interrupt an automatic animation without producing a drag-end.
+      const page = Math.max(0, Math.min(2, Math.round(s.x / width)));
+      scrollRef.current?.scrollTo({ x: page * width, animated: true });
+      scheduleFinish();
+    } else restart();
+  };
+  return { index, scrollRef, handlers: {
+    onTouchStart: () => { state.current.touching = true; clearTimers(); },
+    onTouchEnd: releaseTouch,
+    onTouchCancel: releaseTouch,
+    onScrollBeginDrag: () => { clearTimers(); state.current.dragging = true; state.current.moving = true; },
+    onScrollEndDrag: () => { state.current.dragging = false; scheduleFinish(); },
+    onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      state.current.x = event.nativeEvent.contentOffset.x;
+      if (!state.current.dragging) scheduleFinish();
     },
-    onPanResponderTerminate: () => {
-      dragging.current = false;
-      Animated.spring(translate, { toValue: 0, useNativeDriver: true }).start();
-      setInteraction(current => current + 1);
-    },
-  }), [advance, clearTimer, count, translate]);
-  return { fade, translate, panHandlers: panResponder.panHandlers };
+    onMomentumScrollEnd: finish,
+  } };
 }

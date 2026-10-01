@@ -1,4 +1,6 @@
-import { useOfferCarousel } from '../hooks/useOfferCarousel';
+import { PagedCarousel } from '../components/paged-carousel';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { StartupScreen } from '../components/startup-screen';
 import { getFinalPrice } from '../services/product-price';
 import { ProductImage } from '../components/product-image';
 import { ImageFrame } from '../services/image-frame';
@@ -12,9 +14,7 @@ import {
   Pressable,
   ScrollView,
   Animated,
-  PanResponder,
   ActivityIndicator,
-  Dimensions,
   RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,12 +22,11 @@ import { Image } from 'expo-image';
 import { fetchCatalog, readPublicCatalog } from '../services/catalogService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState, useRef, useEffect, useMemo } from 'react';
+import { useCallback, useState, useRef, useEffect } from 'react';
 import { getValidAccessToken } from '../services/authService';
 
 const API_URL = 'https://mystore-backend-u6ey.onrender.com';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 type Product = {
   id: string;
@@ -191,14 +190,6 @@ export default function Index() {
   const [slidesLoading, setSlidesLoading] = useState(true);
   const [currentSlide, setCurrentSlide] = useState(0);
 
-  const slideAnimation = useRef(
-    new Animated.Value(1)
-  ).current;
-
-  const slideTransitioningRef = useRef(false);
-
-  const { fade: offerFade, translate: offerTranslate, panHandlers: offerPanHandlers } = useOfferCarousel(offerProducts.length, activeOfferIndex, setActiveOfferIndex);
-
   const scrollViewRef = useRef<ScrollView>(null);
   const offersSectionY = useRef(0);
   const accessTokenRef = useRef<string | null>(null);
@@ -263,9 +254,6 @@ export default function Index() {
             a.order - b.order
         );
 
-      slideAnimation.stopAnimation();
-      slideTransitioningRef.current = false;
-      slideAnimation.setValue(1);
 
       setSlides(convertedSlides);
 
@@ -432,150 +420,6 @@ export default function Index() {
       setCategoriesLoading(false);
     }
   };
-
-  useEffect(() => {
-    if (slides.length <= 1) return;
-
-    if (!slideTransitioningRef.current) return;
-
-    const fadeIn = Animated.timing(
-      slideAnimation,
-      {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }
-    );
-
-    fadeIn.start(({ finished }) => {
-      if (finished) {
-        slideTransitioningRef.current = false;
-      }
-    });
-  }, [
-    currentSlide,
-    slides.length,
-    slideAnimation,
-  ]);
-
-  const goToNextSlide = useCallback(() => {
-    if (slides.length <= 1) return;
-
-    if (slideTransitioningRef.current) {
-      return;
-    }
-
-    slideTransitioningRef.current = true;
-
-    slideAnimation.stopAnimation();
-
-    Animated.timing(slideAnimation, {
-      toValue: 0,
-      duration: 220,
-      useNativeDriver: true,
-    }).start(({ finished }) => {
-      if (!finished) {
-        slideAnimation.setValue(1);
-        slideTransitioningRef.current = false;
-        return;
-      }
-
-      setCurrentSlide(
-        previousSlide =>
-          (previousSlide + 1) %
-          slides.length
-      );
-    });
-  }, [
-    slideAnimation,
-    slides.length,
-  ]);
-
-  const goToPreviousSlide = useCallback(() => {
-    if (slides.length <= 1) return;
-
-    if (slideTransitioningRef.current) {
-      return;
-    }
-
-    slideTransitioningRef.current = true;
-
-    slideAnimation.stopAnimation();
-
-    Animated.timing(slideAnimation, {
-      toValue: 0,
-      duration: 220,
-      useNativeDriver: true,
-    }).start(({ finished }) => {
-      if (!finished) {
-        slideAnimation.setValue(1);
-        slideTransitioningRef.current = false;
-        return;
-      }
-
-      setCurrentSlide(
-        previousSlide =>
-          (previousSlide -
-            1 +
-            slides.length) %
-          slides.length
-      );
-    });
-  }, [
-    slideAnimation,
-    slides.length,
-  ]);
-
-  useEffect(() => {
-    if (slides.length <= 1) return;
-
-    const interval = setInterval(() => {
-      goToNextSlide();
-    }, 3500);
-
-    return () => clearInterval(interval);
-  }, [
-    goToNextSlide,
-    slides.length,
-  ]);
-
-  const panResponder = useMemo(
-    () => PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-
-      onMoveShouldSetPanResponder: (
-        _,
-        gestureState
-      ) => {
-        const horizontalMovement =
-          Math.abs(gestureState.dx);
-
-        const verticalMovement =
-          Math.abs(gestureState.dy);
-
-        return (
-          horizontalMovement > 12 &&
-          horizontalMovement >
-            verticalMovement
-        );
-      },
-
-      onPanResponderTerminationRequest: () =>
-        false,
-
-      onPanResponderRelease: (
-        _,
-        gestureState
-      ) => {
-        if (gestureState.dx < -50) {
-          goToNextSlide();
-        } else if (gestureState.dx > 50) {
-          goToPreviousSlide();
-        }
-      },
-    }),
-    [goToNextSlide, goToPreviousSlide]
-  );
 
   const scrollToOffers = () => {
     scrollViewRef.current?.scrollTo({
@@ -956,8 +800,11 @@ export default function Index() {
       }
       requests.push(loadProducts(token, force));
       const previous = sectionsRef.current;
+      // This async loader runs from focus/refresh events, never during render.
+      // eslint-disable-next-line react-hooks/purity
       if (force || !previous || previous.token !== token || Date.now() - previous.time > 60000) {
         requests.push(loadOffers(token), loadTopSelling(token));
+        // eslint-disable-next-line react-hooks/purity -- Event-driven cache timestamp.
         sectionsRef.current = { token, time: Date.now() };
       }
       if (loggedIn) {
@@ -1140,19 +987,11 @@ export default function Index() {
   const recentlyAdded =
     products.slice(0, 4);
 
-  const activeSlide =
-    slides[currentSlide];
-
-  const activeOffer =
-    offerProducts[
-      activeOfferIndex
-    ];
-
   // Initial loading owns the screen; refresh owns only RefreshControl.
   if (initialLoading) return <StartupLoading />;
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
       {feedback}
 
       <ScrollView
@@ -1213,7 +1052,6 @@ export default function Index() {
         >
           <View
             style={styles.slider}
-            {...panResponder.panHandlers}
           >
             {slidesLoading ? (
               <View
@@ -1268,32 +1106,10 @@ export default function Index() {
                 </Text>
               </View>
             ) : (
-              <View
-                style={
-                  styles.fadeSlideContainer
-                }
-              >
-                <Animated.View
-                  style={[
-                    styles.fadeSlidePane,
-                    {
-                      opacity:
-                        slideAnimation,
-                    },
-                  ]}
-                >
-                  <Image
-                    source={{
-                      uri:
-                        activeSlide?.image,
-                    }}
-                    style={
-                      styles.slideImage
-                    }
-                    contentFit="cover" cachePolicy="memory-disk"
-                  />
-                </Animated.View>
-              </View>
+              <PagedCarousel items={slides} itemKey={slide => slide.id} height={218}
+                onIndexChange={setCurrentSlide}
+                renderItem={slide => <Image source={{ uri: slide.image }} style={styles.slideImage}
+                  contentFit="cover" cachePolicy="memory-disk" />} />
             )}
 
             {slides.length > 1 &&
@@ -1614,22 +1430,10 @@ export default function Index() {
           </Pressable>
         </View>
 
-        {activeOffer ? (
-          <Animated.View
-            {...offerPanHandlers}
-            style={[
-              styles.offerShowcase,
-              {
-                opacity: offerFade,
-                transform: [
-                  {
-                    translateX:
-                      offerTranslate,
-                  },
-                ],
-              },
-            ]}
-          >
+        {offerProducts.length > 0 ? (
+          <View style={styles.offerShowcase}>
+            <PagedCarousel items={offerProducts} itemKey={offer => offer.id} height={184}
+              onIndexChange={setActiveOfferIndex} renderItem={activeOffer => (
             <Pressable
               style={
                 styles.offerShowcasePressable
@@ -1783,7 +1587,8 @@ export default function Index() {
                 </Pressable>
               </View>
             </Pressable>
-          </Animated.View>
+              )} />
+          </View>
         ) : (
           <View
             style={
@@ -2036,12 +1841,12 @@ export default function Index() {
       </View>
 
 
-    </View>
+    </SafeAreaView>
   );
 }
 
 function StartupLoading() {
-  const progress = useRef(new Animated.Value(0)).current;
+  const [progress] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     const animation = Animated.loop(
@@ -2056,12 +1861,7 @@ function StartupLoading() {
   }, [progress]);
 
   return (
-    <View style={styles.startupLoading}>
-      <Image
-        source={require('../../assets/images/loading-screen.png')}
-        style={styles.startupImage}
-        contentFit="contain"
-      />
+    <StartupScreen>
       <View style={styles.startupDots}>
         {[0, 1, 2].map(index => (
           <Animated.View
@@ -2083,7 +1883,7 @@ function StartupLoading() {
           />
         ))}
       </View>
-    </View>
+    </StartupScreen>
   );
 }
 
@@ -2102,13 +1902,11 @@ function TopSellingProductRow({
   onFavorite: () => void;
   onAddToCart: () => void;
 }) {
-  const appear = useRef(
-    new Animated.Value(0)
-  ).current;
+  const finalPrice = getFinalPrice(product);
+  const onSale = product.price !== undefined && finalPrice < Number(product.price);
+  const [appear] = useState(() => new Animated.Value(0));
 
-  const pressScale = useRef(
-    new Animated.Value(1)
-  ).current;
+  const [pressScale] = useState(() => new Animated.Value(1));
 
   const isAvailable =
     product.availability !== false;
@@ -2187,6 +1985,9 @@ function TopSellingProductRow({
             contentFit="contain" cachePolicy="memory-disk"
           />
 
+          {onSale && <View style={styles.recentDiscount}>
+            <Text style={styles.recentDiscountText}>{product.discount}% OFF</Text>
+          </View>}
           {!isAvailable ? (
             <View
               style={
@@ -2249,12 +2050,13 @@ function TopSellingProductRow({
             {isLoggedIn &&
             product.price !==
               undefined ? (
-              <View style={{ flex: 1 }}>
-                {Number(product.discount) > 0 && <Text style={{ textDecorationLine: 'line-through', color: '#817B71', fontSize: 9 }}>${Number(product.price).toFixed(2)}</Text>}
-                <Text style={[styles.topSellingPrice, !isAvailable && styles.unavailableTopSellingPrice]} numberOfLines={1}>
-                  ${getFinalPrice(product).toFixed(2)}
+              <View style={styles.topSellingPrices}>
+                <Text style={[styles.topSellingPrice, !isAvailable && styles.unavailableTopSellingPrice]} numberOfLines={1} adjustsFontSizeToFit>
+                  ${finalPrice.toFixed(2)}
                 </Text>
-                {Number(product.discount) > 0 && <Text style={{ color: '#E35B3F', fontSize: 9, fontWeight: '800' }}>{product.discount}% OFF</Text>}
+                {onSale && <Text style={styles.topSellingOldPrice} numberOfLines={1} adjustsFontSizeToFit>
+                  ${Number(product.price).toFixed(2)}
+                </Text>}
               </View>
             ) : (
               <Text
@@ -2313,13 +2115,9 @@ function RecentProduct({
   onPress: () => void;
   onFavorite: () => void;
 }) {
-  const appear = useRef(
-    new Animated.Value(0)
-  ).current;
+  const [appear] = useState(() => new Animated.Value(0));
 
-  const scale = useRef(
-    new Animated.Value(1)
-  ).current;
+  const [scale] = useState(() => new Animated.Value(1));
 
   useEffect(() => {
     Animated.timing(appear, {
@@ -2456,18 +2254,6 @@ function RecentProduct({
 }
 
 const styles = StyleSheet.create({
-  startupLoading: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: '#FFFFFF',
-    zIndex: 9999,
-    elevation: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  startupImage: {
-    width: '100%',
-    height: '100%',
-  },
   startupDots: {
     position: 'absolute',
     bottom: '18%',
@@ -2550,13 +2336,12 @@ const styles = StyleSheet.create({
   /* SLIDESHOW */
 
   sliderWrapper: {
-    width: SCREEN_WIDTH,
-    marginLeft: -18,
+    marginHorizontal: -18,
     marginBottom: 25,
   },
 
   slider: {
-    width: SCREEN_WIDTH,
+    width: '100%',
     height: 218,
     backgroundColor: '#F7F3EC',
     overflow: 'hidden',
@@ -2564,7 +2349,7 @@ const styles = StyleSheet.create({
   },
 
   slideLoading: {
-    width: SCREEN_WIDTH,
+    width: '100%',
     height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
@@ -2591,7 +2376,7 @@ const styles = StyleSheet.create({
   },
 
   emptySlide: {
-    width: SCREEN_WIDTH,
+    width: '100%',
     height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
@@ -2616,33 +2401,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  fadeSlideContainer: {
-    width: SCREEN_WIDTH,
-    height: 218,
-    position: 'relative',
-  },
-
-  fadeSlidePane: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    width: SCREEN_WIDTH,
-    height: 218,
-    overflow: 'hidden',
-  },
-
-  slidePane: {
-    width: SCREEN_WIDTH,
-    height: 218,
-    position: 'relative',
-    overflow: 'hidden',
-  },
-
   slideImage: {
     position: 'absolute',
     left: 0,
     top: 0,
-    width: SCREEN_WIDTH,
+    width: '100%',
     height: 218,
   },
 
@@ -2816,8 +2579,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
 
+  topSellingPrices: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 4, marginRight: 5 },
+  topSellingOldPrice: { flexShrink: 1, fontSize: 9, color: '#817B71', textDecorationLine: 'line-through' },
   topSellingPrice: {
-    flex: 1,
+    flexShrink: 1,
     fontSize: 10.5,
     fontWeight: '900',
     color: '#E35B3F',

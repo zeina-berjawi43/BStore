@@ -1,8 +1,9 @@
-import { Stack, router, useNavigationContainerRef, useRootNavigationState } from 'expo-router';
+import { Stack, router, useNavigationContainerRef, useRootNavigationState, usePathname } from 'expo-router';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { ActivityIndicator, AppState, Platform, Pressable, Text, View } from 'react-native';
+import { AppState, Platform, Pressable, Text, View } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
+import { StartupScreen } from '../components/startup-screen';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { installForegroundHandler, notificationDestination, syncPush } from '../services/pushService';
 import { getSessionSnapshot, onSessionChanged, readTokens, subscribeSession } from '../services/tokenStorage';
@@ -12,6 +13,8 @@ installForegroundHandler();
 
 
 export default function RootLayout() {
+  const pathname = usePathname();
+  const fullWindow = pathname === '/' || pathname === '/loading';
   const session = useSyncExternalStore(subscribeSession, getSessionSnapshot, getSessionSnapshot);
   const [restoreError, setRestoreError] = useState(false);
   const navigation = useRootNavigationState();
@@ -67,17 +70,20 @@ export default function RootLayout() {
     return () => { active = false; tap.remove(); rotation.remove(); foreground.remove(); };
   }, [navigation?.key, session.ready, session.revision]);
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#F7F3EC' }} edges={Platform.OS === 'android' ? ['top', 'bottom', 'left', 'right'] : []}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: fullWindow || !session.ready ? '#E7DED1' : '#F7F3EC' }} edges={Platform.OS === 'android' && session.ready && !fullWindow ? ['top', 'bottom', 'left', 'right'] : []}>
       {!session.ready ? (
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          {restoreError ? <Pressable onPress={restore}><Text>Unable to restore your session. Tap to retry.</Text></Pressable> : <ActivityIndicator color="#E35B3F" />}
-        </View>
+        <StartupScreen>
+          {restoreError && <View style={{ position: 'absolute', bottom: '20%', padding: 24 }}>
+            <Pressable onPress={restore}><Text>Unable to restore your session. Tap to retry.</Text></Pressable>
+          </View>}
+        </StartupScreen>
       ) : <Stack
         // Remount all screens immediately; resetRoot also removes retained route history.
         key={session.revision}
         initialRouteName="index"
         screenOptions={{
           headerShown: false,
+          contentStyle: { backgroundColor: '#E7DED1' },
           ...(Platform.OS === 'android' ? { statusBarStyle: 'dark' as const } : {}),
         }}
       >

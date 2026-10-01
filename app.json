@@ -4,6 +4,7 @@
     "slug": "mystore",
     "version": "1.0.0",
     "orientation": "portrait",
+    "backgroundColor": "#E7DED1",
     "icon": "./assets/images/splash-logo.png",
     "scheme": "bstore",
     "userInterfaceStyle": "automatic",
@@ -25,7 +26,7 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#FFFFFF",
+          "backgroundColor": "#E7DED1",
           "image": "./assets/images/splash-logo.png",
           "imageWidth": 300
         }

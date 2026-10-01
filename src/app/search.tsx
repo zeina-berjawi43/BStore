@@ -196,10 +196,6 @@ export default function Search() {
                 <View style={styles.info}>
                   <Text style={styles.name} numberOfLines={2}>{item.name}</Text>
                   <Text style={styles.secondary} numberOfLines={1}>{label(item.brand) || label(item.category)}</Text>
-                  {hasPrice ? <View style={styles.prices}>
-                    <Text style={styles.price}>${finalPrice.toFixed(2)}</Text>
-                    {onSale && <Text style={styles.oldPrice}>${price.toFixed(2)}</Text>}
-                  </View> : <Text style={styles.secondary}>Open for price details</Text>}
                 </View>
               </Pressable>
               <Pressable style={styles.favorite} disabled={favoriteBusy || !favoritesReady}
@@ -209,6 +205,12 @@ export default function Search() {
                 <Ionicons name={favorite ? 'heart' : 'heart-outline'} size={22} color={favorite ? '#E35B3F' : '#777168'} />
               </Pressable>
               <View style={styles.addButtonContainer}>
+                <View style={styles.priceGroup}>
+                  {hasPrice ? <View style={styles.prices}>
+                    <Text style={[styles.price, onSale && styles.salePrice]} numberOfLines={1} adjustsFontSizeToFit>${finalPrice.toFixed(2)}</Text>
+                    {onSale && <Text style={styles.oldPrice} numberOfLines={1} adjustsFontSizeToFit>${price.toFixed(2)}</Text>}
+                  </View> : <Text style={styles.secondary}>Open for price details</Text>}
+                </View>
                 <AddToCartButton name={item.name} pending={cartBusy} unavailable={!available}
                   onPress={() => void changeProduct(item, 'cart')} />
               </View>
@@ -240,10 +242,12 @@ const styles = StyleSheet.create({
   info: { padding: 11, gap: 5 },
   name: { fontSize: 14, fontWeight: '800', color: '#171717', minHeight: 36 },
   secondary: { fontSize: 12, color: '#777168', lineHeight: 18 },
-  prices: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
-  price: { fontSize: 16, fontWeight: '900', color: '#171717' },
-  oldPrice: { fontSize: 11, color: '#9C968D', textDecorationLine: 'line-through' },
-  addButtonContainer: { margin: 10, marginTop: 'auto', alignItems: 'flex-end' },
+  prices: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  price: { flexShrink: 1, fontSize: 16, fontWeight: '900', color: '#171717' },
+  salePrice: { fontSize: 12 },
+  oldPrice: { flexShrink: 1, fontSize: 9, color: '#9C968D', textDecorationLine: 'line-through' },
+  priceGroup: { flex: 1, minWidth: 0 },
+  addButtonContainer: { margin: 10, marginTop: 'auto', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   errorBox: { marginHorizontal: 18, marginTop: 10 },
   error: { color: '#A52B22', fontSize: 13 },
   empty: { alignItems: 'center', paddingVertical: 55, paddingHorizontal: 15, gap: 12 },
