@@ -86,7 +86,7 @@ test('Home favorite A rollback preserves successful favorite B and alerts on suc
   const toggle = handler('index.tsx', 'toggleFavorite', {
     favorites, isLoggedIn: true, favoriteBusy: { current: new Set() }, favoriteRevision: { current: 0 }, homeGenerationRef: { current: 1 },
     setFavorites: update => { favorites = update(favorites); }, getAccessToken: async () => 'token',
-    setProductFavorite: id => id === 'A' ? a.promise : b.promise, showAlert: (...args) => alerts.push(args),
+    Alert: { alert: (...args) => alerts.push(args) }, setProductFavorite: id => id === 'A' ? a.promise : b.promise, showAlert: (...args) => alerts.push(args),
   });
   const first = toggle({ id: 'A' }), second = toggle({ id: 'B' });
   assert.deepEqual(Array.from(favorites, p => p.id), ['A', 'B']);
@@ -197,11 +197,11 @@ test('Top Selling renders old/current/percentage only for offers and Recently Ad
       getFinalPrice: pricing.getFinalPrice,
     }).component;
   }
-  const props = { isLoggedIn: true, product: { id: 'A', name: 'A', price: 10, discount: 20 }, index: 0 };
+  const props = { isLoggedIn: true, product: { id: 'A', name: 'A', price: 10, discountedPrice: 8, discount: 20 }, index: 0 };
   const offer = flatten(components.TopSellingProductRow(props));
   assert.ok(offer.includes('$10.00') && offer.includes('$8.00') && offer.includes('20% OFF'));
   for (const discount of [0, undefined]) {
-    const normal = flatten(components.TopSellingProductRow({ ...props, product: { ...props.product, discount } }));
+    const normal = flatten(components.TopSellingProductRow({ ...props, product: { ...props.product, discount, discountedPrice: 10 } }));
     assert.ok(normal.includes('$10.00')); assert.ok(!normal.includes('OFF')); assert.ok(!normal.includes('$8.00'));
   }
   assert.ok(flatten(components.RecentProduct(props)).includes('$8.00'));
@@ -235,8 +235,8 @@ test('shared pricing preserves rounding, backend overrides and Recently Added of
   const { getFinalPrice } = execute(source('services/product-price.ts'));
   assert.equal(getFinalPrice({ price: 10 }), 10);
   assert.equal(getFinalPrice({ price: 10, discount: 0 }), 10);
-  assert.equal(getFinalPrice({ price: 10, discount: 20 }), 8);
-  assert.equal(getFinalPrice({ price: 9.99, discount: 15 }), 8.49);
+  assert.equal(getFinalPrice({ price: 10, discount: 20, discountedPrice: 8 }), 8);
+  assert.equal(getFinalPrice({ price: 9.99, discount: 15, discountedPrice: 8.49 }), 8.49);
   assert.equal(getFinalPrice({ price: 10, discount: 20, discountedPrice: 7.25 }), 7.25);
   for (const file of ['index.tsx', 'search.tsx', 'favorites.tsx', 'category-products.tsx', 'department-categories.tsx']) assert.match(source('app/' + file), /import \{ getFinalPrice \} from '..\/services\/product-price'/);
 });
@@ -293,6 +293,35 @@ test('single-item carousel never starts autoplay', () => {
       : { AppState: { currentState: 'active', addEventListener: () => ({ remove() {} }) } },
   });
   env.render(() => useOfferCarousel(1, 320, () => {})); env.unmount();
+});
+
+test('shared feedback replaces rapid messages, announces them, auto-dismisses, closes early and clears timers on unmount', () => {
+  const env = hooks(), timers = new Map(), announcements = []; let next = 0;
+  const jsx = (type, props) => ({ type, props });
+  class Value { setValue() {} stopAnimation() {} }
+  const animation = { start: callback => callback?.({ finished: true }) };
+  const { useProductFeedback } = execute(source('components/product-feedback.tsx'), {
+    setTimeout: (fn, delay) => { assert.equal(delay, 2200); timers.set(++next, fn); return next; }, clearTimeout: id => timers.delete(id),
+    require: name => name === 'react' ? env.react : name === 'react/jsx-runtime' ? { jsx, jsxs: jsx }
+      : name === 'react-native-safe-area-context' ? { useSafeAreaInsets: () => ({ top: 30 }) }
+      : name === '@expo/vector-icons' ? { Ionicons: 'Icon' }
+      : { Animated: { Value, View: 'Animated', parallel: () => animation, timing: () => animation, spring: () => animation },
+          AccessibilityInfo: { announceForAccessibility: value => announcements.push(value) }, Pressable: 'Pressable', View: 'View', Text: 'Text', StyleSheet: { create: value => value } },
+  });
+  let hook = env.render(useProductFeedback);
+  assert.equal(hook.feedback, null);
+  hook.showAlert('First'); hook.showAlert('Second', 'Added to Favorites');
+  assert.equal(timers.size, 1); assert.equal(announcements.length, 2);
+  hook = env.render(useProductFeedback);
+  assert.equal(hook.feedback.props.style[1].top, 42);
+  assert.ok(JSON.stringify(hook.feedback).includes('Second'));
+  assert.ok(!JSON.stringify(hook.feedback).includes('First'));
+  const [id, callback] = [...timers][0]; timers.delete(id); callback();
+  assert.equal(env.render(useProductFeedback).feedback, null);
+  hook.showAlert('Dismiss'); hook = env.render(useProductFeedback);
+  const close = hook.feedback.props.children.find(child => child.type === 'Pressable'); close.props.onPress();
+  assert.equal(env.render(useProductFeedback).feedback, null); assert.equal(timers.size, 0);
+  hook.showAlert('Unmount'); env.unmount(); assert.equal(timers.size, 0);
 });
 
 test('framed image uses the same normalized square crop in wide, tall and square customer slots', () => {

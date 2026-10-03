@@ -8,6 +8,7 @@ import { useProductFeedback } from '../components/product-feedback';
 import { setProductFavorite } from '../services/shoppingService';
 import { request } from '../services/request';
 import {
+  Alert,
   View,
   Text,
   StyleSheet,
@@ -859,7 +860,7 @@ export default function Index() {
     } catch (error) {
       apply(selected);
       if (generation !== homeGenerationRef.current) return;
-      showAlert(error instanceof Error ? error.message : 'Could not update favorites.', 'Could not update favorites');
+      Alert.alert('Could not update favorites', error instanceof Error ? error.message : 'Please try again.');
     } finally {
       favoriteBusy.current.delete(product.id);
       if (generation !== homeGenerationRef.current && !favoriteBusy.current.size) void loadFavorites();
@@ -881,9 +882,7 @@ export default function Index() {
     if (
       product.availability === false
     ) {
-      showAlert(
-        `${product.name} is currently out of stock.`
-      );
+      showAlert(`${product.name} is currently out of stock.`, 'Out of Stock');
       return;
     }
 
@@ -935,10 +934,7 @@ export default function Index() {
           data
         ); }
 
-        showAlert(
-          data.message ||
-            'Unable to add product to cart.'
-        );
+        Alert.alert('Could not add to cart', data.message || 'Unable to add product to cart.');
 
         return;
       }
@@ -951,7 +947,7 @@ export default function Index() {
         `${product.name} has been added to your cart.`
       );
     } catch (error) {
-      showAlert(error instanceof Error ? error.message : 'Could not add to cart.');
+      Alert.alert('Could not add to cart', error instanceof Error ? error.message : 'Please try again.');
       if (__DEV__) { console.log(
         'ADD TO CART ERROR:',
         error
@@ -1552,9 +1548,7 @@ export default function Index() {
                       activeOffer.availability ===
                       false
                     ) {
-                      showAlert(
-                        `${activeOffer.name} is currently out of stock.`
-                      );
+                      showAlert(`${activeOffer.name} is currently out of stock.`, 'Out of Stock');
                       return;
                     }
 
@@ -1562,9 +1556,7 @@ export default function Index() {
                       activeOffer.price ===
                       undefined
                     ) {
-                      showAlert(
-                        'Product price is not available.'
-                      );
+                      router.push('/login');
                       return;
                     }
 
@@ -2533,7 +2525,7 @@ const styles = StyleSheet.create({
 
   topSellingImageBox: {
     width: '100%',
-    height: 112,
+    height: 145,
     borderRadius: 12,
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
@@ -2543,8 +2535,8 @@ const styles = StyleSheet.create({
   },
 
   topSellingImage: {
-    width: '78%',
-    height: '78%',
+    width: '100%',
+    height: '100%',
   },
 
   topSellingOutOfStock: {
@@ -2768,8 +2760,8 @@ const styles = StyleSheet.create({
   },
 
   recentImage: {
-    width: '82%',
-    height: '82%',
+    width: '100%',
+    height: '100%',
   },
 
   recentHeart: {
@@ -2874,8 +2866,8 @@ const styles = StyleSheet.create({
   },
 
   offerShowcaseImage: {
-    width: '84%',
-    height: '84%',
+    width: '100%',
+    height: '100%',
   },
 
   offerBadge: {

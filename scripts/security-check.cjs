@@ -201,7 +201,7 @@ for (const file of ['category-products.tsx', 'department-categories.tsx']) {
       isLoggedIn: true, cartPending: busy,
       getValidAccessToken: async () => { await gate; return 'access'; },
       request: async () => { calls++; throw Error('offline'); }, API_URL: 'https://example.invalid',
-      showAlert: () => {}, router: { push: () => {} },
+      Alert: { alert: () => {} }, showAlert: () => {}, router: { push: () => {} },
     });
     const first = add({ _id: 'one', name: 'One' });
     await add({ _id: 'one' });

@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
   list: { paddingHorizontal: 18, paddingBottom: 28, flexGrow: 1 },
   row: { gap: 12 },
   card: { flex: 1, maxWidth: '50%', backgroundColor: '#FFFFFF', borderRadius: 18, borderWidth: 1, borderColor: '#E6DED2', marginBottom: 12, overflow: 'hidden' },
-  imageBox: { height: 142, padding: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FCFAF7' },
+  imageBox: { height: 145, padding: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FCFAF7' },
   image: { width: '100%', height: '100%' },
   favorite: { position: 'absolute', top: 5, right: 5, width: 44, height: 44, borderRadius: 22, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
   discount: { position: 'absolute', top: 10, left: 8, paddingHorizontal: 6, paddingVertical: 4, borderRadius: 6, backgroundColor: '#E35B3F' },

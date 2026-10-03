@@ -722,7 +722,7 @@ export default function Checkout() {
 
         Alert.alert(
           "Order Failed",
-          data?.message ||
+          (typeof data?.amountRemaining === "number" ? `Add $${data.amountRemaining.toFixed(2)} more to reach the $${data.minimumOrderValue.toFixed(2)} minimum. Current total: $${data.currentOrderValue.toFixed(2)}.` : data?.message) ||
             data?.error ||
             "Unable to place your order."
         );

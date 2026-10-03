@@ -1,9 +1,10 @@
+import { useProductFeedback } from "../components/product-feedback";
 import { useProductPending } from '../hooks/useProductPending';
 import { AddToCartButton } from '../components/add-to-cart-button';
 import { getFinalPrice } from '../services/product-price';
 import { ProductImage } from '../components/product-image';
 import { ImageFrame } from '../services/image-frame';
-import { useTimeouts } from '../hooks/useTimeouts';
+
 import { request } from '../services/request';
 import {
   View,
@@ -12,7 +13,6 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
-  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -447,7 +447,7 @@ export default function CategoryProducts() {
 
 function CategoryProductsScreen({ category }: { category: string }) {
   const cartPending = useProductPending();
-  const scheduleTimeout = useTimeouts();
+
   /* =======================================================
      STATES
   ======================================================= */
@@ -483,175 +483,10 @@ function CategoryProductsScreen({ category }: { category: string }) {
     cartCount,
     setCartCount,
   ] = useState(0);
-  /* =======================================================
-     CART ALERT
-  ======================================================= */
-  const [
-    alertVisible,
-    setAlertVisible,
-  ] = useState(false);
-  const [
-    alertMessage,
-    setAlertMessage,
-  ] = useState('');
-  const alertOpacity =
-    useRef(
-      new Animated.Value(0)
-    ).current;
-  const alertTranslateY =
-    useRef(
-      new Animated.Value(-40)
-    ).current;
-  /* =======================================================
-     FAVORITE ALERT
-     SAME AS PRODUCT DETAILS
-  ======================================================= */
-  const [
-    favoriteAlertVisible,
-    setFavoriteAlertVisible,
-  ] = useState(false);
-  const [
-    favoriteAlertType,
-    setFavoriteAlertType,
-  ] = useState<
-    'added' | 'removed'
-  >('added');
-  const favoriteAlertOpacity =
-    useRef(
-      new Animated.Value(0)
-    ).current;
-  const favoriteAlertTranslateY =
-    useRef(
-      new Animated.Value(-40)
-    ).current;
-  /* =======================================================
-     SHOW CART ALERT
-  ======================================================= */
-  const showAlert = (
-    message: string
-  ) => {
-    setAlertMessage(
-      message
-    );
-    setAlertVisible(
-      true
-    );
-    alertOpacity.setValue(
-      0
-    );
-    alertTranslateY.setValue(
-      -40
-    );
-    Animated.parallel([
-      Animated.timing(
-        alertOpacity,
-        {
-          toValue: 1,
-          duration: 250,
-          useNativeDriver: true,
-        }
-      ),
-      Animated.spring(
-        alertTranslateY,
-        {
-          toValue: 0,
-          friction: 7,
-          tension: 70,
-          useNativeDriver: true,
-        }
-      ),
-    ]).start();
-    scheduleTimeout(() => {
-      Animated.parallel([
-        Animated.timing(
-          alertOpacity,
-          {
-            toValue: 0,
-            duration: 250,
-            useNativeDriver: true,
-          }
-        ),
-        Animated.timing(
-          alertTranslateY,
-          {
-            toValue: -25,
-            duration: 250,
-            useNativeDriver: true,
-          }
-        ),
-      ]).start(() => {
-        setAlertVisible(
-          false
-        );
-      });
-    }, 2200);
-  };
-  /* =======================================================
-     SHOW FAVORITE ALERT
-     SAME AS PRODUCT DETAILS
-  ======================================================= */
-  const showFavoriteAlert = useCallback(
-    (
-      type: 'added' | 'removed'
-    ) => {
-      setFavoriteAlertType(
-        type
-      );
-      setFavoriteAlertVisible(
-        true
-      );
-      favoriteAlertOpacity.setValue(
-        0
-      );
-      favoriteAlertTranslateY.setValue(
-        -40
-      );
-      Animated.parallel([
-        Animated.timing(
-          favoriteAlertOpacity,
-          {
-            toValue: 1,
-            duration: 220,
-            useNativeDriver: true,
-          }
-        ),
-        Animated.spring(
-          favoriteAlertTranslateY,
-          {
-            toValue: 0,
-            friction: 7,
-            tension: 70,
-            useNativeDriver: true,
-          }
-        ),
-      ]).start();
-      scheduleTimeout(() => {
-        Animated.parallel([
-          Animated.timing(
-            favoriteAlertOpacity,
-            {
-              toValue: 0,
-              duration: 220,
-              useNativeDriver: true,
-            }
-          ),
-          Animated.timing(
-            favoriteAlertTranslateY,
-            {
-              toValue: -25,
-              duration: 220,
-              useNativeDriver: true,
-            }
-          ),
-        ]).start(() => {
-          setFavoriteAlertVisible(
-            false
-          );
-        });
-      }, 2200);
-    },
-    []
-  );
+  const { showAlert, feedback } = useProductFeedback();
+  const showFavoriteAlert = useCallback((type: 'added' | 'removed') => {
+    showAlert(type === 'added' ? 'Product has been added to your favorites.' : 'Product has been removed from your favorites.', type === 'added' ? 'Added to Favorites' : 'Removed from Favorites');
+  }, [showAlert]);
   /* =======================================================
      CHECK LOGIN
   ======================================================= */
@@ -1125,10 +960,8 @@ function CategoryProductsScreen({ category }: { category: string }) {
           'ADD TO CART ERROR:',
           data
         ); }
-        showAlert(
-          data?.message ||
-          'Could not add product to cart.'
-        );
+        Alert.alert('Could not add to cart', data?.message ||
+          'Could not add product to cart.');
         return;
       }
       await loadCart();
@@ -1140,9 +973,7 @@ function CategoryProductsScreen({ category }: { category: string }) {
         'ADD TO CART ERROR:',
         error
       ); }
-      showAlert(
-        'Could not add product to cart.'
-      );
+      Alert.alert('Could not add to cart', 'Could not add product to cart.');
     } finally {
       cartPending.end(product._id);
     }
@@ -1182,138 +1013,12 @@ function CategoryProductsScreen({ category }: { category: string }) {
       {/* =================================================
           CART ALERT
       ================================================= */}
-      {alertVisible && (
-        <Animated.View
-          style={[
-            styles.homeAlert,
-            {
-              opacity:
-                alertOpacity,
-              transform: [
-                {
-                  translateY:
-                    alertTranslateY,
-                },
-              ],
-            },
-          ]}
-        >
-          <View
-            style={
-              styles.homeAlertIcon
-            }
-          >
-            <Ionicons
-              name="checkmark"
-              size={22}
-              color="#FFFFFF"
-            />
-          </View>
-          <View
-            style={
-              styles.homeAlertContent
-            }
-          >
-            <Text
-              style={
-                styles.homeAlertTitle
-              }
-            >
-              Updated
-            </Text>
-            <Text
-              style={
-                styles.homeAlertMessage
-              }
-              numberOfLines={2}
-            >
-              {alertMessage}
-            </Text>
-          </View>
-          <Ionicons
-            name="heart-outline"
-            size={21}
-            color="#E35B3F"
-          />
-        </Animated.View>
-      )}
+      {feedback}
       {/* =================================================
           FAVORITE ALERT
           ONE PAGE-LEVEL ALERT ONLY
       ================================================= */}
-      {favoriteAlertVisible && (
-        <Animated.View
-          style={[
-            styles.favoriteAlert,
-            {
-              opacity:
-                favoriteAlertOpacity,
-              transform: [
-                {
-                  translateY:
-                    favoriteAlertTranslateY,
-                },
-              ],
-            },
-          ]}
-        >
-          <View
-            style={
-              styles.favoriteAlertIcon
-            }
-          >
-            <Ionicons
-              name={
-                favoriteAlertType === 'added'
-                  ? 'heart'
-                  : 'heart-outline'
-              }
-              size={21}
-              color="#FFFFFF"
-            />
-          </View>
-          <View
-            style={
-              styles.favoriteAlertContent
-            }
-          >
-            <Text
-              style={
-                styles.favoriteAlertTitle
-              }
-            >
-              {favoriteAlertType === 'added'
-                ? 'Added to Favorites'
-                : 'Removed from Favorites'}
-            </Text>
-            <Text
-              style={
-                styles.favoriteAlertMessage
-              }
-              numberOfLines={2}
-            >
-              {favoriteAlertType === 'added'
-                ? 'Product has been added to your favorites.'
-                : 'Product has been removed from your favorites.'}
-            </Text>
-          </View>
-          <View
-            style={
-              styles.favoriteAlertBadge
-            }
-          >
-            <Ionicons
-              name={
-                favoriteAlertType === 'added'
-                  ? 'heart'
-                  : 'heart-outline'
-              }
-              size={19}
-              color="#E35B3F"
-            />
-          </View>
-        </Animated.View>
-      )}
+
       <ScrollView
         showsVerticalScrollIndicator={
           false

@@ -43,7 +43,7 @@ const API_URL =
 // CONSTANTS
 // ============================================================
 
-const MINIMUM_ORDER = 150;
+
 
 
 // ============================================================
@@ -162,6 +162,7 @@ const getImageUrl = (
 // ============================================================
 
 export default function Cart() {
+  const [MINIMUM_ORDER, setMinimumOrder] = useState<number>(Infinity);
 
   // ==========================================================
   // STATE
@@ -219,6 +220,7 @@ export default function Cart() {
       if (revision !== loadRevision.current) return;
       if (response.status === 401) { await logoutLocal(token); applyCartData([]); router.replace('/login'); return; }
       if (!response.ok) throw new Error(data.message || 'Could not load your cart.');
+      setMinimumOrder(data.minimumOrderValue ?? Infinity);
       applyCartData(Array.isArray(data.cart?.items) ? data.cart.items : []);
     } catch (error) {
       if (revision === loadRevision.current) applyCartData([]);
@@ -252,6 +254,7 @@ export default function Cart() {
       if (response.status === 401) { await logoutLocal(token); router.replace('/login'); return; }
       if (!response.ok) throw new Error(data.message || 'Could not update your cart.');
       if (!Array.isArray(data.cart?.items)) throw new Error('Cart response was incomplete. Reopen your cart to check the change.');
+      setMinimumOrder(data.minimumOrderValue ?? Infinity);
       applyCartData(data.cart.items);
     } catch (error) {
       if (revision === loadRevision.current) {

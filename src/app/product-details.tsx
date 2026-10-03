@@ -1,3 +1,5 @@
+import { getFinalPrice } from "../services/product-price";
+import { useProductFeedback } from "../components/product-feedback";
 import { ProductImage } from '../components/product-image';
 import { ImageFrame } from '../services/image-frame';
 import { useTimeouts } from '../hooks/useTimeouts';
@@ -9,7 +11,6 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
-  Animated,
 } from 'react-native';
 
 import { Ionicons } from '@expo/vector-icons';
@@ -270,82 +271,6 @@ const getBrandName = (
    FINAL PRICE
 ========================================================= */
 
-const getFinalPrice = (
-  product: Product
-): number => {
-
-  const originalPrice =
-    Number(
-      product.price
-    ) || 0;
-
-
-  const discount =
-    Number(
-      product.discount
-    ) || 0;
-
-
-  /* -------------------------------------------------------
-     Backend discounted USD price
-  ------------------------------------------------------- */
-
-  if (
-    product.discountedPrice !== undefined &&
-    product.discountedPrice !== null
-  ) {
-
-    const backendPrice =
-      Number(
-        product.discountedPrice
-      );
-
-
-    if (
-      Number.isFinite(
-        backendPrice
-      )
-    ) {
-
-      return backendPrice;
-
-    }
-
-  }
-
-
-  /* -------------------------------------------------------
-     No discount
-  ------------------------------------------------------- */
-
-  if (
-    discount <= 0
-  ) {
-
-    return Number(
-      originalPrice.toFixed(2)
-    );
-
-  }
-
-
-  /* -------------------------------------------------------
-     Calculate USD discount
-  ------------------------------------------------------- */
-
-  const finalPrice =
-    originalPrice -
-    (
-      originalPrice *
-      discount
-    ) / 100;
-
-
-  return Number(
-    finalPrice.toFixed(2)
-  );
-
-};
 
 
 /* =========================================================
@@ -437,236 +362,10 @@ export default function ProductDetails() {
   ] = useState(false);
 
 
-  /* =======================================================
-     CART / STOCK ALERT
-  ======================================================= */
-
-  const [
-    alertVisible,
-    setAlertVisible,
-  ] = useState(false);
-
-
-  const [
-    alertMessage,
-    setAlertMessage,
-  ] = useState('');
-
-
-  const alertOpacity =
-    useRef(
-      new Animated.Value(0)
-    ).current;
-
-
-  const alertTranslateY =
-    useRef(
-      new Animated.Value(-40)
-    ).current;
-
-
-  /* =======================================================
-     FAVORITE ALERT
-  ======================================================= */
-
-  const [
-    favoriteAlertVisible,
-    setFavoriteAlertVisible,
-  ] = useState(false);
-
-
-  const [
-    favoriteAlertType,
-    setFavoriteAlertType,
-  ] = useState<'added' | 'removed'>('added');
-
-
-  const favoriteAlertOpacity =
-    useRef(
-      new Animated.Value(0)
-    ).current;
-
-
-  const favoriteAlertTranslateY =
-    useRef(
-      new Animated.Value(-40)
-    ).current;
-
-
-  /* =======================================================
-     SHOW CART / STOCK ALERT
-  ======================================================= */
-
-  const showAlert = (
-    message: string
-  ) => {
-
-    setAlertMessage(
-      message
-    );
-
-
-    setAlertVisible(
-      true
-    );
-
-
-    alertOpacity.setValue(
-      0
-    );
-
-
-    alertTranslateY.setValue(
-      -40
-    );
-
-
-    Animated.parallel([
-
-      Animated.timing(
-        alertOpacity,
-        {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }
-      ),
-
-      Animated.spring(
-        alertTranslateY,
-        {
-          toValue: 0,
-          friction: 7,
-          tension: 70,
-          useNativeDriver: true,
-        }
-      ),
-
-    ]).start();
-
-
-    scheduleTimeout(() => {
-
-      Animated.parallel([
-
-        Animated.timing(
-          alertOpacity,
-          {
-            toValue: 0,
-            duration: 200,
-            useNativeDriver: true,
-          }
-        ),
-
-        Animated.timing(
-          alertTranslateY,
-          {
-            toValue: -25,
-            duration: 200,
-            useNativeDriver: true,
-          }
-        ),
-
-      ]).start(() => {
-
-        setAlertVisible(
-          false
-        );
-
-      });
-
-    }, 2200);
-
-  };
-
-
-  /* =======================================================
-     SHOW FAVORITE ALERT
-  ======================================================= */
-
-  const showFavoriteAlert = (
-    type: 'added' | 'removed'
-  ) => {
-
-    setFavoriteAlertType(
-      type
-    );
-
-
-    setFavoriteAlertVisible(
-      true
-    );
-
-
-    favoriteAlertOpacity.setValue(
-      0
-    );
-
-
-    favoriteAlertTranslateY.setValue(
-      -40
-    );
-
-
-    Animated.parallel([
-
-      Animated.timing(
-        favoriteAlertOpacity,
-        {
-          toValue: 1,
-          duration: 220,
-          useNativeDriver: true,
-        }
-      ),
-
-      Animated.spring(
-        favoriteAlertTranslateY,
-        {
-          toValue: 0,
-          friction: 7,
-          tension: 70,
-          useNativeDriver: true,
-        }
-      ),
-
-    ]).start();
-
-
-    scheduleTimeout(() => {
-
-      Animated.parallel([
-
-        Animated.timing(
-          favoriteAlertOpacity,
-          {
-            toValue: 0,
-            duration: 220,
-            useNativeDriver: true,
-          }
-        ),
-
-        Animated.timing(
-          favoriteAlertTranslateY,
-          {
-            toValue: -25,
-            duration: 220,
-            useNativeDriver: true,
-          }
-        ),
-
-      ]).start(() => {
-
-        setFavoriteAlertVisible(
-          false
-        );
-
-      });
-
-    }, 2200);
-
-  };
-
-
+  const { showAlert, feedback } = useProductFeedback();
+  const showFavoriteAlert = useCallback((type: 'added' | 'removed') => {
+    showAlert(type === 'added' ? 'Product has been added to your favorites.' : 'Product has been removed from your favorites.', type === 'added' ? 'Added to Favorites' : 'Removed from Favorites');
+  }, [showAlert]);
   /* =======================================================
      CHECK LOGIN
   ======================================================= */
@@ -1017,7 +716,7 @@ export default function ProductDetails() {
 
   /* =======================================================
      TOGGLE FAVORITE
-     
+
      IMPORTANT:
      The heart changes IMMEDIATELY.
      The API request runs in the background.
@@ -1272,9 +971,7 @@ export default function ProductDetails() {
       product.availability === false
     ) {
 
-      showAlert(
-        `${product.name} is currently out of stock.`
-      );
+      showAlert(`${product.name} is currently out of stock.`, 'Out of Stock');
 
       return;
 
@@ -1343,10 +1040,8 @@ export default function ProductDetails() {
 
       if (!response.ok) {
 
-        showAlert(
-          data?.message ||
-          'Unable to add product to cart.'
-        );
+        Alert.alert('Could not add to cart', data?.message ||
+          'Unable to add product to cart.');
 
         return;
 
@@ -1366,9 +1061,7 @@ export default function ProductDetails() {
       ); }
 
 
-      showAlert(
-        'Unable to add product to cart.'
-      );
+      Alert.alert('Could not add to cart', 'Unable to add product to cart.');
 
 
     } finally {
@@ -1383,13 +1076,13 @@ export default function ProductDetails() {
 
   /* =======================================================
      GO BACK
-     
+
      IMPORTANT:
      Return to the screen that opened Product Details.
-     
+
      Home:
        Home → Product Details → Back → Home
-     
+
      Category:
        Category Products → Product Details → Back
        → Category Products
@@ -1591,196 +1284,14 @@ export default function ProductDetails() {
           CART / STOCK ALERT
       ================================================= */}
 
-      {alertVisible && (
-
-        <Animated.View
-          style={[
-            styles.productAlert,
-
-            {
-              opacity:
-                alertOpacity,
-
-              transform: [
-
-                {
-                  translateY:
-                    alertTranslateY,
-                },
-
-              ],
-
-            },
-
-          ]}
-        >
-
-          <View
-            style={
-              styles.productAlertIcon
-            }
-          >
-
-            <Ionicons
-              name="checkmark"
-              size={21}
-              color="#FFFFFF"
-            />
-
-          </View>
-
-
-          <View
-            style={
-              styles.productAlertContent
-            }
-          >
-
-            <Text
-              style={
-                styles.productAlertTitle
-              }
-            >
-              Added to Cart
-            </Text>
-
-
-            <Text
-              style={
-                styles.productAlertMessage
-              }
-
-              numberOfLines={2}
-            >
-              {alertMessage}
-            </Text>
-
-          </View>
-
-
-          <View
-            style={
-              styles.productAlertCart
-            }
-          >
-
-            <Ionicons
-              name="cart-outline"
-              size={21}
-              color="#E35B3F"
-            />
-
-          </View>
-
-        </Animated.View>
-
-      )}
+      {feedback}
 
 
       {/* =================================================
           FAVORITE ALERT
       ================================================= */}
 
-      {favoriteAlertVisible && (
 
-        <Animated.View
-          style={[
-            styles.favoriteAlert,
-
-            {
-              opacity:
-                favoriteAlertOpacity,
-
-              transform: [
-
-                {
-                  translateY:
-                    favoriteAlertTranslateY,
-                },
-
-              ],
-
-            },
-
-          ]}
-        >
-
-          <View
-            style={
-              styles.favoriteAlertIcon
-            }
-          >
-
-            <Ionicons
-              name={
-                favoriteAlertType === 'added'
-                  ? 'heart'
-                  : 'heart-outline'
-              }
-
-              size={21}
-
-              color="#FFFFFF"
-            />
-
-          </View>
-
-
-          <View
-            style={
-              styles.favoriteAlertContent
-            }
-          >
-
-            <Text
-              style={
-                styles.favoriteAlertTitle
-              }
-            >
-              {favoriteAlertType === 'added'
-                ? 'Added to Favorites'
-                : 'Removed from Favorites'}
-            </Text>
-
-
-            <Text
-              style={
-                styles.favoriteAlertMessage
-              }
-
-              numberOfLines={2}
-            >
-              {favoriteAlertType === 'added'
-                ? 'Product has been added to your favorites.'
-                : 'Product has been removed from your favorites.'}
-            </Text>
-
-          </View>
-
-
-          <View
-            style={
-              styles.favoriteAlertBadge
-            }
-          >
-
-            <Ionicons
-              name={
-                favoriteAlertType === 'added'
-                  ? 'heart'
-                  : 'heart-outline'
-              }
-
-              size={19}
-
-              color="#E35B3F"
-            />
-
-          </View>
-
-        </Animated.View>
-
-      )}
 
 
       <ScrollView
