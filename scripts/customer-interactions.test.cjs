@@ -303,7 +303,7 @@ test('shared feedback replaces rapid messages, announces them, auto-dismisses, c
   const { useProductFeedback } = execute(source('components/product-feedback.tsx'), {
     setTimeout: (fn, delay) => { assert.equal(delay, 2200); timers.set(++next, fn); return next; }, clearTimeout: id => timers.delete(id),
     require: name => name === 'react' ? env.react : name === 'react/jsx-runtime' ? { jsx, jsxs: jsx }
-      : name === 'react-native-safe-area-context' ? { useSafeAreaInsets: () => ({ top: 30 }) }
+      : name === 'react-native-safe-area-context' ? { useSafeAreaInsets: () => ({ top: 30, bottom: 24 }) }
       : name === '@expo/vector-icons' ? { Ionicons: 'Icon' }
       : { Animated: { Value, View: 'Animated', parallel: () => animation, timing: () => animation, spring: () => animation },
           AccessibilityInfo: { announceForAccessibility: value => announcements.push(value) }, Pressable: 'Pressable', View: 'View', Text: 'Text', StyleSheet: { create: value => value } },
@@ -313,7 +313,8 @@ test('shared feedback replaces rapid messages, announces them, auto-dismisses, c
   hook.showAlert('First'); hook.showAlert('Second', 'Added to Favorites');
   assert.equal(timers.size, 1); assert.equal(announcements.length, 2);
   hook = env.render(useProductFeedback);
-  assert.equal(hook.feedback.props.style[1].top, 42);
+  assert.equal(hook.feedback.props.style[1].bottom, 114);
+  assert.equal(hook.feedback.props.style[0].top, undefined, 'toast stays clear of screen headers');
   assert.ok(JSON.stringify(hook.feedback).includes('Second'));
   assert.ok(!JSON.stringify(hook.feedback).includes('First'));
   const [id, callback] = [...timers][0]; timers.delete(id); callback();

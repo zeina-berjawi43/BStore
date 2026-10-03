@@ -2571,7 +2571,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
 
-  topSellingPrices: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 4, marginRight: 5 },
+  topSellingPrices: { flex: 1, minWidth: 0, alignItems: 'flex-start', gap: 2, marginRight: 5 },
   topSellingOldPrice: { flexShrink: 1, fontSize: 9, color: '#817B71', textDecorationLine: 'line-through' },
   topSellingPrice: {
     flexShrink: 1,
@@ -2859,6 +2859,7 @@ const styles = StyleSheet.create({
 
   offerVisual: {
     width: '43%',
+    overflow: 'hidden',
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
@@ -2891,6 +2892,7 @@ const styles = StyleSheet.create({
 
   offerInfo: {
     flex: 1,
+    minWidth: 0,
     paddingHorizontal: 15,
     paddingVertical: 15,
     justifyContent: 'center',
@@ -2914,6 +2916,7 @@ const styles = StyleSheet.create({
 
   offerPriceRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: 8,
     marginBottom: 10,
@@ -2921,7 +2924,7 @@ const styles = StyleSheet.create({
 
   offerOldPrice: {
     fontSize: 10,
-    color: '#8F8981',
+    color: '#B4ADA4',
     textDecorationLine: 'line-through',
     fontWeight: '700',
   },

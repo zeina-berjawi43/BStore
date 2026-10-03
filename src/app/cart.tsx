@@ -1360,6 +1360,7 @@ const styles =
 
   priceRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     marginTop: 7,
   },
@@ -1500,6 +1501,8 @@ const styles =
 
   totalRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
     justifyContent: 'space-between',
     alignItems: 'center',
   },

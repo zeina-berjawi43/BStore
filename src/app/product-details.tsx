@@ -2378,6 +2378,8 @@ const styles =
 
     discountRow: {
 
+      flexWrap: 'wrap',
+
       flexDirection:
         'row',
 

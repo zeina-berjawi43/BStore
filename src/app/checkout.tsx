@@ -2060,6 +2060,7 @@ const styles =
 
     itemMeta: {
       flexDirection: "row",
+      flexWrap: "wrap",
       alignItems: "center",
     },
 
