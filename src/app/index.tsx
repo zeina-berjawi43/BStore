@@ -1082,6 +1082,7 @@ export default function Index() {
                   styles.offerVisual
                 }
               >
+                <View style={styles.offerImageSlot}>
                 <ProductImage imageFrame={activeOffer.imageFrame}
                   source={{
                     uri: activeOffer.image,
@@ -1091,6 +1092,7 @@ export default function Index() {
                   }
                   contentFit="contain" cachePolicy="memory-disk"
                 />
+                </View>
 
                 <View
                   style={
@@ -1618,7 +1620,7 @@ function TopSellingProductRow({
             contentFit="contain" cachePolicy="memory-disk"
           />
 
-          {onSale && <View style={styles.recentDiscount}>
+          {onSale && <View style={[styles.recentDiscount, styles.topSellingDiscountPosition]}>
             <Text style={styles.recentDiscountText}>{product.discount}% OFF</Text>
           </View>}
           {!isAvailable ? (
@@ -2399,6 +2401,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 6,
   },
+  topSellingDiscountPosition: { top: 6, bottom: 'auto' },
 
   recentDiscountText: {
     color: '#FFFFFF',
@@ -2464,13 +2467,15 @@ const styles = StyleSheet.create({
   },
 
   offerVisual: {
-    width: '43%',
+    width: '50%',
     overflow: 'hidden',
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
   },
+  // 86% of the half-card keeps the previous 43%-of-card image/framing canvas.
+  offerImageSlot: { width: '86%', height: '100%', backgroundColor: '#FFFFFF' },
 
   offerShowcaseImage: { backgroundColor: '#FFFFFF',
     width: '100%',
@@ -2500,7 +2505,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF0E8',
     flex: 1,
     minWidth: 0,
-    paddingHorizontal: 15,
+    paddingHorizontal: 12,
     paddingVertical: 15,
     justifyContent: 'center',
   },

@@ -107,15 +107,21 @@ const getImageUrl = (image?: string) => {
 // FAVORITES
 // =========================================================
 
+// References may be unpopulated ObjectId strings; only human-readable names belong in cards.
+function favoriteReferenceLabel(reference: unknown): string {
+  const value = reference && typeof reference === 'object' && 'name' in reference ? reference.name : reference;
+  return typeof value === 'string' && !/^[a-f\d]{24}$/i.test(value.trim()) ? value : '';
+}
+
 export default function Favorites() {
-  const { alert: actionAlert, dialog } = useActionDialog();
+  const { alert: actionAlert, dialog } = useActionDialog({ showIcon: false });
   const shopping = useShopping();
 
   // =======================================================
   // STATE
   // =======================================================
 
-  const favorites = shopping.favorites.map(p => ({ ...p, id: String(p._id || p.id), category: typeof p.category === 'object' ? p.category?.name || '' : p.category || '', brand: typeof p.brand === 'object' ? p.brand?.name || '' : p.brand || '' })) as FavoriteProduct[];
+  const favorites = shopping.favorites.map(p => ({ ...p, id: String(p._id || p.id), category: favoriteReferenceLabel(p.category), brand: favoriteReferenceLabel(p.brand) })) as FavoriteProduct[];
 
   const [
     isLoggedIn,
@@ -787,8 +793,10 @@ export default function Favorites() {
                       {/* ADD TO CART */}
 
                       <Pressable
-                        style={[
-                          styles.addToCartButton, itemAddingToCart && { backgroundColor: '#E35B3F' },
+                        accessibilityRole="button"
+                        accessibilityLabel={`Add ${product.name} to cart`}
+                        style={({ pressed }) => [
+                          styles.addToCartButton, pressed && { backgroundColor: '#E35B3F' },
 
                           outOfStock &&
                             styles.disabledButton,
@@ -811,9 +819,7 @@ export default function Favorites() {
                         }}
 
                         disabled={
-                          outOfStock ||
-                          itemAddingToCart ||
-                          itemRemoving
+                          outOfStock
                         }
                       >
 

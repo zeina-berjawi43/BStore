@@ -42,7 +42,7 @@ const mock = () => {
     else if (route === '/products/top-selling') data = { products: products.map(product => ({ product, totalSold: 10 })) };
     else if (route === '/products/offers') data = { products: products.filter(p => p.discount) };
     else if (route.startsWith('/products/')) data = { product: products.find(p => route.endsWith(p._id)) };
-    else if (route === '/favorites') data = { favorites: [...favorites].map(id => ({ product: products.find(p => p._id === id) })) };
+    else if (route === '/favorites') data = { favorites: [...favorites].map(id => ({ product: { ...products.find(p => p._id === id), brand: '507f191e810c19729de860ea', category: '507f1f77bcf86cd799439012' } })) };
     else if (route === '/favorites/add' || route === '/favorites/remove') {
       window.actionRequests.push([route, body.productId]); await new Promise(resolve => setTimeout(resolve, 1500));
       if (window.failFavorite) return new Response(JSON.stringify({ message: 'Simulated failure' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
@@ -58,6 +58,8 @@ const mock = () => {
       window.actionRequests.push([route, body.productId]); await new Promise(resolve => setTimeout(resolve, 1500));
       cart.set(body.productId, (cart.get(body.productId) || 0) + body.quantity); data = { cart: { items: items() } };
     } else if (route === '/cart') data = { cart: { items: items() }, minimumOrderValue: 1 };
+    else if (route === '/orders/create') { window.actionRequests.push([route,body]); window.placedOrders=(window.placedOrders||0)+1;cart.clear();return new Response(JSON.stringify({order:{_id:'fixture-order'}}),{status:201,headers:{'Content-Type':'application/json'}}); }
+    else if (route === '/orders') data={orders:[]};
     else if (route === '/users/me') data = { user: JSON.parse(localStorage.getItem('user')) };
     else if (route === '/departments') data = { departments: [{ _id: 'dept', name: 'Grocery', active: true }] };
     else if (route === '/categories') data = { categories: [{ _id: 'category', name: 'Grocery', department: 'dept' }] };
@@ -94,6 +96,11 @@ const mock = () => {
     assert.ok(await evaluate(`document.body.innerText.includes('$8.00') && document.body.innerText.includes('20% OFF')`)); checks.push('Home offer pricing renders');
     for (const width of [320,360,412]) {
       await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:true}); await wait(150);
+      const offerGeometry=await evaluate(`(()=>{const n=window.ui('[data-testid="home-offers"]'),label=[...n.querySelectorAll('div')].find(e=>e.childElementCount===0&&e.textContent==='LIMITED DEAL'&&!e.closest('[aria-hidden="true"]')),info=label.parentElement,card=info.parentElement,white=card.children[0],slot=white.children[0];return {card:card.getBoundingClientRect().width,white:white.getBoundingClientRect().width,info:info.getBoundingClientRect().width,image:slot.getBoundingClientRect().width,overflow:info.scrollWidth>info.clientWidth||info.scrollHeight>info.clientHeight};})()`);
+      assert.ok(Math.abs(offerGeometry.white-offerGeometry.info)<1,JSON.stringify(offerGeometry));
+      assert.ok(Math.abs(offerGeometry.image-offerGeometry.card*.43)<1,JSON.stringify(offerGeometry));
+      assert.equal(offerGeometry.overflow,false,JSON.stringify(offerGeometry));
+      assert.equal(await evaluate(`(()=>{const n=window.ui('[data-testid="home-top-selling"]'),text=[...n.querySelectorAll('div')].find(e=>e.childElementCount===0&&e.textContent==='20% OFF'),badge=text.parentElement,image=badge.parentElement,b=badge.getBoundingClientRect(),r=image.getBoundingClientRect();return Math.abs(b.top-r.top-6)<1&&b.bottom<=r.bottom&&r.height===145;})()`),true);
       const geometry=await evaluate(`(()=>{const ids=['home-categories','home-top-selling','home-recently-added','home-offers'];return ids.map(id=>{const e=window.ui('[data-testid="'+id+'"]'),r=e.getBoundingClientRect(),h=e.firstElementChild.getBoundingClientRect(),c=e.children[1].getBoundingClientRect();return {top:r.top,bottom:r.bottom,titleGap:c.top-h.bottom,contentBottom:c.bottom};});})()`);
       assert.ok(geometry.every(g=>Math.abs(g.titleGap-10)<1),JSON.stringify(geometry));
       const gaps=geometry.slice(1).map((g,i)=>g.top-geometry[i].bottom); assert.ok(gaps.every(g=>Math.abs(g-24)<1),JSON.stringify(gaps));
@@ -101,6 +108,7 @@ const mock = () => {
       assert.equal(await evaluate(`!!window.ui('[data-testid="home-recently-added"]').querySelector('[aria-label^="Add "]')`),false);
       assert.equal(await evaluate(`(()=>{const n=window.ui('[data-testid="home-offers"]'),label=[...n.querySelectorAll('div')].find(e=>e.childElementCount===0&&e.textContent==='LIMITED DEAL');return getComputedStyle(label.parentElement).backgroundColor==='rgb(255, 240, 232)'&&getComputedStyle(label.nextElementSibling).color==='rgb(23, 23, 23)';})()`),true);
     }
+    checks.push('Offers backgrounds are equal halves and image canvas remains 43% of card at 320/360/412px; Top Selling badge top inset stays inside unchanged image');
     checks.push('Home effective section gaps 24px, title gaps 10px at 320/360/412px; Recently Added has no cart button; Offers has cream promo panel and dark text');
     await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
 
@@ -223,12 +231,39 @@ const mock = () => {
     await until(`location.pathname==='/'`); await clickText('Favorites');
     await until(`location.pathname==='/favorites' && document.body.innerText.includes('2 favorites')`);
     assert.equal(await evaluate(`!!window.ui('[aria-label="Open cart, 0 items"]')`), true);
+    assert.equal(await evaluate(`/507f191e810c19729de860ea|507f1f77bcf86cd799439012/.test(document.body.innerText)`),false);
+    await evaluate(`window.ui('[aria-label="Add Test Almonds to cart"]').click();window.ui('[aria-label="Add Test Almonds to cart"]').click()`);
+    await until(`!!window.ui('[aria-label="Open cart, 1 items"]')`);
+    assert.equal(await evaluate(`getComputedStyle(window.ui('[aria-label="Add Test Almonds to cart"]')).backgroundColor`),'rgb(23, 23, 23)');
+    assert.equal(await evaluate(`location.pathname`),'/favorites');
+    checks.push('Favorites reference IDs absent; Add to Cart stays black during delayed request, remains on Favorites and updates badge immediately');
+    await wait(1800);
+    await evaluate(`window.ui('[aria-label="Open cart, 1 items"]').click()`);await until(`location.pathname==='/cart'`);
+    await clickText('Checkout');await until(`location.pathname==='/checkout'&&document.body.innerText.includes('Place Order')`);
+    await clickText('Place Order');await clickText('Place Order');
+    await until(`!!document.querySelector('[role="dialog"]')&&document.body.innerText.includes('Order Placed')`);
+    assert.equal(await evaluate(`window.placedOrders`),1);
+    assert.equal(await evaluate(`[...document.querySelector('[role="dialog"]').querySelectorAll('*')].some(e=>getComputedStyle(e).fontFamily.toLowerCase().includes('ionicons'))`),false);
+    assert.equal(await evaluate(`location.pathname`),'/checkout');await clickDialog('OK');await until(`location.pathname==='/orders'`);
+    checks.push('One mocked successful order shows icon-free themed Order Placed dialog, then acknowledges to Orders');
+    await evaluate(`history.back()`);await until(`location.pathname==='/cart'`);
+    await evaluate(`history.back()`);await until(`location.pathname==='/favorites'&&document.body.innerText.includes('2 favorites')`);
+
     await clickText('Clear Favorites'); await until(`document.body.innerText.includes('Clear Favorites?')`); await clickText('Cancel');
     assert.equal(await evaluate(`document.body.innerText.includes('2 favorites')`), true);
     await clickText('Clear Favorites'); await until(`document.body.innerText.includes('Clear Favorites?')`); await clickDialog('Clear Favorites');
     await until(`document.body.innerText.includes('0 favorites')`);
     await wait(1800);
     checks.push('Favorites live count and zero cart badge track clears; Clear Favorites requires confirmation and empties immediately');
+    await send('Page.navigate',{url:'http://127.0.0.1:4175/account'});await until(`document.body.innerText.includes('Logout')`);
+    await clickText('Logout');await until(`!!document.querySelector('[role="dialog"]')`);
+    assert.equal(await evaluate(`location.pathname==='/account'&&document.body.innerText.includes('Logout')`),true);await clickDialog('Cancel');
+    assert.equal(await evaluate(`location.pathname==='/account'&&document.body.innerText.includes('Logout')`),true);
+    await clickText('Logout');await until(`!!document.querySelector('[role="dialog"]')`);
+    await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});await wait(400);
+    assert.equal(await evaluate(`location.pathname==='/account'&&document.body.innerText.includes('Logout')&&!document.querySelector('[role="dialog"]')`),true);
+    await clickText('Logout');await clickDialog('Log Out');await until(`location.pathname!=='/account'&&!document.body.innerText.includes('Logout')`);
+    checks.push('Account themed Logout: tap/Cancel/Escape retain session, explicit Log Out clears existing session');
     assert.equal(errors.length, 0, JSON.stringify(errors));
     fs.writeFileSync(path.join(evidence, 'ui-ux-browser-results.json'), JSON.stringify({ checks, errors }, null, 2));
     console.log(JSON.stringify({ checks, errors }, null, 2));

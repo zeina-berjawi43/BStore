@@ -1,3 +1,4 @@
+import { useActionDialog } from '../components/action-dialog';
 import { ProductImage } from '../components/product-image';
 import { ImageFrame } from '../services/image-frame';
 import { request } from '../services/request';
@@ -139,6 +140,7 @@ const readJsonResponse = async (
 // ============================================================
 
 export default function Checkout() {
+  const { alert: actionAlert, dialog } = useActionDialog({ showIcon: false, acknowledgeOnDismiss: true });
   const orderInFlight = useRef(false);
 
   const [user, setUser] =
@@ -764,8 +766,8 @@ export default function Checkout() {
         setCart([]);
 
 
-        Alert.alert(
-          "Order Placed 🎉",
+        actionAlert(
+          "Order Placed",
           "Your order has been placed successfully.",
           [
             {
@@ -782,7 +784,7 @@ export default function Checkout() {
       }
 
 
-      Alert.alert(
+      actionAlert(
         "Order",
         data?.message ||
           "Order created successfully."
@@ -826,6 +828,7 @@ export default function Checkout() {
           styles.loadingContainer
         }
       >
+        {dialog}
 
         <View
           style={
@@ -868,6 +871,7 @@ export default function Checkout() {
         styles.container
       }
     >
+      {dialog}
 
       {/* ====================================================
           HEADER

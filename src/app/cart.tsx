@@ -168,7 +168,7 @@ const getImageUrl = (
 // ============================================================
 
 export default function Cart() {
-  const { alert: actionAlert, dialog } = useActionDialog();
+  const { alert: actionAlert, dialog } = useActionDialog({ showIcon: false });
   const shopping = useShopping();
   const MINIMUM_ORDER = shopping.minimum;
 

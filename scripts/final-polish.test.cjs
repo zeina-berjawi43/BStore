@@ -138,3 +138,86 @@ test('Offers scrolling measures the section wrapper in ScrollView coordinates af
   vm.runInNewContext(ts.transpileModule('exports.layout=' + layout, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, { exports, offersSectionY });
   exports.layout({ nativeEvent: { layout: { y: 1200 } } }); assert.equal(offersSectionY.current, 1200);
 });
+
+test('symbol-free confirmations preserve Cancel, Back and once-only destructive actions; success Back acknowledges once', () => {
+  const context = { Modal: 'Modal', View: 'View', Text: 'Text', Pressable: 'Pressable', Ionicons: 'Icon', styles: {} };
+  const render = fixture('components/action-dialog.tsx', 'useActionDialog', context);
+  let confirmed = 0;
+  const options = { showIcon: false };
+  for (const title of ['Clear Cart?', 'Clear Favorites?', 'Log Out']) {
+    render(options).alert(title, 'Confirm?', [{ text: 'Cancel', style: 'cancel' }, { text: 'Confirm', style: 'destructive', onPress: () => confirmed++ }]);
+    let dialog = render(options).dialog;
+    assert.equal(nodes(dialog, node => node.type === 'Icon').length, 0);
+    dialog.props.onRequestClose(); assert.equal(confirmed, 0);
+    render(options).alert(title, 'Confirm?', [{ text: 'Cancel', style: 'cancel' }, { text: 'Confirm', style: 'destructive', onPress: () => confirmed++ }]);
+    dialog = render(options).dialog; nodes(dialog, node => node.type === 'Pressable')[0].props.onPress(); assert.equal(confirmed, 0);
+  }
+  const success = { showIcon: false, acknowledgeOnDismiss: true };
+  render(success).alert('Order Placed', 'Your order has been placed successfully.', [{ text: 'OK', onPress: () => confirmed++ }]);
+  const dialog = render(success).dialog; dialog.props.onRequestClose(); dialog.props.onRequestClose();
+  assert.equal(confirmed, 1); assert.equal(nodes(dialog, node => node.type === 'Icon').length, 0);
+});
+
+test('Account Logout opens a confirmation without auth changes; the existing guarded logout runs only after confirmation', async () => {
+  let authenticated = true, calls = 0, notice, finish;
+  const logoutInProgress = { current: false };
+  const logout = handler('app/account.tsx', 'logout', { logoutInProgress, authLogout: async () => { calls++; await new Promise(resolve => { finish = resolve; }); authenticated = false; }, setUser: () => {}, Alert: { alert: () => assert.fail('Unexpected error') } });
+  const request = handler('app/account.tsx', 'requestLogout', { logoutInProgress, logout, actionAlert: (...args) => { notice = args; } });
+  request(); assert.equal(authenticated, true); assert.equal(calls, 0);
+  assert.equal(notice[2][0].style, 'cancel'); assert.equal(notice[2][0].onPress, undefined);
+  request(); notice[2][1].onPress(); notice[2][1].onPress(); assert.equal(calls, 1);
+  assert.equal(authenticated, true); finish(); await new Promise(resolve => setImmediate(resolve)); assert.equal(authenticated, false);
+  assert.match(source('app/account.tsx'), /onPress=\{requestLogout\}/);
+});
+
+test('successful checkout keeps one request/payload/cleanup and routes to Orders only through themed acknowledgment', async () => {
+  const cart = [{ product: { _id: '507f1f77bcf86cd799439011' }, quantity: 2, price: 8 }];
+  let notice, finish, cleaned, cleared; const requests = [], routes = [], orderInFlight = { current: false };
+  const place = handler('app/checkout.tsx', 'placeOrder', { cart, user: { _id: 'customer', phone: '71000000', address: ' Beirut ' }, displayName: 'Maya', placingOrder: false, orderInFlight, cartRevision: 'revision', API_URL: 'https://fixture.test',
+    setPlacingOrder: () => {}, getAccessToken: async () => 'fixture', getCheckoutAttempt: async () => ({ key: 'same-attempt', storageKey: 'attempt-key' }),
+    request: async (url, init) => { requests.push({ url, init }); await new Promise(resolve => { finish = resolve; }); return { status: 201, ok: true }; },
+    readJsonResponse: async () => ({ order: { _id: 'order' } }), AsyncStorage: { multiRemove: async keys => { cleaned = Array.from(keys); } }, setCart: value => { cleared = Array.from(value); },
+    actionAlert: (...args) => { notice = args; }, router: { replace: route => routes.push(route) }, Alert: { alert: () => assert.fail('Raw success alert') } });
+  const first = place(); await place(); await new Promise(resolve => setImmediate(resolve)); assert.equal(requests.length, 1);
+  finish(); await first; assert.deepEqual(JSON.parse(requests[0].init.body), { idempotencyKey: 'same-attempt', shippingAddress: 'Beirut' });
+  assert.deepEqual(cleaned, ['attempt-key', 'cart']); assert.deepEqual(cleared, []); assert.deepEqual(routes, []);
+  assert.equal(notice[0], 'Order Placed'); notice[2][0].onPress(); assert.deepEqual(routes, ['/orders']);
+});
+
+test('actual Favorites card omits both reference IDs from text while retaining keys and cart/remove/details IDs; pending cart stays black', () => {
+  const product = { _id: '507f1f77bcf86cd799439011', id: '507f1f77bcf86cd799439011', name: 'Almonds', brand: '507f191e810c19729de860ea', category: '507f1f77bcf86cd799439012', price: 10, discountedPrice: 8, discount: 20, availability: true };
+  const shopping = { favorites: [product], pendingCart: new Set(), pendingFavorites: new Set(), add: value => { added = value; }, toggle: value => { removed = value; } };
+  let added, removed, destination;
+  const render = fixture('app/favorites.tsx', 'Favorites', { useShopping: () => shopping, useActionDialog: () => ({ dialog: null }),
+    useState: initial => [initial === false ? true : initial, () => {}],
+    favoriteReferenceLabel: fixture('app/favorites.tsx', 'favoriteReferenceLabel'), useFocusEffect: () => {}, goBackOrHome: () => {},
+    router: { push: value => { destination = value; } }, View: 'View', Text: 'Text', Pressable: 'Pressable', ScrollView: 'ScrollView', CartButton: 'CartButton', Ionicons: 'Icon',
+    styles: { addToCartButton: { backgroundColor: '#171717' }, productCard: {} }, getFinalPrice: () => 8, formatPrice: value => '$' + value.toFixed(2) });
+  let tree = render();
+  const visible = nodes(tree, node => node.type === 'Text').map(node => JSON.stringify(node.props.children)).join('');
+  for (const id of [product._id, product.brand, product.category]) assert.ok(!visible.includes(id), id);
+  const card = nodes(tree, node => node.props?.key === product._id)[0]; assert.ok(card); card.props.onPress(); assert.equal(destination.params.id, product._id);
+  const button = nodes(tree, node => node.props?.accessibilityLabel === 'Add Almonds to cart')[0]; button.props.onPress({ stopPropagation() {} }); assert.equal(added.id, product._id);
+  const remove = nodes(card, node => node !== card && node.type === 'Pressable' && nodes(node, child => child.type === 'Icon' && child.props.name === 'heart').length)[0]; remove.props.onPress({ stopPropagation() {} }); assert.equal(removed, product);
+  shopping.pendingCart.add(product._id); tree = render();
+  const pending = nodes(tree, node => node.props?.accessibilityLabel === 'Add Almonds to cart')[0];
+  assert.equal(pending.props.disabled, false);
+  assert.equal(pending.props.style({ pressed: false }).filter(Boolean).at(-1).backgroundColor, '#171717');
+  assert.equal(pending.props.style({ pressed: true }).filter(Boolean).at(-1).backgroundColor, '#E35B3F');
+  assert.equal(product.brand, '507f191e810c19729de860ea');
+});
+
+test('Top Selling keeps the badge design at a 6px top inset for single/double-digit discounts and omits it without an offer', () => {
+  const text = source('app/index.tsx');
+  const position = vm.runInNewContext('(' + text.match(/topSellingDiscountPosition: (\{[^}]+\})/)[1] + ')');
+  assert.equal(position.top, 6); assert.equal(position.bottom, 'auto');
+  const render = fixture('app/index.tsx', 'TopSellingProductRow', { useEffect: () => {},
+    Animated: { View: 'Animated', Value: class { interpolate() { return 0; } } }, View: 'View', Text: 'Text', Pressable: 'Pressable', ProductImage: 'ProductImage', Ionicons: 'Icon', AddToCartButton: 'AddToCartButton',
+    styles: { topSellingDiscountPosition: position }, getFinalPrice: product => product.discountedPrice });
+  for (const discount of [0, 5, 20]) {
+    const tree = render({ product: { id: 'A', name: 'A', price: 10, discount, discountedPrice: 10 * (1 - discount / 100) }, isLoggedIn: true });
+    const badges = nodes(tree, node => Array.isArray(node.props?.style) && node.props.style.includes(position));
+    assert.equal(badges.length, discount ? 1 : 0);
+    if (discount) assert.ok(JSON.stringify(badges[0].props.children).includes(String(discount)));
+  }
+});

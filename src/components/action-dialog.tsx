@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 type Notice = { title: string; message: string; buttons: AlertButton[] };
 
 // Screen-local feedback: callbacks run only after an explicit action.
-export function useActionDialog() {
+export function useActionDialog({ showIcon = true, acknowledgeOnDismiss = false }: { showIcon?: boolean; acknowledgeOnDismiss?: boolean } = {}) {
   const [notice, setNotice] = useState<Notice | null>(null);
   const active = useRef<Notice | null>(null);
   const alert = useCallback((title: string, message?: string, buttons?: AlertButton[]) => {
@@ -19,10 +19,11 @@ export function useActionDialog() {
   };
   const destructive = notice?.buttons.some(button => button.style === 'destructive');
   const dialog = <Modal transparent visible={!!notice} animationType="fade"
-    onRequestClose={() => choose(notice?.buttons.find(button => button.style === 'cancel'))}>
+    onRequestClose={() => choose(notice?.buttons.find(button => button.style === 'cancel') ||
+      (acknowledgeOnDismiss && notice?.buttons.length === 1 ? notice.buttons[0] : undefined))}>
     <View style={styles.overlay}>
       <View style={styles.card} accessibilityViewIsModal accessibilityLabel={notice?.title}>
-        <View style={styles.icon}><Ionicons name={destructive ? 'trash-outline' : notice?.title.toLowerCase().includes('success') ? 'checkmark-circle-outline' : 'information-circle-outline'} size={28} color="#E35B3F" /></View>
+        {showIcon && <View style={styles.icon}><Ionicons name={destructive ? 'trash-outline' : notice?.title.toLowerCase().includes('success') ? 'checkmark-circle-outline' : 'information-circle-outline'} size={28} color="#E35B3F" /></View>}
         <Text accessibilityRole="header" style={styles.title}>{notice?.title}</Text>
         {notice?.message ? <Text style={styles.message}>{notice.message}</Text> : null}
         <View style={styles.actions}>{notice?.buttons.map((button, index) => <Pressable key={index}

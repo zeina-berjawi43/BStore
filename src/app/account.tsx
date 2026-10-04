@@ -1,3 +1,4 @@
+import { useActionDialog } from '../components/action-dialog';
 import { goBackOrHome } from '../services/navigation';
 import { getSessionSnapshot } from '../services/tokenStorage';
 import {
@@ -36,6 +37,7 @@ import {
 // =========================================================
 
 export default function Account() {
+  const { alert: actionAlert, dialog } = useActionDialog({ showIcon: false });
   const [user, setUser] =
     useState<User | null>(null);
   const [deletingAccount, setDeletingAccount] = useState(false);
@@ -106,6 +108,14 @@ export default function Account() {
   // =======================================================
   // DELETE ACCOUNT
   // =======================================================
+
+  const requestLogout = () => {
+    if (logoutInProgress.current) return;
+    actionAlert('Log Out', 'Are you sure you want to log out?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Log Out', style: 'destructive', onPress: () => void logout() },
+    ]);
+  };
 
   const handleDeleteAccount = () => {
     if (deletionInProgress.current) return;
@@ -186,6 +196,7 @@ export default function Account() {
 
   return (
     <View style={styles.container}>
+      {dialog}
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -449,7 +460,7 @@ export default function Account() {
 
         <Pressable
           style={styles.logoutButton}
-          onPress={logout}
+          onPress={requestLogout}
         >
 
           <Ionicons
