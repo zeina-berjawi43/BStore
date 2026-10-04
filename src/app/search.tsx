@@ -1,14 +1,17 @@
-import { useProductFeedback } from '../components/product-feedback';
+import { useShopping } from '../hooks/use-shopping';
+
+import { CartButton } from '../components/cart-button';
+
 import { AddToCartButton } from '../components/add-to-cart-button';
 import { getFinalPrice } from '../services/product-price';
 import { ProductImage } from '../components/product-image';
 import { useCallback, useDeferredValue, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { API_URL, getValidAccessToken } from '../services/authService';
 import { CatalogProduct, fetchCatalog, peekPublicCatalog, readPublicCatalog } from '../services/catalogService';
-import { addProductToCart, getFavoriteIds, setProductFavorite, ShoppingError } from '../services/shoppingService';
+
 
 const label = (value?: CatalogProduct['category']) => typeof value === 'string' ? value : value?.name || '';
 const imageUrl = (value?: string) => {
@@ -19,28 +22,24 @@ const imageUrl = (value?: string) => {
 };
 
 export default function Search() {
+  const shopping = useShopping();
   const [searchText, setSearchText] = useState('');
   const query = useDeferredValue(searchText.trim().toLowerCase());
   const [products, setProducts] = useState<CatalogProduct[]>(peekPublicCatalog);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
-  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
-  const [favoritesReady, setFavoritesReady] = useState(false);
-  const [pending, setPending] = useState<Set<string>>(new Set());
-  const { showAlert, feedback } = useProductFeedback();
-  const pendingRef = useRef(new Set<string>());
+  const favoriteIds = new Set(shopping.favorites.map(p => String(p._id || p.id)));
+  const favoritesReady = shopping.ready;
+  const pending = new Set([...shopping.pendingCart].map(id => `cart:${id}`).concat([...shopping.pendingFavorites].map(id => `favorite:${id}`)));
+  const { feedback } = shopping;
   const epoch = useRef(0);
-  const reloadAfterMutation = useRef(false);
 
   const load = useCallback(async (generation: number, force = false) => {
-    if (pendingRef.current.size) { reloadAfterMutation.current = true; return; }
-    reloadAfterMutation.current = false;
     setError('');
     setLoading(true);
     setRefreshing(force);
-    setFavoritesReady(false);
-    setFavoriteIds(new Set());
+
     let liveProductsLoaded = false;
     void readPublicCatalog().then(cached => {
       if (epoch.current === generation && !liveProductsLoaded && cached.length) {
@@ -50,20 +49,7 @@ export default function Search() {
     try {
       const token = await getValidAccessToken();
       if (epoch.current !== generation) return;
-      if (!token) {
-        setFavoriteIds(new Set());
-        setFavoritesReady(true);
-      } else {
-        // Favorites never delay product results.
-        void getFavoriteIds(token).then(ids => {
-          if (epoch.current === generation) {
-            setFavoriteIds(new Set(ids));
-            setFavoritesReady(true);
-          }
-        }).catch(() => {
-          if (epoch.current === generation) Alert.alert('Could not load favorites', 'Pull down to retry.');
-        });
-      }
+      void shopping.refresh(force).catch(() => {});
       const data = await fetchCatalog(token, force);
       if (epoch.current !== generation) return;
       liveProductsLoaded = true;
@@ -85,53 +71,7 @@ export default function Search() {
     `${product.name} ${label(product.category)} ${label(product.brand)}`.toLowerCase().includes(query)
   ), [products, query]);
 
-  const changeProduct = async (product: CatalogProduct, action: 'cart' | 'favorite') => {
-    const key = `${action}:${product._id}`;
-    if (pendingRef.current.has(key)) return;
-    if (action === 'cart' && product.availability === false) return;
-    pendingRef.current.add(key);
-    setPending(new Set(pendingRef.current));
-    const generation = epoch.current;
-    const selected = favoriteIds.has(product._id);
-    const applyFavorite = (value: boolean) => setFavoriteIds(current => {
-      const updated = new Set(current);
-      if (value) updated.add(product._id); else updated.delete(product._id);
-      return updated;
-    });
-    if (action === 'favorite') applyFavorite(!selected);
-    try {
-      const token = await getValidAccessToken();
-      if (epoch.current !== generation) {
-        if (action === 'favorite') applyFavorite(selected);
-        return;
-      }
-      if (!token) {
-        if (action === 'favorite') applyFavorite(selected);
-        router.push('/login');
-        return;
-      }
-      if (action === 'cart') {
-        await addProductToCart(product._id, token);
-      } else {
-        await setProductFavorite(product._id, !selected, token);
-      }
-      if (epoch.current !== generation) return;
-      showAlert(action === 'cart' ? product.name + ' has been added to your cart.' : selected ? 'Product has been removed from your favorites.' : 'Product has been added to your favorites.',
-        action === 'cart' ? 'Added to Cart' : selected ? 'Removed from Favorites' : 'Added to Favorites');
-    } catch (err) {
-      if (action === 'favorite') applyFavorite(selected);
-      if (epoch.current !== generation) return;
-      if (err instanceof ShoppingError && err.status === 401) {
-        router.push('/login');
-      } else {
-        Alert.alert('Could not save', err instanceof Error ? err.message : 'Please try again.');
-      }
-    } finally {
-      pendingRef.current.delete(key);
-      setPending(new Set(pendingRef.current));
-      if (!pendingRef.current.size && reloadAfterMutation.current) void load(epoch.current);
-    }
-  };
+  const changeProduct = (product: CatalogProduct, action: 'cart' | 'favorite') => action === 'cart' ? shopping.add(product) : shopping.toggle(product);
 
   return (
     <View style={styles.container}>
@@ -141,9 +81,7 @@ export default function Search() {
           <Ionicons name="arrow-back" size={22} color="#171717" />
         </Pressable>
         <Text style={styles.title}>Search</Text>
-        <Pressable style={styles.back} onPress={() => router.push('/cart')} accessibilityLabel="Open cart" accessibilityRole="button">
-          <Ionicons name="cart-outline" size={24} color="#E35B3F" />
-        </Pressable>
+        <CartButton />
       </View>
       <View style={styles.searchBar}>
         <Ionicons name="search-outline" size={21} color="#E35B3F" />
@@ -159,7 +97,7 @@ export default function Search() {
         <Text style={styles.error}>{error} Tap to retry.</Text>
       </Pressable>}
       <View style={styles.resultsHeader}>
-        <Text style={styles.sectionTitle}>{query ? `${results.length} ${results.length === 1 ? 'product' : 'products'}` : 'Find your favorites'}</Text>
+        <Text style={styles.sectionTitle}>{query ? `${results.length} ${results.length === 1 ? 'product' : 'products'}` : ''}</Text>
 
       </View>
       <FlatList
@@ -235,7 +173,7 @@ const styles = StyleSheet.create({
   row: { gap: 12 },
   card: { flex: 1, maxWidth: '50%', backgroundColor: '#FFFFFF', borderRadius: 18, borderWidth: 1, borderColor: '#E6DED2', marginBottom: 12, overflow: 'hidden' },
   imageBox: { height: 145, padding: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF', overflow: 'hidden' },
-  image: { width: '100%', height: '100%' },
+  image: { backgroundColor: '#FFFFFF',  width: '100%', height: '100%' },
   favorite: { position: 'absolute', top: 5, right: 5, width: 44, height: 44, borderRadius: 22, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
   discount: { position: 'absolute', top: 10, left: 8, paddingHorizontal: 6, paddingVertical: 4, borderRadius: 6, backgroundColor: '#E35B3F' },
   discountText: { fontSize: 11, fontWeight: '800', color: '#FFFFFF' },

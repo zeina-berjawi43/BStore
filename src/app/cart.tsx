@@ -1,8 +1,13 @@
+import { useShopping } from '../hooks/use-shopping';
+import { confirmShoppingClear } from '../services/confirm-shopping-clear';
+import { shoppingState } from '../services/shopping-state';
+
+import { useEffect } from 'react';
 import { goBackOrHome } from '../services/navigation';
 import { ProductImage } from '../components/product-image';
 import { ImageFrame } from '../services/image-frame';
-import { request } from '../services/request';
-import { cartTotal, currentCartPrices } from '../services/cartPricing';
+
+import { cartTotal } from '../services/cartPricing';
 import {
   View,
   Text,
@@ -11,9 +16,10 @@ import {
   ScrollView,
   TextInput,
   Alert,
+  Keyboard,
 } from 'react-native';
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
+
 
 import { Ionicons } from '@expo/vector-icons';
 
@@ -28,7 +34,7 @@ import {
   useState,
 } from 'react';
 
-import { getValidAccessToken, logoutLocal } from '../services/authService';
+
 
 
 // ============================================================
@@ -162,28 +168,20 @@ const getImageUrl = (
 // ============================================================
 
 export default function Cart() {
-  const [MINIMUM_ORDER, setMinimumOrder] = useState<number>(Infinity);
+  const shopping = useShopping();
+  const MINIMUM_ORDER = shopping.minimum;
 
   // ==========================================================
   // STATE
   // ==========================================================
 
-  const [
-    cart,
-    setCart,
-  ] = useState<CartItem[]>([]);
+  const cart = shopping.cart as CartItem[];
 
 
-  const [
-    hasLoadedOnce,
-    setHasLoadedOnce,
-  ] = useState(false);
+  const hasLoadedOnce = shopping.ready;
 
 
-  const [
-    updatingProduct,
-    setUpdatingProduct,
-  ] = useState<string | null>(null);
+  const updatingProduct = shopping.busy ? "sync" : null;
 
 
   const [
@@ -192,96 +190,41 @@ export default function Cart() {
   ] = useState<Record<string, string>>({});
 
 
-  const accessTokenRef =
-    useRef<string | null>(null);
+  const editingQuantity = useRef<string | null>(null);
+  const quantityDraft = useRef<Record<string, string>>({});
 
 
-  const mutationBusy = useRef(false);
+
+
   const loadRevision = useRef(0);
   const formatPrice = useCallback((price: number) => '$' + (Number(price) || 0).toFixed(2), []);
-  const applyCartData = useCallback((items: CartItem[]) => {
-    items = currentCartPrices(items);
-    setCart(items);
-    const quantities: Record<string, string> = {};
-    items.forEach(item => { if (item.product?._id) quantities[item.product._id] = String(item.quantity); });
-    setManualQuantities(quantities);
-  }, []);
 
-  const loadCart = useCallback(async () => {
-    if (mutationBusy.current) return;
-    const revision = ++loadRevision.current;
-    try {
-      const token = await getValidAccessToken();
-      if (revision !== loadRevision.current) return;
-      accessTokenRef.current = token;
-      if (!token) { applyCartData([]); router.replace('/login'); return; }
-      const response = await request(API_URL + '/cart', { headers: { Authorization: 'Bearer ' + token } });
-      const data = await response.json();
-      if (revision !== loadRevision.current) return;
-      if (response.status === 401) { await logoutLocal(token); applyCartData([]); router.replace('/login'); return; }
-      if (!response.ok) throw new Error(data.message || 'Could not load your cart.');
-      setMinimumOrder(data.minimumOrderValue ?? Infinity);
-      applyCartData(Array.isArray(data.cart?.items) ? data.cart.items : []);
-    } catch (error) {
-      if (revision === loadRevision.current) applyCartData([]);
-      if (revision === loadRevision.current) Alert.alert('Cart unavailable', error instanceof Error ? error.message : 'Check your connection and try again.');
-    } finally {
-      if (revision === loadRevision.current) setHasLoadedOnce(true);
-    }
-  }, [applyCartData]);
+
+  const loadCart = useCallback(async () => { try { await shoppingState.refresh(true); } catch (error) { Alert.alert('Cart unavailable', error instanceof Error ? error.message : 'Please retry.'); } }, []);
 
   useFocusEffect(useCallback(() => {
     void loadCart();
     return () => { loadRevision.current++; };
   }, [loadCart]));
 
-  const mutateCart = async (productId: string, quantity?: number) => {
-    if (mutationBusy.current) return;
-    mutationBusy.current = true;
-    const revision = ++loadRevision.current;
-    setUpdatingProduct(productId);
-    try {
-      const token = await getValidAccessToken();
-      if (revision !== loadRevision.current) return;
-      if (!token) { router.replace('/login'); return; }
-      const response = await request(API_URL + (quantity === undefined ? '/cart/remove' : '/cart/update'), {
-        method: quantity === undefined ? 'DELETE' : 'PUT',
-        headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ productId, ...(quantity === undefined ? {} : { quantity }) }),
-      });
-      const data = await response.json();
-      if (revision !== loadRevision.current) return;
-      if (response.status === 401) { await logoutLocal(token); router.replace('/login'); return; }
-      if (!response.ok) throw new Error(data.message || 'Could not update your cart.');
-      if (!Array.isArray(data.cart?.items)) throw new Error('Cart response was incomplete. Reopen your cart to check the change.');
-      setMinimumOrder(data.minimumOrderValue ?? Infinity);
-      applyCartData(data.cart.items);
-    } catch (error) {
-      if (revision === loadRevision.current) {
-        applyCartData(cart);
-        Alert.alert('Check your cart', (error instanceof Error ? error.message : 'Connection interrupted.') + ' Reopen the cart to confirm its latest contents.');
-      }
-    } finally {
-      mutationBusy.current = false;
-      setUpdatingProduct(null);
-    }
-  };
+  const mutateCart = (productId: string, quantity?: number) => quantity === undefined ? shopping.remove(productId) : shopping.quantity(productId, quantity);
   const removeProduct = (productId: string) => mutateCart(productId);
-  const updateQuantity = async (productId: string, change: number) => {
-    const item = cart.find(value => value.product?._id === productId);
-    if (!item || mutationBusy.current) return;
-    const quantity = item.quantity + change;
-    if (!Number.isSafeInteger(quantity)) return;
-    await mutateCart(productId, quantity < 1 ? undefined : quantity);
+  const updateQuantity = (productId: string, change: number) => {
+    const item = shoppingState.getSnapshot().cart.find(value => value.product._id === productId);
+    if (!item) return; const quantity = item.quantity + change;
+    delete quantityDraft.current[productId];
+    setManualQuantities(previous => { const next = { ...previous }; delete next[productId]; return next; });
+    return mutateCart(productId, quantity < 1 ? undefined : quantity);
   };
-  const handleManualQuantityChange = (productId: string, value: string) => {
-    if (!mutationBusy.current) setManualQuantities(previous => ({ ...previous, [productId]: value }));
-  };
+  const handleManualQuantityChange = (productId: string, value: string) => { quantityDraft.current[productId] = value; setManualQuantities(previous => ({ ...previous, [productId]: value })); };
   const handleManualQuantitySubmit = async (productId: string) => {
-    if (mutationBusy.current) return;
-    const value = manualQuantities[productId];
+    editingQuantity.current = null;
+    const value = quantityDraft.current[productId];
+    if (value === undefined) return; // Blur and keyboard-hide can both fire.
+    delete quantityDraft.current[productId];
+    setManualQuantities(previous => { const next = { ...previous }; delete next[productId]; return next; });
     const quantity = Number(value);
-    const current = cart.find(item => item.product?._id === productId)?.quantity;
+    const current = shoppingState.getSnapshot().cart.find(item => item.product?._id === productId)?.quantity;
     if (!value?.trim() || !Number.isSafeInteger(quantity) || quantity < 1) {
       setManualQuantities(previous => ({ ...previous, [productId]: String(current ?? 1) }));
       Alert.alert('Invalid quantity', 'Enter a whole number of at least 1. Use remove to delete an item.');
@@ -289,6 +232,12 @@ export default function Cart() {
     }
     if (quantity !== current) await mutateCart(productId, quantity);
   };
+  const acceptQuantity = useRef(handleManualQuantitySubmit);
+  useEffect(() => { acceptQuantity.current = handleManualQuantitySubmit; }, [handleManualQuantitySubmit]);
+  useEffect(() => {
+    const listener = Keyboard.addListener('keyboardDidHide', () => { const id = editingQuantity.current; if (id) void acceptQuantity.current(id); });
+    return () => listener.remove();
+  }, []);
 
   // ==========================================================
   // TOTAL
@@ -319,7 +268,7 @@ export default function Cart() {
     () => {
 
       if (
-        !canCheckout || mutationBusy.current
+        !canCheckout || shoppingState.getSnapshot().busy
       ) {
 
         return;
@@ -346,6 +295,7 @@ export default function Cart() {
       }
     >
 
+      {shopping.feedback}
       {/* ====================================================
           HEADER
       ==================================================== */}
@@ -406,6 +356,9 @@ export default function Cart() {
 
       </View>
 
+
+      {cart.length > 0 && <Pressable accessibilityRole="button" onPress={() => confirmShoppingClear('Cart', shopping.clearCart)}
+        style={{ alignSelf: 'flex-end', padding: 12 }}><Text style={{ color: '#E35B3F', fontWeight: '700' }}>Clear Cart</Text></Pressable>}
 
       {/* ====================================================
           EMPTY CART
@@ -490,7 +443,7 @@ export default function Cart() {
 
         <>
 
-          <ScrollView
+          <ScrollView keyboardShouldPersistTaps="never" keyboardDismissMode="on-drag"
             showsVerticalScrollIndicator={
               false
             }
@@ -502,8 +455,7 @@ export default function Cart() {
 
             {cart.map(
               (
-                item,
-                index
+                item
               ) => {
 
                 const product =
@@ -525,13 +477,11 @@ export default function Cart() {
                   );
 
 
-                const itemUpdating =
-                  updatingProduct ===
-                  productId;
+                const itemUpdating = false;
 
 
                 const uniqueKey =
-                  `${productId}-${index}`;
+                  productId;
 
 
                 const originalPrice =
@@ -736,6 +686,7 @@ export default function Cart() {
                         {/* MINUS */}
 
                         <Pressable
+                          accessibilityLabel={`Decrease ${product.name} quantity`}
                           style={[
                             styles.quantityButton,
 
@@ -767,6 +718,7 @@ export default function Cart() {
                         {/* INPUT */}
 
                         <TextInput
+                          accessibilityLabel={`${product.name} quantity`}
                           value={
                             manualValue
                           }
@@ -779,6 +731,7 @@ export default function Cart() {
                               )
                           }
 
+                          onFocus={() => { editingQuantity.current = productId; }}
                           onBlur={() =>
                             handleManualQuantitySubmit(
                               productId
@@ -810,6 +763,7 @@ export default function Cart() {
                         {/* PLUS */}
 
                         <Pressable
+                          accessibilityLabel={`Increase ${product.name} quantity`}
                           style={[
                             styles.quantityButton,
 
@@ -843,6 +797,7 @@ export default function Cart() {
                       {/* REMOVE */}
 
                       <Pressable
+                        accessibilityLabel={`Remove ${product.name} from cart`}
                         style={
                           styles.removeButton
                         }
@@ -1305,14 +1260,14 @@ const styles =
     width: 108,
     height: 108,
     borderRadius: 17,
-    backgroundColor: '#F8F2EA',
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
   },
 
 
-  productImage: {
+  productImage: { backgroundColor: '#FFFFFF',
     width: '100%',
     height: '100%',
   },

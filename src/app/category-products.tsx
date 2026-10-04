@@ -1,5 +1,7 @@
-import { useProductFeedback } from "../components/product-feedback";
-import { useProductPending } from '../hooks/useProductPending';
+import { useShopping } from '../hooks/use-shopping';
+
+import { CartButton } from '../components/cart-button';
+
 import { AddToCartButton } from '../components/add-to-cart-button';
 import { getFinalPrice } from '../services/product-price';
 import { ProductImage } from '../components/product-image';
@@ -21,13 +23,7 @@ import {
   useFocusEffect,
   useLocalSearchParams,
 } from 'expo-router';
-import {
-  memo,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
+import { memo, useCallback, useRef, useState } from 'react';
 import { getValidAccessToken } from '../services/authService';
 /* =========================================================
    API
@@ -64,9 +60,7 @@ type SubCategory = {
     name?: string;
   } | string | null;
 };
-type CartProduct = Product & {
-  quantity: number;
-};
+
 /* =========================================================
    IMAGE URL
 ========================================================= */
@@ -127,309 +121,14 @@ const formatPrice = (
    FAVORITE BUTTON
 ========================================================= */
 type FavoriteButtonProps = {
-  productId: string;
+  onToggle: () => void;
   initialFavorite: boolean;
-  isLoggedIn: boolean;
-  /*
-   * The PAGE owns the favorite alert.
-   * This button only reports whether the
-   * favorite was added or removed.
-   */
-  onFavoriteChange: (
-    type: 'added' | 'removed'
-  ) => void;
 };
-const FavoriteButton = memo(
-  ({
-    productId,
-    initialFavorite,
-    isLoggedIn,
-    onFavoriteChange,
-  }: FavoriteButtonProps) => {
-    const [
-      isFavorite,
-      setIsFavorite,
-    ] = useState(
-      initialFavorite
-    );
-    const [
-      isRequesting,
-      setIsRequesting,
-    ] = useState(false);
-    const pendingRef =
-      useRef(false);
-    const favoriteRef =
-      useRef(
-        initialFavorite
-      );
-    /*
-     * Keep local state synchronized with
-     * the server favorite state.
-     *
-     * Never overwrite the local optimistic
-     * state while a request is running.
-     */
-    useEffect(() => {
-      if (
-        pendingRef.current
-      ) {
-        return;
-      }
-      favoriteRef.current =
-        initialFavorite;
-      setIsFavorite(
-        initialFavorite
-      );
-    }, [
-      initialFavorite,
-    ]);
-    const handlePress = (
-      event: any
-    ) => {
-      event.stopPropagation();
-      if (!isLoggedIn) {
-        router.push(
-          '/login'
-        );
-        return;
-      }
-      /*
-       * Prevent double taps while
-       * the request is running.
-       */
-      if (
-        pendingRef.current
-      ) {
-        return;
-      }
-      const previousFavorite =
-        favoriteRef.current;
-      const nextFavorite =
-        !previousFavorite;
-      /*
-       * ===================================================
-       * OPTIMISTIC UI
-       *
-       * THE HEART CHANGES FIRST.
-       *
-       * No await.
-       * No AsyncStorage.
-       * No API.
-       *
-       * The alert is intentionally NOT triggered
-       * at the same time.
-       * ===================================================
-       */
-      favoriteRef.current =
-        nextFavorite;
-      setIsFavorite(
-        nextFavorite
-      );
-      pendingRef.current =
-        true;
-      setIsRequesting(
-        true
-      );
-      /*
-       * ===================================================
-       * SHOW FAVORITE ALERT AFTER THE HEART UI UPDATE
-       *
-       * requestAnimationFrame allows React Native
-       * to render the new heart state first.
-       *
-       * HEART:
-       *   ❤️ changes first
-       *
-       * THEN:
-       *   🔔 favorite alert appears
-       * ===================================================
-       */
-      /*
-       * ===================================================
-       * API RUNS IN THE BACKGROUND
-       * ===================================================
-       */
-      (async () => {
-        try {
-          const accessToken =
-            await getValidAccessToken();
-          if (!accessToken) {
-            /*
-             * Rollback if session is missing.
-             */
-            favoriteRef.current =
-              previousFavorite;
-            setIsFavorite(
-              previousFavorite
-            );
-            pendingRef.current =
-              false;
-            setIsRequesting(
-              false
-            );
-            router.push(
-              '/login'
-            );
-            return;
-          }
-          const endpoint =
-            nextFavorite
-              ? `${API_URL}/favorites/add`
-              : `${API_URL}/favorites/remove`;
-          const method =
-            nextFavorite
-              ? 'POST'
-              : 'DELETE';
-          const response =
-            await request(
-              endpoint,
-              {
-                method,
-                headers: {
-                  Accept:
-                    'application/json',
-                  'Content-Type':
-                    'application/json',
-                  Authorization:
-                    `Bearer ${accessToken}`,
-                },
-                body:
-                  JSON.stringify({
-                    productId,
-                  }),
-              }
-            );
-          let data:
-            any = null;
-          try {
-            data =
-              await response.json();
-          } catch {
-            data =
-              null;
-          }
-          /*
-           * =================================================
-           * SESSION EXPIRED
-           * =================================================
-           */
-          if (
-            response.status === 401
-          ) {
-            favoriteRef.current =
-              previousFavorite;
-            setIsFavorite(
-              previousFavorite
-            );
-            pendingRef.current =
-              false;
-            setIsRequesting(
-              false
-            );
-            router.push(
-              '/login'
-            );
-            return;
-          }
-          /*
-           * =================================================
-           * API FAILED
-           * =================================================
-           */
-          if (!response.ok) {
-            if (__DEV__) { console.log(
-              'UPDATE FAVORITES ERROR:',
-              data
-            ); }
-            /*
-             * Rollback only if this action
-             * is still the current local state.
-             */
-            if (
-              favoriteRef.current ===
-              nextFavorite
-            ) {
-              favoriteRef.current =
-                previousFavorite;
-              setIsFavorite(
-                previousFavorite
-              );
-            }
-            Alert.alert('Could not update favorites', data?.message || 'Please try again.');
-            return;
-          }
-          /*
-           * =================================================
-           * SUCCESS
-           *
-           * DO NOTHING.
-           *
-           * The optimistic state is already correct.
-           *
-           * We intentionally DO NOT call loadFavorites().
-           * =================================================
-           */
-          onFavoriteChange(nextFavorite ? 'added' : 'removed');
-        } catch (error) {
-          Alert.alert('Could not update favorites', error instanceof Error ? error.message : 'Please try again.');
-          if (__DEV__) { console.log(
-            'TOGGLE FAVORITE ERROR:',
-            error
-          ); }
-          /*
-           * NETWORK ERROR
-           */
-          if (
-            favoriteRef.current ===
-            nextFavorite
-          ) {
-            favoriteRef.current =
-              previousFavorite;
-            setIsFavorite(
-              previousFavorite
-            );
-          }
-        } finally {
-          pendingRef.current =
-            false;
-          setIsRequesting(
-            false
-          );
-        }
-      })();
-    };
-    return (
-      <Pressable
-        style={[
-          styles.favoriteButton,
-          isRequesting &&
-            styles.favoriteButtonActive,
-        ]}
-        onPress={
-          handlePress
-        }
-        hitSlop={5}
-        disabled={
-          isRequesting
-        }
-      >
-        <Ionicons
-          name={
-            isFavorite
-              ? 'heart'
-              : 'heart-outline'
-          }
-          size={20}
-          color={
-            isFavorite
-              ? '#E35B3F'
-              : '#171717'
-          }
-        />
-      </Pressable>
-    );
-  }
-);
+const FavoriteButton = memo(({ initialFavorite, onToggle }: FavoriteButtonProps) =>
+        <Pressable style={[styles.favoriteButton, initialFavorite && styles.favoriteButtonActive]} hitSlop={5}
+          accessibilityRole="button" accessibilityState={{ selected: initialFavorite }} onPress={onToggle}>
+          <Ionicons name={initialFavorite ? 'heart' : 'heart-outline'} size={20} color={initialFavorite ? '#E35B3F' : '#171717'} />
+        </Pressable>);
 /* =========================================================
    CATEGORY PRODUCTS
 ========================================================= */
@@ -446,7 +145,8 @@ export default function CategoryProducts() {
 }
 
 function CategoryProductsScreen({ category }: { category: string }) {
-  const cartPending = useProductPending();
+  const shopping = useShopping();
+
 
   /* =======================================================
      STATES
@@ -471,22 +171,13 @@ function CategoryProductsScreen({ category }: { category: string }) {
     loadingProducts,
     setLoadingProducts,
   ] = useState(true);
-  const [
-    favorites,
-    setFavorites,
-  ] = useState<string[]>([]);
+  const favorites = shopping.favorites.map(p => String(p._id || p.id));
   const [
     isLoggedIn,
     setIsLoggedIn,
   ] = useState(false);
-  const [
-    cartCount,
-    setCartCount,
-  ] = useState(0);
-  const { showAlert, feedback } = useProductFeedback();
-  const showFavoriteAlert = useCallback((type: 'added' | 'removed') => {
-    showAlert(type === 'added' ? 'Product has been added to your favorites.' : 'Product has been removed from your favorites.', type === 'added' ? 'Added to Favorites' : 'Removed from Favorites');
-  }, [showAlert]);
+
+  const { showAlert, feedback } = shopping;
   /* =======================================================
      CHECK LOGIN
   ======================================================= */
@@ -672,155 +363,18 @@ function CategoryProductsScreen({ category }: { category: string }) {
   /* =======================================================
      LOAD CART
   ======================================================= */
-  const cartLoadRevision = useRef(0);
-  const loadCart = async () => {
-    const revision = ++cartLoadRevision.current;
-    try {
-      const accessToken =
-        await getValidAccessToken();
-      if (!accessToken) {
-        setCartCount(
-          0
-        );
-        return;
-      }
-      const response =
-        await request(
-          `${API_URL}/cart`,
-          {
-            method: 'GET',
-            headers: {
-              Accept:
-                'application/json',
-              Authorization:
-                `Bearer ${accessToken}`,
-            },
-          }
-        );
-      const data =
-        await response.json();
-      if (revision !== cartLoadRevision.current) return;
-      if (
-        response.status === 401
-      ) {
-        setCartCount(
-          0
-        );
-        setIsLoggedIn(
-          false
-        );
-        return;
-      }
-      if (!response.ok) {
-        if (__DEV__) { console.log(
-          'GET CART ERROR:',
-          data
-        ); }
-        return;
-      }
-      const items =
-        Array.isArray(
-          data?.cart?.items
-        )
-          ? data.cart.items
-          : [];
-      const count =
-        items.reduce(
-          (
-            total: number,
-            item: CartProduct
-          ) =>
-            total +
-            (
-              Number(
-                item.quantity
-              ) || 0
-            ),
-          0
-        );
-      setCartCount(
-        count
-      );
-    } catch (error) {
-      if (revision !== cartLoadRevision.current) return;
-      if (__DEV__) { console.log(
-        'LOAD CART ERROR:',
-        error
-      ); }
-    }
-  };
+
+  const loadCart = async () => { await shopping.refresh(); };
   /* =======================================================
      LOAD FAVORITES
   ======================================================= */
-  const loadFavorites = async () => {
-    try {
-      const accessToken =
-        await getValidAccessToken();
-      if (!accessToken) {
-        setFavorites(
-          []
-        );
-        return;
-      }
-      const response =
-        await request(
-          `${API_URL}/favorites`,
-          {
-            method: 'GET',
-            headers: {
-              Accept:
-                'application/json',
-              Authorization:
-                `Bearer ${accessToken}`,
-            },
-          }
-        );
-      const data =
-        await response.json();
-      if (
-        response.status === 401
-      ) {
-        setFavorites(
-          []
-        );
-        setIsLoggedIn(
-          false
-        );
-        return;
-      }
-      if (!response.ok) {
-        if (__DEV__) { console.log(
-          'GET FAVORITES ERROR:',
-          data
-        ); }
-        return;
-      }
-      const favoriteIds =
-        (data?.favorites || [])
-          .map(
-            (favorite: any) =>
-              favorite?.product?._id
-          )
-          .filter(
-            (id: any) =>
-              !!id
-          );
-      setFavorites(
-        favoriteIds
-      );
-    } catch (error) {
-      if (__DEV__) { console.log(
-        'LOAD FAVORITES ERROR:',
-        error
-      ); }
-    }
-  };
+  const loadFavorites = async () => { await shopping.refresh(); };
   /* =======================================================
      LOAD EVERYTHING
   ======================================================= */
   const loadData = async () => {
     const loginPromise =
-      void checkLogin().catch(() => Alert.alert('Connection Error', 'Could not verify your session. Please try again.'));
+      checkLogin().catch(() => Alert.alert('Connection Error', 'Could not verify your session. Please try again.'));
     const productsPromise =
       loadProducts();
     const subCategoriesPromise =
@@ -842,7 +396,7 @@ function CategoryProductsScreen({ category }: { category: string }) {
   ======================================================= */
   useFocusEffect(
     useCallback(() => {
-      loadData();
+      void loadData().catch(() => showAlert('Could not load cart and favorites. Please reopen this page to retry.', 'Connection Error'));
     }, [])
   );
   /* =======================================================
@@ -895,89 +449,7 @@ function CategoryProductsScreen({ category }: { category: string }) {
   /* =======================================================
      ADD TO CART
   ======================================================= */
-  const addToCart = async (
-    product: Product
-  ) => {
-    if (!isLoggedIn) {
-      router.push(
-        '/login'
-      );
-      return;
-    }
-    if (
-      product.availability ===
-      false
-    ) {
-      return;
-    }
-    if (!cartPending.begin(product._id)) return;
-    try {
-      const accessToken =
-        await getValidAccessToken();
-      if (!accessToken) {
-        router.push(
-          '/login'
-        );
-        return;
-      }
-      const response =
-        await request(
-          `${API_URL}/cart/add`,
-          {
-            method: 'POST',
-            headers: {
-              Accept:
-                'application/json',
-              'Content-Type':
-                'application/json',
-              Authorization:
-                `Bearer ${accessToken}`,
-            },
-            body:
-              JSON.stringify({
-                productId:
-                  product._id,
-                quantity:
-                  1,
-              }),
-          }
-        );
-      const data =
-        await response.json();
-      if (
-        response.status === 401
-      ) {
-        setIsLoggedIn(
-          false
-        );
-        router.push(
-          '/login'
-        );
-        return;
-      }
-      if (!response.ok) {
-        if (__DEV__) { console.log(
-          'ADD TO CART ERROR:',
-          data
-        ); }
-        Alert.alert('Could not add to cart', data?.message ||
-          'Could not add product to cart.');
-        return;
-      }
-      await loadCart();
-      showAlert(
-        `${product.name} has been added to your cart.`
-      );
-    } catch (error) {
-      if (__DEV__) { console.log(
-        'ADD TO CART ERROR:',
-        error
-      ); }
-      Alert.alert('Could not add to cart', 'Could not add product to cart.');
-    } finally {
-      cartPending.end(product._id);
-    }
-  };
+  const addToCart = (product: Product) => shopping.add(product);
   /* =======================================================
      OPEN PRODUCT
   ======================================================= */
@@ -1049,6 +521,7 @@ function CategoryProductsScreen({ category }: { category: string }) {
               {pageTitle}
             </Text>
           </View>
+          <CartButton />
         </View>
         {/* =================================================
             SUBCATEGORIES - TEXT TABS
@@ -1319,18 +792,9 @@ function CategoryProductsScreen({ category }: { category: string }) {
                       </View>
                     )}
                     {/* FAVORITE */}
-                    <FavoriteButton
-                      productId={
-                        product._id
-                      }
+                    <FavoriteButton onToggle={() => void shopping.toggle(product)}
                       initialFavorite={
                         favorite
-                      }
-                      isLoggedIn={
-                        isLoggedIn
-                      }
-                      onFavoriteChange={
-                        showFavoriteAlert
                       }
                     />
                     {/* NAME */}
@@ -1444,7 +908,7 @@ function CategoryProductsScreen({ category }: { category: string }) {
                         )}
                       </View>
                       <AddToCartButton name={product.name}
-                        pending={cartPending.pending.has(product._id)} unavailable={isOutOfStock}
+                        pending={shopping.pendingCart.has(product._id)} unavailable={isOutOfStock}
                         onPress={() => void addToCart(product)} />
                     </View>
                   </Pressable>
@@ -1791,11 +1255,11 @@ const styles =
     justifyContent: 'center',
     overflow: 'hidden',
   },
-  productImageReal: {
+  productImageReal: { backgroundColor: '#FFFFFF',
     width: '100%',
     height: '100%',
   },
-  imagePlaceholder: {
+  imagePlaceholder: { backgroundColor: '#FFFFFF',
     flex: 1,
     width: '100%',
     alignItems: 'center',

@@ -1,17 +1,13 @@
+import { useShopping } from '../hooks/use-shopping';
+
+import { CartButton } from '../components/cart-button';
 import { getFinalPrice } from "../services/product-price";
-import { useProductFeedback } from "../components/product-feedback";
+
 import { ProductImage } from '../components/product-image';
 import { ImageFrame } from '../services/image-frame';
 import { useTimeouts } from '../hooks/useTimeouts';
 import { request } from '../services/request';
-import {
-  View,
-  Alert,
-  Text,
-  StyleSheet,
-  Pressable,
-  ScrollView,
-} from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
 
 import { Ionicons } from '@expo/vector-icons';
 
@@ -297,6 +293,7 @@ const formatPrice = (
 ========================================================= */
 
 export default function ProductDetails() {
+  const shopping = useShopping();
   const scheduleTimeout = useTimeouts();
 
 
@@ -340,32 +337,21 @@ export default function ProductDetails() {
   ] = useState(false);
 
 
-  const [
-    addingToCart,
-    setAddingToCart,
-  ] = useState(false);
+  const addingToCart = shopping.pendingCart.has(String(product?._id));
 
 
   /* =======================================================
      FAVORITE STATE
   ======================================================= */
 
-  const [
-    isFavorite,
-    setIsFavorite,
-  ] = useState(false);
+  const isFavorite = shopping.favorites.some(p => String(p._id || p.id) === String(product?._id));
 
 
-  const [
-    updatingFavorite,
-    setUpdatingFavorite,
-  ] = useState(false);
+  const updatingFavorite = shopping.pendingFavorites.has(String(product?._id));
 
 
-  const { showAlert, feedback } = useProductFeedback();
-  const showFavoriteAlert = useCallback((type: 'added' | 'removed') => {
-    showAlert(type === 'added' ? 'Product has been added to your favorites.' : 'Product has been removed from your favorites.', type === 'added' ? 'Added to Favorites' : 'Removed from Favorites');
-  }, [showAlert]);
+  const { showAlert, feedback } = shopping;
+
   /* =======================================================
      CHECK LOGIN
   ======================================================= */
@@ -578,125 +564,7 @@ export default function ProductDetails() {
      LOAD FAVORITE STATUS
   ======================================================= */
 
-  const loadFavoriteStatus = async () => {
-
-    if (!productId) {
-
-      setIsFavorite(
-        false
-      );
-
-      return;
-
-    }
-
-
-    try {
-
-      const accessToken =
-        await getValidAccessToken();
-
-
-      if (!accessToken) {
-
-        setIsFavorite(
-          false
-        );
-
-        return;
-
-      }
-
-
-      const response =
-        await request(
-          `${API_URL}/favorites`,
-          {
-            method: 'GET',
-
-            headers: {
-              Accept:
-                'application/json',
-
-              Authorization:
-                `Bearer ${accessToken}`,
-            },
-          }
-        );
-
-
-      if (!response.ok) {
-
-        if (
-          response.status === 401
-        ) {
-
-          setIsFavorite(
-            false
-          );
-
-        }
-
-        return;
-
-      }
-
-
-      const data =
-        await response.json();
-
-
-      const favorites =
-        Array.isArray(
-          data?.favorites
-        )
-          ? data.favorites
-          : [];
-
-
-      const favoriteExists =
-        favorites.some(
-          (item: any) => {
-
-            const favoriteProduct =
-              item?.product ||
-              item?.productId ||
-              item;
-
-
-            const favoriteId =
-              typeof favoriteProduct === 'string'
-                ? favoriteProduct
-                : favoriteProduct?._id;
-
-
-            return (
-              String(
-                favoriteId || ''
-              ) ===
-              String(
-                productId
-              )
-            );
-
-          }
-        );
-
-
-      setIsFavorite(
-        favoriteExists
-      );
-
-    } catch (error) {
-
-      if (__DEV__) { console.log(
-        'LOAD FAVORITE STATUS ERROR:',
-        error
-      ); }
-
-    }
-
-  };
+  const loadFavoriteStatus = async () => { await shopping.refresh(); };
 
 
   /* =======================================================
@@ -722,356 +590,16 @@ export default function ProductDetails() {
      The API request runs in the background.
   ======================================================= */
 
-  const favoriteBusyRef = useRef(false);
-  const cartBusyRef = useRef(false);
-  const toggleFavorite = () => {
 
-    if (favoriteBusyRef.current) {
-      return;
-    }
 
-
-    if (!isLoggedIn) {
-
-      router.push(
-        '/login'
-      );
-
-      return;
-
-    }
-
-
-    if (!product) {
-      return;
-    }
-
-
-    const previousFavorite =
-      isFavorite;
-
-
-    const nextFavorite =
-      !previousFavorite;
-
-
-    /*
-     * =====================================================
-     * OPTIMISTIC UI
-     *
-     * Change the heart immediately.
-     * =====================================================
-     */
-
-    setIsFavorite(
-      nextFavorite
-    );
-
-
-    favoriteBusyRef.current = true;
-    setUpdatingFavorite(true);
-
-
-    /*
-     * =====================================================
-     * BACKGROUND API REQUEST
-     * =====================================================
-     */
-
-    (async () => {
-
-      try {
-
-        const accessToken =
-          await getValidAccessToken();
-
-
-        if (!accessToken) {
-
-          setIsFavorite(
-            previousFavorite
-          );
-
-
-          setIsLoggedIn(
-            false
-          );
-
-
-          router.push(
-            '/login'
-          );
-
-
-          return;
-
-        }
-
-
-        const endpoint =
-          nextFavorite
-            ? `${API_URL}/favorites/add`
-            : `${API_URL}/favorites/remove`;
-
-
-        const method =
-          nextFavorite
-            ? 'POST'
-            : 'DELETE';
-
-
-        const response =
-          await request(
-            endpoint,
-            {
-
-              method,
-
-              headers: {
-
-                Accept:
-                  'application/json',
-
-                'Content-Type':
-                  'application/json',
-
-                Authorization:
-                  `Bearer ${accessToken}`,
-
-              },
-
-              body:
-                JSON.stringify({
-
-                  productId:
-                    product._id,
-
-                }),
-
-            }
-          );
-
-
-        const data =
-          await response.json()
-            .catch(() => null);
-
-
-        if (!response.ok) {
-
-          if (__DEV__) { console.log(
-
-            nextFavorite
-              ? 'ADD FAVORITE ERROR:'
-              : 'REMOVE FAVORITE ERROR:',
-
-            data?.message ||
-              'Unable to update favorite.'
-
-          ); }
-
-
-          /*
-           * =================================================
-           * ROLLBACK
-           * =================================================
-           */
-
-          setIsFavorite(
-            previousFavorite
-          );
-
-
-          Alert.alert('Could not update favorites', data?.message || 'Please try again.');
-          if (
-            response.status === 401
-          ) {
-
-            setIsLoggedIn(
-              false
-            );
-
-          }
-
-
-          return;
-
-        }
-
-
-        /*
-         * =================================================
-         * SUCCESS
-         *
-         * Show a beautiful confirmation alert only
-         * after the server confirms the action.
-         * =================================================
-         */
-
-        showFavoriteAlert(
-          nextFavorite
-            ? 'added'
-            : 'removed'
-        );
-
-      } catch (error) {
-        Alert.alert('Could not update favorites', error instanceof Error ? error.message : 'Please try again.');
-
-        if (__DEV__) { console.log(
-          'TOGGLE FAVORITE ERROR:',
-          error
-        ); }
-
-
-        /*
-         * Request failed completely.
-         * Roll back the heart.
-         */
-
-        setIsFavorite(
-          previousFavorite
-        );
-
-      } finally {
-
-        favoriteBusyRef.current = false;
-        setUpdatingFavorite(false);
-
-      }
-
-    })();
-
-  };
+  const toggleFavorite = () => product ? shopping.toggle(product) : Promise.resolve();
 
 
   /* =======================================================
      ADD TO CART
   ======================================================= */
 
-  const addToCart = async () => {
-    if (cartBusyRef.current) return;
-
-    if (!isLoggedIn) {
-
-      router.push(
-        '/login'
-      );
-
-      return;
-
-    }
-
-
-    if (!product) {
-      return;
-    }
-
-
-    if (
-      product.availability === false
-    ) {
-
-      showAlert(`${product.name} is currently out of stock.`, 'Out of Stock');
-
-      return;
-
-    }
-
-
-    try {
-
-      cartBusyRef.current = true;
-      setAddingToCart(true);
-
-
-      const accessToken =
-        await getValidAccessToken();
-
-
-      if (!accessToken) {
-
-        router.push(
-          '/login'
-        );
-
-        return;
-
-      }
-
-
-      const response =
-        await request(
-          `${API_URL}/cart/add`,
-          {
-
-            method: 'POST',
-
-            headers: {
-
-              Accept:
-                'application/json',
-
-              'Content-Type':
-                'application/json',
-
-              Authorization:
-                `Bearer ${accessToken}`,
-
-            },
-
-            body:
-              JSON.stringify({
-
-                productId:
-                  product._id,
-
-                quantity:
-                  1,
-
-              }),
-
-          }
-        );
-
-
-      const data =
-        await response.json();
-
-
-      if (!response.ok) {
-
-        Alert.alert('Could not add to cart', data?.message ||
-          'Unable to add product to cart.');
-
-        return;
-
-      }
-
-
-      showAlert(
-        `${product.name} has been added to your cart.`
-      );
-
-
-    } catch (error) {
-
-      if (__DEV__) { console.log(
-        'ADD TO CART ERROR:',
-        error
-      ); }
-
-
-      Alert.alert('Could not add to cart', 'Unable to add product to cart.');
-
-
-    } finally {
-
-      cartBusyRef.current = false;
-      setAddingToCart(false);
-
-    }
-
-  };
+  const addToCart = () => product ? shopping.add(product) : Promise.resolve();
 
 
   /* =======================================================
@@ -1342,6 +870,7 @@ export default function ProductDetails() {
           >
             Product Details
           </Text>
+          <CartButton />
 
         </View>
 
@@ -1724,12 +1253,9 @@ export default function ProductDetails() {
 
           <Pressable
             style={[
-              styles.cartButton,
+              styles.cartButton, addingToCart && { backgroundColor: '#E35B3F' },
 
-              (
-                addingToCart ||
-                isOutOfStock
-              ) &&
+              isOutOfStock &&
                 styles.cartButtonDisabled,
             ]}
 
@@ -1761,9 +1287,7 @@ export default function ProductDetails() {
                 styles.cartButtonText
               }
             >
-              {addingToCart
-                ? 'Adding...'
-                : isOutOfStock
+              {isOutOfStock
                   ? 'Out of Stock'
                   : 'Add to Cart'}
             </Text>
@@ -2088,7 +1612,7 @@ const styles =
     },
 
 
-    productImage: {
+    productImage: { backgroundColor: '#FFFFFF',
 
       width:
         '90%',
@@ -2157,7 +1681,7 @@ const styles =
     },
 
 
-    imagePlaceholder: {
+    imagePlaceholder: { backgroundColor: '#FFFFFF',
 
       alignItems:
         'center',
@@ -2197,7 +1721,7 @@ const styles =
     },
 
 
-    imageText: {
+    imageText: { backgroundColor: '#FFFFFF',
 
       marginTop:
         11,

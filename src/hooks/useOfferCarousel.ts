@@ -6,6 +6,8 @@ import { useFocusEffect } from 'expo-router';
 export function useOfferCarousel(count: number, width: number, onIndexChange: (index: number) => void) {
   const [index, setIndex] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
+  const onChange = useRef(onIndexChange);
+  useLayoutEffect(() => { onChange.current = onIndexChange; }, [onIndexChange]);
   const auto = useRef<ReturnType<typeof setTimeout> | null>(null);
   const settle = useRef<ReturnType<typeof setTimeout> | null>(null);
   const state = useRef({ focused: false, active: AppState.currentState === 'active', dragging: false, touching: false, moving: false, x: width });
@@ -22,7 +24,7 @@ export function useOfferCarousel(count: number, width: number, onIndexChange: (i
     auto.current = setTimeout(() => {
       auto.current = null;
       state.current.moving = true;
-      scrollRef.current?.scrollTo({ x: width * 2, animated: true });
+      scrollRef.current?.scrollTo({ x: width * (Math.round(state.current.x / width) + 1), animated: true });
     }, 3500);
   }, [count, width]);
   const finish = useCallback(() => {
@@ -30,23 +32,23 @@ export function useOfferCarousel(count: number, width: number, onIndexChange: (i
     if (s.dragging || !s.focused || !s.active) return;
     if (settle.current) clearTimeout(settle.current);
     settle.current = null;
-    const page = Math.max(0, Math.min(2, Math.round(s.x / width)));
+    const page = Math.max(0, Math.min(count + 1, Math.round(s.x / width)));
     if (Math.abs(s.x - page * width) > 1) return;
     s.moving = false;
-    if (count > 1 && page !== 1) {
-      // Consume this endpoint synchronously: end-momentum and idle fallback may coincide.
-      s.x = width;
-      setIndex(current => (current + page - 1 + count) % count);
+    const next = count > 1 ? (page - 1 + count) % count : 0;
+    if (count > 1 && (page === 0 || page === count + 1)) {
+      s.x = (next + 1) * width;
+      scrollRef.current?.scrollTo({ x: s.x, animated: false });
     }
-    else restart();
+    setIndex(next); onChange.current(next); restart();
   }, [count, restart, width]);
   useLayoutEffect(() => {
     state.current.x = count > 1 ? width : 0;
     state.current.moving = false;
     scrollRef.current?.scrollTo({ x: state.current.x, animated: false });
-    onIndexChange(index);
+    onChange.current(0); // Pages remounts when dimensions or item identities change.
     restart();
-  }, [count, index, onIndexChange, restart, width]);
+  }, [count, restart, width]);
   useFocusEffect(useCallback(() => {
     state.current.focused = true;
     restart();
@@ -55,7 +57,7 @@ export function useOfferCarousel(count: number, width: number, onIndexChange: (i
       clearTimers();
       if (state.current.active) {
         state.current.dragging = false; state.current.touching = false; state.current.moving = false;
-        state.current.x = count > 1 ? width : 0;
+        state.current.x = count > 1 ? Math.max(width, Math.min(count * width, state.current.x)) : 0;
         scrollRef.current?.scrollTo({ x: state.current.x, animated: false });
         restart();
       }
@@ -63,7 +65,7 @@ export function useOfferCarousel(count: number, width: number, onIndexChange: (i
     return () => {
       state.current.focused = false;
       state.current.dragging = false; state.current.touching = false; state.current.moving = false;
-      state.current.x = count > 1 ? width : 0;
+      state.current.x = count > 1 ? Math.max(width, Math.min(count * width, state.current.x)) : 0;
       scrollRef.current?.scrollTo({ x: state.current.x, animated: false });
       clearTimers(); subscription.remove();
     };
@@ -78,7 +80,7 @@ export function useOfferCarousel(count: number, width: number, onIndexChange: (i
     s.touching = false;
     if (!s.dragging && s.moving && s.focused && s.active) {
       // A tap can interrupt an automatic animation without producing a drag-end.
-      const page = Math.max(0, Math.min(2, Math.round(s.x / width)));
+      const page = Math.max(0, Math.min(count + 1, Math.round(s.x / width)));
       scrollRef.current?.scrollTo({ x: page * width, animated: true });
       scheduleFinish();
     } else restart();

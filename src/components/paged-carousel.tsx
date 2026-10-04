@@ -10,7 +10,7 @@ type Props<T> = {
   height: number;
 };
 
-// Three native pages bound each gesture to one neighbour and keep wrapping cheap.
+// Native paging with stable images and duplicate endpoints for seamless looping.
 export function PagedCarousel<T>(props: Props<T>) {
   const [width, setWidth] = useState(0);
   return <View style={{ width: '100%', height: props.height }}
@@ -20,19 +20,22 @@ export function PagedCarousel<T>(props: Props<T>) {
   </View>;
 }
 
-function Pages<T>({ items, renderItem, onIndexChange, width }: Props<T> & { width: number }) {
+function Pages<T>({ items, itemKey, renderItem, onIndexChange, width }: Props<T> & { width: number }) {
   const { index, scrollRef, handlers } = useOfferCarousel(items.length, width, onIndexChange);
-  const offsets = items.length > 1 ? [-1, 0, 1] : [0];
+  // Stable product pages retain their decoded image during a swipe. Only the
+  // duplicate end pages jump, after momentum settles, to the identical original.
+  const pages = items.length > 1 ? [items[items.length - 1], ...items, items[0]] : items;
   return <ScrollView ref={scrollRef} horizontal pagingEnabled
     snapToInterval={width} decelerationRate="fast" disableIntervalMomentum
     directionalLockEnabled bounces={false} showsHorizontalScrollIndicator={false}
     scrollEnabled={items.length > 1} scrollEventThrottle={16}
     contentOffset={{ x: items.length > 1 ? width : 0, y: 0 }}
     {...handlers}>
-    {offsets.map(offset => <View key={offset} style={{ width, height: '100%' }}
-      accessibilityElementsHidden={offset !== 0}
-      importantForAccessibility={offset === 0 ? 'auto' : 'no-hide-descendants'}>
-      {renderItem(items[(index + offset + items.length) % items.length])}
+    {pages.map((item, page) => <View key={`${page === 0 && items.length > 1 ? 'leading' : page === pages.length - 1 && items.length > 1 ? 'trailing' : 'item'}:${itemKey(item)}`} style={{ width, height: '100%', backgroundColor: '#FFFFFF' }}
+      accessibilityElementsHidden={page !== (items.length > 1 ? index + 1 : 0)}
+      aria-hidden={page !== (items.length > 1 ? index + 1 : 0)}
+      importantForAccessibility={page === (items.length > 1 ? index + 1 : 0) ? 'auto' : 'no-hide-descendants'}>
+      {renderItem(item)}
     </View>)}
   </ScrollView>;
 }

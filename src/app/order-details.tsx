@@ -1984,7 +1984,7 @@ const styles =
       borderRadius: 15,
 
       backgroundColor:
-        '#F8F2EA',
+        '#FFFFFF',
 
       borderWidth: 1,
 
@@ -2003,7 +2003,7 @@ const styles =
     },
 
 
-    realProductImage: {
+    realProductImage: { backgroundColor: '#FFFFFF',
 
       width: '100%',
 

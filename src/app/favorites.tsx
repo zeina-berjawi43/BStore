@@ -1,11 +1,14 @@
-import { useProductPending } from '../hooks/useProductPending';
-import { useProductFeedback } from '../components/product-feedback';
+import { useShopping } from '../hooks/use-shopping';
+import { confirmShoppingClear } from '../services/confirm-shopping-clear';
+import { shoppingState } from '../services/shopping-state';
+import { CartButton } from '../components/cart-button';
+
 import { getFinalPrice } from '../services/product-price';
-import { setProductFavorite, ShoppingError } from '../services/shoppingService';
+
 import { goBackOrHome } from '../services/navigation';
 import { ProductImage } from '../components/product-image';
 import { ImageFrame } from '../services/image-frame';
-import { request } from '../services/request';
+
 import {
   View,
   Alert,
@@ -93,64 +96,10 @@ const formatPrice = (
 // IMAGE URL
 // =========================================================
 
-const getImageUrl = (
-  image?: string
-) => {
-
-  if (!image) {
-
-    return '';
-
-  }
-
-  let value =
-    image.trim();
-
-  if (!value) {
-
-    return '';
-
-  }
-
-  if (
-    value.startsWith('http://') ||
-    value.startsWith('https://')
-  ) {
-
-    return value;
-
-  }
-
-  value =
-    value.replace(
-      /^\/+/,
-      ''
-    );
-
-  if (
-    value.startsWith('uploads/')
-  ) {
-
-    return `${API_URL}/${value}`;
-
-  }
-
-  if (
-    value.startsWith('uploads\\')
-  ) {
-
-    value =
-      value.replace(
-        /\\/g,
-        '/'
-      );
-
-    return `${API_URL}/${value}`;
-
-  }
-
-  return `${API_URL}/uploads/${value}`;
-
+const getImageUrl = (image?: string) => {
+  const value = image?.trim().replace(/\\/g, '/').replace(/^\/+/, '') || '';
+  if (!value || /^https?:\/\//.test(value)) return value;
+  return `${API_URL}/${value.startsWith('uploads/') ? value : `uploads/${value}`}`;
 };
 
 
@@ -159,25 +108,21 @@ const getImageUrl = (
 // =========================================================
 
 export default function Favorites() {
+  const shopping = useShopping();
 
   // =======================================================
   // STATE
   // =======================================================
 
-  const [
-    favorites,
-    setFavorites,
-  ] = useState<FavoriteProduct[]>([]);
+  const favorites = shopping.favorites.map(p => ({ ...p, id: String(p._id || p.id), category: typeof p.category === 'object' ? p.category?.name || '' : p.category || '', brand: typeof p.brand === 'object' ? p.brand?.name || '' : p.brand || '' })) as FavoriteProduct[];
 
   const [
     isLoggedIn,
     setIsLoggedIn,
   ] = useState(false);
 
-  const favoritePending = useProductPending();
-  const { hasPending: hasFavoritePending } = favoritePending;
-  const cartPending = useProductPending();
-  const { showAlert, feedback } = useProductFeedback();
+
+  const { showAlert, feedback } = shopping;
 
   const [
     initialLoadFinished,
@@ -282,197 +227,7 @@ export default function Favorites() {
   // =======================================================
 
   const loadFavorites =
-    useCallback(
-      async () => {
-        if (hasFavoritePending()) return;
-        const revision = ++loadRevision.current;
-
-        try {
-
-          const accessToken =
-            await getAccessToken();
-
-          if (!accessToken) {
-
-            setFavorites([]);
-
-            setIsLoggedIn(
-              false
-            );
-
-            router.replace(
-              '/login'
-            );
-
-            return;
-
-          }
-
-          const response =
-            await request(
-              `${API_URL}/favorites`,
-              {
-                method: 'GET',
-
-                headers: {
-                  Accept:
-                    'application/json',
-
-                  Authorization:
-                    `Bearer ${accessToken}`,
-                },
-              }
-            );
-
-          const data =
-            await response.json();
-          if (revision !== loadRevision.current) return;
-
-
-          // =================================================
-          // SESSION EXPIRED
-          // =================================================
-
-          if (
-            response.status === 401
-          ) {
-
-            accessTokenRef.current =
-              null;
-
-            setFavorites([]);
-
-            setIsLoggedIn(
-              false
-            );
-
-            router.replace(
-              '/login'
-            );
-
-            return;
-
-          }
-
-
-          // =================================================
-          // SERVER ERROR
-          // =================================================
-
-          if (!response.ok) {
-          Alert.alert('Request failed', data?.message || 'Please try again.');
-
-            if (__DEV__) { console.log(
-              'GET FAVORITES ERROR:',
-              data
-            ); }
-
-            return;
-
-          }
-
-
-          // =================================================
-          // CONVERT BACKEND DATA
-          // =================================================
-
-          const convertedFavorites:
-            FavoriteProduct[] =
-
-            (
-              Array.isArray(
-                data?.favorites
-              )
-                ? data.favorites
-                : []
-            )
-
-              .filter(
-                (
-                  favorite: any
-                ) =>
-                  !!favorite?.product
-              )
-
-              .map(
-                (
-                  favorite: any
-                ) => {
-
-                  const product =
-                    favorite.product;
-
-                  return {
-
-                    id:
-                      product._id,
-
-                    name:
-                      product.name,
-
-                    description:
-                      product.description,
-
-                    imageFrame: product.imageFrame,
-                    image:
-                      getImageUrl(
-                        product.image
-                      ),
-
-                    category:
-                      product.category?.name ??
-                      '',
-
-                    brand:
-                      product.brand?.name ??
-                      '',
-
-                    price:
-                      product.price,
-
-                    discount:
-                      product.discount,
-
-                    discountedPrice:
-                      product.discountedPrice,
-
-                    availability:
-                      product.availability,
-
-                  };
-
-                }
-              );
-
-
-          setFavorites(
-            convertedFavorites
-          );
-
-
-        } catch (error) {
-
-          if (__DEV__) { console.log(
-            'LOAD FAVORITES ERROR:',
-            error
-          ); }
-          Alert.alert('Connection Error', error instanceof Error ? error.message : 'Please try again.');
-
-        } finally {
-
-
-          setInitialLoadFinished(
-            true
-          );
-
-        }
-
-      },
-      [
-        getAccessToken,
-        hasFavoritePending,
-      ]
-    );
+    useCallback(async () => { await shoppingState.refresh(true); }, []);
 
 
   // =======================================================
@@ -506,6 +261,7 @@ export default function Favorites() {
           ) {
 
             await loadFavorites();
+            if (active) setInitialLoadFinished(true);
 
           } else {
 
@@ -518,7 +274,7 @@ export default function Favorites() {
         };
 
 
-      void refresh().catch(() => { setInitialLoadFinished(true); Alert.alert('Connection Error', 'Could not load favorites. Please reopen this page to retry.'); });
+      void refresh().catch(() => { if (active) { setInitialLoadFinished(true); showAlert('Could not load favorites. Please reopen this page to retry.', 'Connection Error'); } });
 
 
       return () => {
@@ -540,177 +296,14 @@ export default function Favorites() {
   // REMOVE FAVORITE
   // =======================================================
 
-  const removeFavorite = async (productId: string) => {
-    if (!favoritePending.begin(productId)) return;
-    loadRevision.current++;
-    const removed = favorites.find(product => product.id === productId);
-    const order = new Map(favorites.map((product, index) => [product.id, index]));
-    setFavorites(current => current.filter(product => product.id !== productId));
-    const rollback = () => {
-      if (removed) setFavorites(current => current.some(product => product.id === productId) ? current
-        : [...current, removed].sort((a, b) => (order.get(a.id) ?? Infinity) - (order.get(b.id) ?? Infinity)));
-    };
-    try {
-      const token = await getAccessToken();
-      if (!token) { rollback(); router.replace('/login'); return; }
-      await setProductFavorite(productId, false, token);
-      showAlert('Product has been removed from your favorites.', 'Removed from Favorites');
-    } catch (error) {
-      rollback();
-      if (error instanceof ShoppingError && error.status === 401) {
-        accessTokenRef.current = null;
-        setIsLoggedIn(false);
-        router.replace('/login');
-        return;
-      }
-      Alert.alert('Could not update favorites', error instanceof Error ? error.message : 'Please try again.');
-    } finally { favoritePending.end(productId); }
-  };
+  const removeFavorite = (productId: string) => { const product = shopping.favorites.find(p => String(p._id || p.id) === productId); return product ? shopping.toggle(product) : Promise.resolve(); };
 
   // =======================================================
   // ADD TO CART
   // =======================================================
 
   const addToCart =
-    async (
-      product: FavoriteProduct
-    ) => {
-
-      if (
-        !isLoggedIn
-      ) {
-
-        router.push(
-          '/login'
-        );
-
-        return;
-
-      }
-
-      if (
-        product.availability ===
-        false
-      ) {
-
-        return;
-
-      }
-
-      if (!cartPending.begin(product.id)) return;
-      try {
-
-        const accessToken =
-          await getAccessToken();
-
-        if (!accessToken) {
-
-          router.replace(
-            '/login'
-          );
-
-          return;
-
-        }
-
-
-
-        const response =
-          await request(
-            `${API_URL}/cart/add`,
-            {
-              method: 'POST',
-
-              headers: {
-                Accept:
-                  'application/json',
-
-                'Content-Type':
-                  'application/json',
-
-                Authorization:
-                  `Bearer ${accessToken}`,
-              },
-
-              body:
-                JSON.stringify({
-
-                  productId:
-                    product.id,
-
-                  quantity:
-                    1,
-
-                }),
-            }
-          );
-
-        const data =
-          await response.json();
-
-
-        // =================================================
-        // SESSION EXPIRED
-        // =================================================
-
-        if (
-          response.status === 401
-        ) {
-
-          accessTokenRef.current =
-            null;
-
-          setIsLoggedIn(
-            false
-          );
-
-          router.replace(
-            '/login'
-          );
-
-          return;
-
-        }
-
-
-        // =================================================
-        // ERROR
-        // =================================================
-
-        if (!response.ok) {
-          Alert.alert('Request failed', data?.message || 'Please try again.');
-
-          if (__DEV__) { console.log(
-            'ADD TO CART ERROR:',
-            data
-          ); }
-
-          return;
-
-        }
-
-
-        // =================================================
-        // SHOW SUCCESS ON THIS PAGE
-        // =================================================
-
-        showAlert(product.name + ' has been added to your cart.');
-
-
-      } catch (error) {
-
-        if (__DEV__) { console.log(
-          'ADD TO CART ERROR:',
-          error
-        ); }
-          Alert.alert('Connection Error', error instanceof Error ? error.message : 'Please try again.');
-
-      } finally {
-        cartPending.end(product.id);
-
-      }
-
-    };
+    (product: FavoriteProduct) => shopping.add(product);
 
 
   // =======================================================
@@ -807,12 +400,15 @@ export default function Favorites() {
               styles.subtitle
             }
           >
-            Your saved products
+            {favorites.length} {favorites.length === 1 ? 'favorite' : 'favorites'}
           </Text>
 
         </View>
-
+        <CartButton />
       </View>
+
+      {favorites.length > 0 && <Pressable accessibilityRole="button" onPress={() => confirmShoppingClear('Favorites', shopping.clearFavorites)}
+        style={{ alignSelf: 'flex-end', padding: 12 }}><Text style={{ color: '#E35B3F', fontWeight: '700' }}>Clear Favorites</Text></Pressable>}
 
 
       {/* =================================================
@@ -916,45 +512,17 @@ export default function Favorites() {
           }
         >
 
-          <View
-            style={
-              styles.countContainer
-            }
-          >
 
-            <Ionicons
-              name="heart"
-              size={16}
-              color="#E35B3F"
-            />
-
-            <Text
-              style={
-                styles.countText
-              }
-            >
-
-              {favorites.length}{' '}
-
-              {
-                favorites.length === 1
-                  ? 'favorite'
-                  : 'favorites'
-              }
-
-            </Text>
-
-          </View>
 
 
           {favorites.map(
             product => {
 
               const itemRemoving =
-                favoritePending.pending.has(product.id);
+                shopping.pendingFavorites.has(product.id);
 
               const itemAddingToCart =
-                cartPending.pending.has(product.id);
+                shopping.pendingCart.has(product.id);
 
               const originalPrice =
                 Number(
@@ -1014,7 +582,7 @@ export default function Favorites() {
                       <ProductImage imageFrame={product.imageFrame}
                         source={{
                           uri:
-                            product.image,
+                            getImageUrl(product.image),
                         }}
 
                         style={
@@ -1218,7 +786,7 @@ export default function Favorites() {
 
                       <Pressable
                         style={[
-                          styles.addToCartButton,
+                          styles.addToCartButton, itemAddingToCart && { backgroundColor: '#E35B3F' },
 
                           outOfStock &&
                             styles.disabledButton,
@@ -1247,17 +815,7 @@ export default function Favorites() {
                         }
                       >
 
-                        {itemAddingToCart ? (
-
-                          <Text
-                            style={
-                              styles.addToCartText
-                            }
-                          >
-                            Adding...
-                          </Text>
-
-                        ) : (
+                        {(
 
                           <>
 
@@ -1802,7 +1360,7 @@ const styles =
 
     },
 
-    productImageActual: {
+    productImageActual: { backgroundColor: '#FFFFFF',
 
       width:
         '100%',

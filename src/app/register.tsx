@@ -539,6 +539,7 @@ const styles = StyleSheet.create({
 
   passwordInput: {
     flex: 1,
+    minWidth: 0,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 14,
@@ -546,6 +547,8 @@ const styles = StyleSheet.create({
   },
 
   passwordToggle: {
+    minWidth: 48,
+    minHeight: 44,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },

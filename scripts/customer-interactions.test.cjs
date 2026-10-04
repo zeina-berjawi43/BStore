@@ -52,119 +52,24 @@ test('shared pending hook synchronously blocks A twice and keeps B independent t
   assert.equal(pending.begin('A'), true);
 });
 
-for (const selected of [false, true]) {
-  for (const fail of [false, true]) {
-    test(`Search favorite ${selected ? 'removal' : 'addition'} updates before token lookup and ${fail ? 'rolls back on failure' : 'stays on success'}`, async () => {
-      const token = deferred(), network = deferred(); let ids = new Set(selected ? ['A'] : []); const alerts = [], calls = [];
-      const context = {
-        pendingRef: { current: new Set() }, setPending: () => {}, epoch: { current: 1 }, favoriteIds: ids,
-        setFavoriteIds: update => { ids = update(ids); }, getValidAccessToken: () => token.promise,
-        setProductFavorite: (...args) => { calls.push(args); return network.promise; },
-        showAlert: (...args) => alerts.push(args), Alert: { alert: (...args) => alerts.push(args) },
-        ShoppingError: class ShoppingError extends Error {}, router: { push: () => assert.fail('unexpected navigation') },
-        reloadAfterMutation: { current: false },
-      };
-      const toggle = handler('search.tsx', 'changeProduct', context);
-      const operation = toggle({ _id: 'A', name: 'A' }, 'favorite');
-      assert.equal(ids.has('A'), !selected);
-      assert.equal(calls.length, 0);
-      await toggle({ _id: 'A' }, 'favorite');
-      token.resolve('token'); await flush();
-      assert.equal(calls.length, 1);
-      assert.equal(calls[0][1], !selected);
-      if (fail) network.reject(Error('offline')); else network.resolve();
-      await operation;
-      assert.equal(ids.has('A'), fail ? selected : !selected);
-      assert.equal(alerts.length, 1);
-      assert.equal(context.pendingRef.current.size, 0);
-    });
-  }
-}
-
-test('Home favorite A rollback preserves successful favorite B and alerts on success', async () => {
-  let favorites = []; const a = deferred(), b = deferred(), alerts = [];
-  const toggle = handler('index.tsx', 'toggleFavorite', {
-    favorites, isLoggedIn: true, favoriteBusy: { current: new Set() }, favoriteRevision: { current: 0 }, homeGenerationRef: { current: 1 },
-    setFavorites: update => { favorites = update(favorites); }, getAccessToken: async () => 'token',
-    Alert: { alert: (...args) => alerts.push(args) }, setProductFavorite: id => id === 'A' ? a.promise : b.promise, showAlert: (...args) => alerts.push(args),
-  });
-  const first = toggle({ id: 'A' }), second = toggle({ id: 'B' });
-  assert.deepEqual(Array.from(favorites, p => p.id), ['A', 'B']);
-  b.resolve(); await second; a.reject(Error('offline')); await first;
-  assert.deepEqual(Array.from(favorites, p => p.id), ['B']);
-  assert.ok(alerts.some(([, title]) => title === 'Added to Favorites'));
-});
-
-test('Favorites removes two rows immediately and restores only the failed row', async () => {
-  let favorites = [{ id: 'A' }, { id: 'B' }]; const a = deferred(), b = deferred();
-  const remove = handler('favorites.tsx', 'removeFavorite', {
-    favorites, favoritePending: pendingHook(), loadRevision: { current: 0 },
-    setFavorites: update => { favorites = update(favorites); }, getAccessToken: async () => 'token',
-    setProductFavorite: id => id === 'A' ? a.promise : b.promise,
-    ShoppingError: class ShoppingError extends Error {},
-    showAlert: () => {}, Alert: { alert: () => {} },
-  });
-  const first = remove('A'), second = remove('B');
-  assert.equal(favorites.length, 0);
-  b.resolve(); await second; a.reject(Error('offline')); await first;
-  assert.deepEqual(Array.from(favorites, p => p.id), ['A']);
-});
-
-for (const file of ['favorites.tsx', 'category-products.tsx', 'department-categories.tsx']) {
-  test(`${file}: parallel cart additions stay on page, reject same-product duplicate, send quantity 1`, async () => {
-    const token = deferred(), calls = [], alerts = []; const pending = pendingHook();
-    const add = handler(file, 'addToCart', {
-      isLoggedIn: true, cartPending: pending, getAccessToken: () => token.promise, getValidAccessToken: () => token.promise,
-      API_URL: 'https://example.invalid', request: async (url, options) => { calls.push([url, JSON.parse(options.body)]); return { ok: true, json: async () => ({}) }; },
-      loadCart: async () => {}, showAlert: message => alerts.push(message), router: { push: () => assert.fail('navigated'), replace: () => assert.fail('navigated') },
-      Alert: { alert: () => assert.fail('error') },
-    });
-    const a = { id: 'A', _id: 'A', name: 'A' }, b = { id: 'B', _id: 'B', name: 'B' };
-    const first = add(a), second = add(b); await add(a);
-    assert.equal(pending.locks.current.size, 2);
-    token.resolve('token'); await Promise.all([first, second]);
-    assert.equal(calls.length, 2); assert.equal(alerts.length, 2);
-    assert.ok(calls.every(([url, body]) => url.endsWith('/cart/add') && body.quantity === 1));
-    assert.equal(pending.locks.current.size, 0);
+// Mutation ordering/rollback is exercised against the real shared store in
+// shopping-state.test.cjs; these checks keep every actual screen wired to it.
+for (const file of ['index.tsx', 'favorites.tsx', 'category-products.tsx', 'department-categories.tsx', 'product-details.tsx']) {
+  test(file + ': Add to Cart delegates the current product to shared state', async () => {
+    const calls = [], product = { _id: 'A', id: 'A', name: 'A' };
+    const add = handler(file, 'addToCart', { product, shopping: { add: value => { calls.push(value); return Promise.resolve(); } } });
+    await add(product); assert.equal(calls.length, 1); assert.equal(calls[0], product);
   });
 }
-
-test('Search A failure still rolls back after focus changes during its request', async () => {
-  const network = deferred(), epoch = { current: 1 }; let ids = new Set();
-  const toggle = handler('search.tsx', 'changeProduct', {
-    pendingRef: { current: new Set() }, setPending: () => {}, epoch, favoriteIds: ids,
-    setFavoriteIds: update => { ids = update(ids); }, getValidAccessToken: async () => 'token',
-    setProductFavorite: () => network.promise, reloadAfterMutation: { current: false },
-  });
-  const operation = toggle({ _id: 'A' }, 'favorite'); await flush(); epoch.current++;
-  network.reject(Error('offline')); await operation;
-  assert.equal(ids.has('A'), false);
+test('Search delegates cart and favorite actions without navigating', async () => {
+  const calls = [], product = { _id: 'A', name: 'A' };
+  const change = handler('search.tsx', 'changeProduct', { shopping: { add: value => calls.push(['cart', value]), toggle: value => calls.push(['favorite', value]) } });
+  await change(product, 'cart'); await change(product, 'favorite'); assert.deepEqual(calls, [['cart', product], ['favorite', product]]);
 });
-
-test('Home cart lock is per product, with success feedback and no navigation', async () => {
-  const token = deferred(), calls = [], alerts = [];
-  const add = handler('index.tsx', 'addToCart', {
-    isLoggedIn: true, cartBusy: { current: new Set() }, getAccessToken: () => token.promise,
-    API_URL: 'https://example.invalid', request: async (_url, options) => { calls.push(JSON.parse(options.body)); return { ok: true, json: async () => ({}) }; },
-    loadCartCount: async () => {}, showAlert: message => alerts.push(message), router: { push: () => assert.fail('navigated') },
-  });
-  const first = add({ id: 'A', name: 'A' }), second = add({ id: 'B', name: 'B' });
-  await add({ id: 'A' }); token.resolve('token'); await Promise.all([first, second]);
-  assert.equal(calls.length, 2); assert.equal(alerts.length, 2);
-  assert.ok(calls.every(call => call.quantity === 1));
-});
-
-test('Product Details preserves quantity, duplicate prevention and staying on the product', async () => {
-  const token = deferred(), calls = []; let pending = false;
-  const add = handler('product-details.tsx', 'addToCart', {
-    isLoggedIn: true, product: { _id: 'A', name: 'A' }, cartBusyRef: { current: false },
-    setAddingToCart: value => { pending = value; }, getValidAccessToken: () => token.promise,
-    API_URL: 'https://example.invalid', request: async (_url, options) => { calls.push(JSON.parse(options.body)); return { ok: true, json: async () => ({}) }; },
-    showAlert: () => {}, router: { push: () => assert.fail('navigated') },
-  });
-  const operation = add(); await add(); assert.equal(pending, true);
-  token.resolve('token'); await operation;
-  assert.equal(calls.length, 1); assert.equal(calls[0].quantity, 1); assert.equal(pending, false);
+test('Favorites removes the actual current product through shared favorite state', async () => {
+  const product = { _id: 'A', name: 'A' }, calls = [];
+  const remove = handler('favorites.tsx', 'removeFavorite', { shopping: { favorites: [product], toggle: value => calls.push(value) } });
+  await remove('A'); assert.deepEqual(calls, [product]);
 });
 
 test('Loading still schedules startup completion and cancels its navigation when it loses focus', () => {
@@ -193,7 +98,7 @@ test('Top Selling renders old/current/percentage only for offers and Recently Ad
     const fn = ast.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === name);
     components[name] = execute(fn.getText(ast) + '\nexports.component = ' + name, {
       require: () => ({ jsx, jsxs: jsx }), useRef: initial => ({ current: initial }), useState: initial => [typeof initial === 'function' ? initial() : initial], useEffect: () => {},
-      Animated: { Value: class { interpolate() { return 0; } } }, styles: {}, View: 'View', Text: 'Text', Pressable: 'Pressable', ProductImage: 'ProductImage', Ionicons: 'Icon',
+      Animated: { Value: class { interpolate() { return 0; } } }, styles: {}, View: 'View', Text: 'Text', Pressable: 'Pressable', ProductImage: 'ProductImage', AddToCartButton: 'AddToCartButton', Ionicons: 'Icon',
       getFinalPrice: pricing.getFinalPrice,
     }).component;
   }
@@ -266,18 +171,18 @@ test('shared native carousel wraps once, resets autoplay, pauses on touch/backgr
   };
   assert.equal(countAuto(), 1);
   swipe(640); assert.equal(current, 1); assert.equal(countAuto(), 1);
-  swipe(640); assert.equal(current, 2);
-  swipe(640); assert.equal(current, 0);
+  swipe(960); assert.equal(current, 2);
+  swipe(1280); assert.equal(current, 0);
   swipe(0); assert.equal(current, 2);
-  swipe(320); assert.equal(current, 2, 'small drag snapped back does not change index');
+  swipe(960); assert.equal(current, 2, 'small drag snapped back does not change index');
   carousel.handlers.onTouchStart(); assert.equal(countAuto(), 0);
   carousel.handlers.onTouchEnd(); assert.equal(countAuto(), 1);
   const autoEntry = [...timers].find(([, t]) => t.delay === 3500);
   timers.delete(autoEntry[0]); autoEntry[1].fn();
-  assert.deepEqual(JSON.parse(JSON.stringify(scrolls.at(-1))), { x: 640, animated: true });
-  scroll(510); carousel.handlers.onTouchStart(); carousel.handlers.onTouchEnd();
-  assert.equal(scrolls.at(-1).x, 640, 'tap interrupting autoplay settles instead of stranding the timer');
-  scroll(640); carousel.handlers.onMomentumScrollEnd(); carousel = render();
+  assert.deepEqual(JSON.parse(JSON.stringify(scrolls.at(-1))), { x: 1280, animated: true });
+  scroll(1100); carousel.handlers.onTouchStart(); carousel.handlers.onTouchEnd();
+  assert.equal(scrolls.at(-1).x, 960, 'tap interrupting autoplay settles instead of stranding the timer');
+  scroll(1280); carousel.handlers.onMomentumScrollEnd(); carousel = render();
   assert.equal(current, 0); assert.equal(countAuto(), 1);
   appChange('background'); assert.equal(timers.size, 0);
   appChange('active'); assert.equal(countAuto(), 1);

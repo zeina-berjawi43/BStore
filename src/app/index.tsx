@@ -1,27 +1,21 @@
+import { useShopping } from '../hooks/use-shopping';
+
+
+import { AddToCartButton } from '../components/add-to-cart-button';
 import { PagedCarousel } from '../components/paged-carousel';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StartupScreen } from '../components/startup-screen';
 import { getFinalPrice } from '../services/product-price';
 import { ProductImage } from '../components/product-image';
 import { ImageFrame } from '../services/image-frame';
-import { useProductFeedback } from '../components/product-feedback';
-import { setProductFavorite } from '../services/shoppingService';
+
+
 import { request } from '../services/request';
-import {
-  Alert,
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  ScrollView,
-  Animated,
-  ActivityIndicator,
-  RefreshControl,
-} from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, Animated, ActivityIndicator, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { fetchCatalog, readPublicCatalog } from '../services/catalogService';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState, useRef, useEffect } from 'react';
 import { getValidAccessToken } from '../services/authService';
@@ -151,7 +145,8 @@ const buildImageUrl = (image: any): string => {
 };
 
 export default function Index() {
-  const { showAlert, feedback } = useProductFeedback();
+  const shopping = useShopping();
+  const { showAlert, feedback } = shopping;
   const [initialLoading, setInitialLoading] = useState(true);
   const [products, setProducts] = useState<Product[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
@@ -183,8 +178,8 @@ export default function Index() {
   const [departmentsError, setDepartmentsError] = useState('');
   const [categoriesLoading, setCategoriesLoading] = useState(false);
 
-  const [cartCount, setCartCount] = useState(0);
-  const [favorites, setFavorites] = useState<Product[]>([]);
+  const cartCount = shopping.cartCount;
+  const favorites = shopping.favorites.map(p => ({ ...p, id: String(p._id || p.id), category: typeof p.category === 'object' ? p.category?.name || '' : p.category || '', brand: typeof p.brand === 'object' ? p.brand?.name || '' : p.brand || '' })) as Product[];
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   const [slides, setSlides] = useState<Slide[]>([]);
@@ -196,16 +191,12 @@ export default function Index() {
   const accessTokenRef = useRef<string | null>(null);
   const homeLoadedRef = useRef(false);
   const homeGenerationRef = useRef(0);
-  const favoriteBusy = useRef(new Set<string>());
-  const favoriteRevision = useRef(0);
-  const cartBusy = useRef(new Set<string>());
 
 
-  const getAccessToken = async () => {
-    const token = await getValidAccessToken();
-    accessTokenRef.current = token;
-    return token;
-  };
+
+
+
+
 
   const convertSlide = (slide: any): Slide => {
     const slideId = String(slide._id ?? slide.id);
@@ -307,120 +298,7 @@ export default function Index() {
     }
   };
 
-  const loadCategories = async () => {
-    try {
-      setCategoriesLoading(true);
 
-      const response = await request(`${API_URL}/categories`, {
-        method: 'GET',
-        headers: {
-          Accept: 'application/json',
-        },
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        if (__DEV__) { console.log('GET CATEGORIES ERROR:', response.status, data); }
-
-        setCategories([
-          {
-            id: 'all',
-            name: 'ALL',
-            image: '',
-            icon: 'apps-outline',
-          },
-        ]);
-
-        return;
-      }
-
-      const rawCategories = Array.isArray(data)
-        ? data
-        : Array.isArray(data.categories)
-          ? data.categories
-          : [];
-
-      const convertedCategories: Category[] =
-        rawCategories
-          .map((category: any) => {
-            if (typeof category === 'string') {
-              return {
-                id: category,
-                name: category,
-                image: '',
-                icon: getCategoryIcon(category),
-              };
-            }
-
-            const categoryName =
-              category.name ??
-              category.title ??
-              '';
-
-            if (!categoryName) return null;
-
-            const categoryId = String(
-              category._id ??
-                category.id ??
-                categoryName
-            );
-
-            const rawImage =
-              category.image ??
-              category.imageUrl ??
-              category.imageURL ??
-              category.photo ??
-              '';
-
-            return {
-              id: categoryId,
-              name: String(categoryName),
-              image: buildImageUrl(rawImage),
-              icon: getCategoryIcon(
-                String(categoryName)
-              ),
-            };
-          })
-          .filter(
-            (
-              category: Category | null
-            ): category is Category =>
-              category !== null
-          );
-
-      const filteredCategories =
-        convertedCategories.filter(
-          category =>
-            category.name
-              .trim()
-              .toLowerCase() !== 'all'
-        );
-
-      setCategories([
-        {
-          id: 'all',
-          name: 'ALL',
-          image: '',
-          icon: 'apps-outline',
-        },
-        ...filteredCategories,
-      ]);
-    } catch (error) {
-      if (__DEV__) { console.log('LOAD CATEGORIES ERROR:', error); }
-
-      setCategories([
-        {
-          id: 'all',
-          name: 'ALL',
-          image: '',
-          icon: 'apps-outline',
-        },
-      ]);
-    } finally {
-      setCategoriesLoading(false);
-    }
-  };
 
   const scrollToOffers = () => {
     scrollViewRef.current?.scrollTo({
@@ -632,144 +510,10 @@ export default function Index() {
     }
   };
 
-  const cartLoadRevision = useRef(0);
-  const loadCartCount = async (
-    accessToken?: string | null
-  ) => {
-    const revision = ++cartLoadRevision.current;
-    try {
-      const token =
-        accessToken ??
-        accessTokenRef.current;
 
-      if (!token) {
-        setCartCount(0);
-        return;
-      }
+  const loadCartCount = async (_token?: string | null) => { await shopping.refresh(true); };
 
-      const response = await request(
-        `${API_URL}/cart`,
-        {
-          method: 'GET',
-          headers: {
-            Accept: 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      const data = await response.json();
-      if (token !== accessTokenRef.current || revision !== cartLoadRevision.current) return;
-
-      if (!response.ok) {
-        if (__DEV__) { console.log(
-          'GET CART COUNT ERROR:',
-          data
-        ); }
-        setCartCount(0);
-        return;
-      }
-
-      const items =
-        data.cart?.items || [];
-
-      const count = items.reduce(
-        (
-          total: number,
-          item: any
-        ) =>
-          total +
-          (Number(item.quantity) || 0),
-        0
-      );
-
-      setCartCount(count);
-    } catch (error) {
-      if (revision !== cartLoadRevision.current) return;
-      if (__DEV__) { console.log(
-        'LOAD CART COUNT ERROR:',
-        error
-      ); }
-      setCartCount(0);
-    }
-  };
-
-  const loadFavorites = async (
-    accessToken?: string | null
-  ) => {
-    const revision = favoriteRevision.current;
-    if (favoriteBusy.current.size) return;
-    try {
-      const token =
-        accessToken ??
-        accessTokenRef.current;
-
-      if (!token) {
-        setFavorites([]);
-        return;
-      }
-
-      const response = await request(
-        `${API_URL}/favorites`,
-        {
-          method: 'GET',
-          headers: {
-            Accept: 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      const data = await response.json();
-      if (token !== accessTokenRef.current || revision !== favoriteRevision.current) return;
-
-      if (
-        response.status === 401
-      ) {
-        setFavorites([]);
-        return;
-      }
-
-      if (!response.ok) {
-        if (__DEV__) { console.log(
-          'GET FAVORITES ERROR:',
-          data
-        ); }
-        setFavorites([]);
-        return;
-      }
-
-      const convertedFavorites: Product[] =
-        (data.favorites || [])
-          .map((favorite: any) => {
-            const product =
-              favorite.product;
-
-            if (!product) return null;
-
-            return convertProduct(
-              product
-            );
-          })
-          .filter(
-            (
-              product: Product | null
-            ): product is Product =>
-              product !== null
-          );
-
-      setFavorites(
-        convertedFavorites
-      );
-    } catch (error) {
-      if (revision !== favoriteRevision.current) return;
-      if (__DEV__) { console.log(
-        'LOAD FAVORITES ERROR:',
-        error
-      ); }
-      setFavorites([]);
-    }
-  };
+  const loadFavorites = async (_token?: string | null) => { await shopping.refresh(); };
 
   const loadData = async () => {
     try {
@@ -810,9 +554,6 @@ export default function Index() {
       }
       if (loggedIn) {
         requests.push(loadCartCount(token), loadFavorites(token));
-      } else {
-        setCartCount(0);
-        setFavorites([]);
       }
       await Promise.all(requests);
       homeLoadedRef.current = true;
@@ -839,33 +580,7 @@ export default function Index() {
     });
   };
 
-  const toggleFavorite = async (product: Product) => {
-    if (!isLoggedIn) { router.push('/login'); return; }
-    if (favoriteBusy.current.has(product.id)) return;
-    favoriteBusy.current.add(product.id);
-    favoriteRevision.current++;
-    const generation = homeGenerationRef.current;
-    const selected = favorites.some(item => item.id === product.id);
-    const apply = (value: boolean) => setFavorites(current => value
-      ? current.some(item => item.id === product.id) ? current : [...current, product]
-      : current.filter(item => item.id !== product.id));
-    apply(!selected);
-    try {
-      const token = await getAccessToken();
-      if (!token) { apply(selected); router.push('/login'); return; }
-      await setProductFavorite(product.id, !selected, token);
-      if (generation !== homeGenerationRef.current) return;
-      showAlert(selected ? 'Product has been removed from your favorites.' : 'Product has been added to your favorites.',
-        selected ? 'Removed from Favorites' : 'Added to Favorites');
-    } catch (error) {
-      apply(selected);
-      if (generation !== homeGenerationRef.current) return;
-      Alert.alert('Could not update favorites', error instanceof Error ? error.message : 'Please try again.');
-    } finally {
-      favoriteBusy.current.delete(product.id);
-      if (generation !== homeGenerationRef.current && !favoriteBusy.current.size) void loadFavorites();
-    }
-  };
+  const toggleFavorite = (product: Product) => shopping.toggle(product);
 
   const isFavorite = (
     id: string
@@ -875,97 +590,9 @@ export default function Index() {
     );
   };
 
-  const addToCart = async (
-    product: Product,
-    cartPrice?: number
-  ) => {
-    if (
-      product.availability === false
-    ) {
-      showAlert(`${product.name} is currently out of stock.`, 'Out of Stock');
-      return;
-    }
+  const addToCart = (product: Product, _cartPrice?: number) => shopping.add(product);
 
-    if (!isLoggedIn) {
-      router.push('/login');
-      return;
-    }
 
-    if (cartBusy.current.has(product.id)) return;
-    cartBusy.current.add(product.id);
-    try {
-      const accessToken =
-        await getAccessToken();
-
-      if (!accessToken) {
-        router.push('/login');
-        return;
-      }
-
-      const finalPrice =
-        cartPrice ?? product.price;
-
-      const response = await request(
-        `${API_URL}/cart/add`,
-        {
-          method: 'POST',
-          headers: {
-            Accept: 'application/json',
-            'Content-Type':
-              'application/json',
-            Authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({
-            productId: product.id,
-            quantity: 1,
-            ...(finalPrice !== undefined
-              ? { price: finalPrice }
-              : {}),
-          }),
-        }
-      );
-
-      const data =
-        await response.json();
-
-      if (!response.ok) {
-        if (__DEV__) { console.log(
-          'ADD TO CART ERROR:',
-          data
-        ); }
-
-        Alert.alert('Could not add to cart', data.message || 'Unable to add product to cart.');
-
-        return;
-      }
-
-      await loadCartCount(
-        accessToken
-      );
-
-      showAlert(
-        `${product.name} has been added to your cart.`
-      );
-    } catch (error) {
-      Alert.alert('Could not add to cart', error instanceof Error ? error.message : 'Please try again.');
-      if (__DEV__) { console.log(
-        'ADD TO CART ERROR:',
-        error
-      ); }
-    } finally { cartBusy.current.delete(product.id); }
-  };
-
-  const openCategory = (
-    category: string
-  ) => {
-    router.push({
-      pathname:
-        '/category-products',
-      params: {
-        category,
-      },
-    });
-  };
 
   const openAccount = () => {
     if (!isLoggedIn) {
@@ -1004,7 +631,7 @@ export default function Index() {
       >
         <View style={styles.header}>
           <View>
-           
+
 
             <View style={styles.logoRow}>
               <View
@@ -1279,6 +906,7 @@ export default function Index() {
                     )
                   }
                   onAddToCart={() => void addToCart(product, getFinalPrice(product))}
+                  pending={shopping.pendingCart.has(product.id)}
                 />
               )
             )
@@ -1346,6 +974,8 @@ export default function Index() {
                 index
               ) => (
                 <RecentProduct
+                  pending={shopping.pendingCart.has(product.id)}
+                  onAddToCart={() => void shopping.add(product)}
                   key={
                     product.id
                   }
@@ -1541,7 +1171,7 @@ export default function Index() {
 
                 <Pressable
                   style={
-                    styles.offerAddButton
+                    [styles.offerAddButton, shopping.pendingCart.has(activeOffer.id) && { backgroundColor: '#E35B3F' }]
                   }
                   onPress={() => {
                     if (
@@ -1790,7 +1420,7 @@ export default function Index() {
                   }
                 >
                   {
-                    cartCount
+                    cartCount > 99 ? '99+' : cartCount
                   }
                 </Text>
               </View>
@@ -1880,6 +1510,7 @@ function StartupLoading() {
 }
 
 function TopSellingProductRow({
+  pending = false,
   product,
   isLoggedIn,
   isFavorite,
@@ -1893,6 +1524,7 @@ function TopSellingProductRow({
   onPress: () => void;
   onFavorite: () => void;
   onAddToCart: () => void;
+  pending?: boolean;
 }) {
   const finalPrice = getFinalPrice(product);
   const onSale = product.price !== undefined && finalPrice < Number(product.price);
@@ -2064,6 +1696,7 @@ function TopSellingProductRow({
             <Pressable
               style={[
                 styles.topSellingAddButton,
+                pending && { backgroundColor: '#E35B3F' },
                 !isAvailable
                   ? styles.topSellingDisabledButton
                   : null,
@@ -2073,7 +1706,7 @@ function TopSellingProductRow({
                 onAddToCart();
               }}
               disabled={
-                !isAvailable
+                !isAvailable || pending
               }
               hitSlop={4}
             >
@@ -2095,6 +1728,8 @@ function TopSellingProductRow({
 }
 
 function RecentProduct({
+  pending,
+  onAddToCart,
   product,
   index,
   isFavorite,
@@ -2106,6 +1741,8 @@ function RecentProduct({
   isFavorite: boolean;
   onPress: () => void;
   onFavorite: () => void;
+  pending: boolean;
+  onAddToCart: () => void;
 }) {
   const [appear] = useState(() => new Animated.Value(0));
 
@@ -2240,6 +1877,9 @@ function RecentProduct({
             {getFinalPrice(product) < Number(product.price) && <Text style={{ textDecorationLine: "line-through", color: "#817B71", fontSize: 9 }}> ${Number(product.price).toFixed(2)}</Text>}
           </Text>
         ) : null}
+        <View style={{ alignSelf: 'flex-end', marginTop: 6 }}>
+          <AddToCartButton name={product.name} pending={pending} unavailable={product.availability === false} onPress={onAddToCart} />
+        </View>
       </Pressable>
     </Animated.View>
   );
@@ -2393,7 +2033,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  slideImage: {
+  slideImage: { backgroundColor: '#FFFFFF',
     position: 'absolute',
     left: 0,
     top: 0,
@@ -2534,7 +2174,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
 
-  topSellingImage: {
+  topSellingImage: { backgroundColor: '#FFFFFF',
     width: '100%',
     height: '100%',
   },
@@ -2657,7 +2297,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'hidden',
   },
-  departmentImage: {
+  departmentImage: { backgroundColor: '#FFFFFF',
     width: '100%',
     height: '100%',
   },
@@ -2721,7 +2361,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
 
-  categoryImage: {
+  categoryImage: { backgroundColor: '#FFFFFF',
     width: '100%',
     height: '100%',
     borderRadius: 17,
@@ -2759,7 +2399,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
 
-  recentImage: {
+  recentImage: { backgroundColor: '#FFFFFF',
     width: '100%',
     height: '100%',
   },
@@ -2866,7 +2506,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
 
-  offerShowcaseImage: {
+  offerShowcaseImage: { backgroundColor: '#FFFFFF',
     width: '100%',
     height: '100%',
   },

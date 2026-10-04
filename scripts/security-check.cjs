@@ -189,37 +189,22 @@ function screenFunction(file, name, context) {
 }
 
 for (const file of ['category-products.tsx', 'department-categories.tsx']) {
-  test(`${file}: cart lock blocks duplicates, allows other products and recovers after failure`, async () => {
-    let release, calls = 0;
-    const gate = new Promise(resolve => { release = resolve; });
-    const pending = new Set();
-    const busy = {
-      begin: id => { if (pending.has(id)) return false; pending.add(id); return true; },
-      end: id => pending.delete(id),
-    };
-    const add = screenFunction(file, 'addToCart', {
-      isLoggedIn: true, cartPending: busy,
-      getValidAccessToken: async () => { await gate; return 'access'; },
-      request: async () => { calls++; throw Error('offline'); }, API_URL: 'https://example.invalid',
-      Alert: { alert: () => {} }, showAlert: () => {}, router: { push: () => {} },
-    });
-    const first = add({ _id: 'one', name: 'One' });
-    await add({ _id: 'one' });
-    const second = add({ _id: 'two' });
-    assert.deepEqual([...pending], ['one', 'two']);
-    release();
-    await Promise.all([first, second]);
-    assert.equal(calls, 2);
-    assert.equal(pending.size, 0);
-    await add({ _id: 'one' });
-    assert.equal(calls, 3, 'explicit retry is possible');
+  test(file + ': shared state blocks duplicate additions and allows retry after failure', async () => {
+    const { fixture, product, deferred, flush } = require('./shopping-fixture.cjs');
+    const gate = deferred(); let calls = 0;
+    const { state } = fixture({ send: async () => { calls++; await gate.promise; throw Error('offline'); } });
+    await state.refresh();
+    const add = screenFunction(file, 'addToCart', { shopping: { add: value => state.getSnapshot().pendingCart.has(value._id) ? Promise.resolve() : state.add(value).catch(() => {}) } });
+    const first = add(product('one')); await add(product('one')); const second = add(product('two'));
+    assert.equal(state.getSnapshot().pendingCart.size, 2); gate.resolve(); await Promise.all([first, second]);
+    assert.equal(calls, 2); assert.equal(state.getSnapshot().cartCount, 0); await add(product('one')); assert.equal(calls, 3);
   });
 }
 
 test('checkout cannot open while an onBlur cart mutation is pending before React rerenders', () => {
   let pushes = 0;
   const busy = { current: true };
-  const checkout = screenFunction('cart.tsx', 'handleCheckout', { canCheckout: true, mutationBusy: busy, router: { push: () => { pushes++; } } });
+  const checkout = screenFunction('cart.tsx', 'handleCheckout', { canCheckout: true, shoppingState: { getSnapshot: () => ({ busy: busy.current }) }, router: { push: () => { pushes++; } } });
   checkout();
   assert.equal(pushes, 0);
   busy.current = false;

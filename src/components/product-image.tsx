@@ -12,7 +12,7 @@ type Props = ImageProps & {
 // One renderer for all product surfaces; older products retain their exact slot/fit.
 export function ProductImage({ imageFrame, resizeMode, presentation, ...props }: Props) {
   const contentFit = props.contentFit || resizeMode || 'contain';
-  if (presentation === 'original' || !validFrame(imageFrame)) return <Image {...props} contentFit={contentFit} />;
+  if (presentation === 'original' || !validFrame(imageFrame)) return <Image {...props} style={[props.style, { backgroundColor: '#FFFFFF' }]} contentFit={contentFit} />;
   const source = props.source as { uri?: string } | undefined;
   return <FramedImage key={source?.uri} {...props} imageFrame={imageFrame} />;
 }
@@ -25,7 +25,7 @@ function FramedImage({ imageFrame, style, onLoad, onError, ...props }: Props & {
   const side = Math.min(box.width, box.height);
   const geometry = size && side > 0
     ? frameGeometry(size.width, size.height, side, side, imageFrame) : null;
-  return <View style={[style, { overflow: 'hidden' }]} onLayout={event => setBox(event.nativeEvent.layout)}>
+  return <View style={[style, { overflow: 'hidden', backgroundColor: '#FFFFFF' }]} onLayout={event => setBox(event.nativeEvent.layout)}>
     <View style={{ position: 'absolute', width: side, height: side,
       left: (box.width - side) / 2, top: (box.height - side) / 2, overflow: 'hidden' }}>
     <Image {...props} contentFit="fill"
