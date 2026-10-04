@@ -1,3 +1,4 @@
+import { useActionDialog } from '../components/action-dialog';
 import { useShopping } from '../hooks/use-shopping';
 import { confirmShoppingClear } from '../services/confirm-shopping-clear';
 import { shoppingState } from '../services/shopping-state';
@@ -15,7 +16,6 @@ import {
   Pressable,
   ScrollView,
   TextInput,
-  Alert,
   Keyboard,
 } from 'react-native';
 
@@ -168,6 +168,7 @@ const getImageUrl = (
 // ============================================================
 
 export default function Cart() {
+  const { alert: actionAlert, dialog } = useActionDialog();
   const shopping = useShopping();
   const MINIMUM_ORDER = shopping.minimum;
 
@@ -200,7 +201,7 @@ export default function Cart() {
   const formatPrice = useCallback((price: number) => '$' + (Number(price) || 0).toFixed(2), []);
 
 
-  const loadCart = useCallback(async () => { try { await shoppingState.refresh(true); } catch (error) { Alert.alert('Cart unavailable', error instanceof Error ? error.message : 'Please retry.'); } }, []);
+  const loadCart = useCallback(async () => { try { await shoppingState.refresh(true); } catch (error) { actionAlert('Cart unavailable', error instanceof Error ? error.message : 'Please retry.'); } }, [actionAlert]);
 
   useFocusEffect(useCallback(() => {
     void loadCart();
@@ -227,7 +228,7 @@ export default function Cart() {
     const current = shoppingState.getSnapshot().cart.find(item => item.product?._id === productId)?.quantity;
     if (!value?.trim() || !Number.isSafeInteger(quantity) || quantity < 1) {
       setManualQuantities(previous => ({ ...previous, [productId]: String(current ?? 1) }));
-      Alert.alert('Invalid quantity', 'Enter a whole number of at least 1. Use remove to delete an item.');
+      actionAlert('Invalid quantity', 'Enter a whole number of at least 1. Use remove to delete an item.');
       return;
     }
     if (quantity !== current) await mutateCart(productId, quantity);
@@ -294,6 +295,7 @@ export default function Cart() {
         styles.container
       }
     >
+      {dialog}
 
       {shopping.feedback}
       {/* ====================================================
@@ -357,7 +359,7 @@ export default function Cart() {
       </View>
 
 
-      {cart.length > 0 && <Pressable accessibilityRole="button" onPress={() => confirmShoppingClear('Cart', shopping.clearCart)}
+      {cart.length > 0 && <Pressable accessibilityRole="button" onPress={() => confirmShoppingClear('Cart', shopping.clearCart, actionAlert)}
         style={{ alignSelf: 'flex-end', padding: 12 }}><Text style={{ color: '#E35B3F', fontWeight: '700' }}>Clear Cart</Text></Pressable>}
 
       {/* ====================================================

@@ -1,3 +1,5 @@
+import { ProductImage } from '../components/product-image';
+import { ImageFrame } from '../services/image-frame';
 import { request } from '../services/request';
 import { cartTotal, currentCartPrices } from '../services/cartPricing';
 import { getCheckoutAttempt } from '../services/checkoutAttempt';
@@ -49,6 +51,7 @@ type BackendProduct = {
   name: string;
   description?: string;
   image?: string;
+  imageFrame?: ImageFrame | null;
 
   category?: {
     _id?: string;
@@ -69,6 +72,16 @@ type CartItem = {
   quantity: number;
   price: number;
 };
+
+export function CheckoutProductImage({ product }: { product: BackendProduct }) {
+  const [failed, setFailed] = useState(false);
+  return <View style={styles.itemIcon}>
+    {product.image && !failed ? <ProductImage imageFrame={product.imageFrame}
+      source={{ uri: /^(https?:|data:|file:)/i.test(product.image) ? product.image : API_URL + (product.image.startsWith('/') ? '' : '/') + product.image }}
+      onError={() => setFailed(true)} style={{ width: '100%', height: '100%' }} contentFit="contain" cachePolicy="memory-disk" />
+      : <Ionicons name="cube-outline" size={23} color="#E35B3F" />}
+  </View>;
+}
 
 
 type CartResponse = {
@@ -1375,19 +1388,7 @@ export default function Checkout() {
                     }
                   >
 
-                    <View
-                      style={
-                        styles.itemIcon
-                      }
-                    >
-
-                      <Ionicons
-                        name="cube-outline"
-                        size={23}
-                        color="#E35B3F"
-                      />
-
-                    </View>
+                    <CheckoutProductImage key={item.product.image} product={item.product} />
 
 
                     <View
@@ -2036,7 +2037,8 @@ const styles =
       width: 48,
       height: 48,
       borderRadius: 14,
-      backgroundColor: "#F8F2EA",
+      backgroundColor: "#FFFFFF",
+      overflow: "hidden",
       alignItems: "center",
       justifyContent: "center",
       marginRight: 11,

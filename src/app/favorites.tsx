@@ -1,3 +1,4 @@
+import { useActionDialog } from '../components/action-dialog';
 import { useShopping } from '../hooks/use-shopping';
 import { confirmShoppingClear } from '../services/confirm-shopping-clear';
 import { shoppingState } from '../services/shopping-state';
@@ -11,7 +12,6 @@ import { ImageFrame } from '../services/image-frame';
 
 import {
   View,
-  Alert,
   Text,
   Pressable,
   StyleSheet,
@@ -108,6 +108,7 @@ const getImageUrl = (image?: string) => {
 // =========================================================
 
 export default function Favorites() {
+  const { alert: actionAlert, dialog } = useActionDialog();
   const shopping = useShopping();
 
   // =======================================================
@@ -350,6 +351,7 @@ export default function Favorites() {
         styles.container
       }
     >
+      {dialog}
 
       {feedback}
 
@@ -407,7 +409,7 @@ export default function Favorites() {
         <CartButton />
       </View>
 
-      {favorites.length > 0 && <Pressable accessibilityRole="button" onPress={() => confirmShoppingClear('Favorites', shopping.clearFavorites)}
+      {favorites.length > 0 && <Pressable accessibilityRole="button" onPress={() => confirmShoppingClear('Favorites', shopping.clearFavorites, actionAlert)}
         style={{ alignSelf: 'flex-end', padding: 12 }}><Text style={{ color: '#E35B3F', fontWeight: '700' }}>Clear Favorites</Text></Pressable>}
 
 

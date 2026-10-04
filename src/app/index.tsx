@@ -2,6 +2,7 @@ import { useShopping } from '../hooks/use-shopping';
 
 
 import { AddToCartButton } from '../components/add-to-cart-button';
+import { OfferShine } from '../components/offer-shine';
 import { PagedCarousel } from '../components/paged-carousel';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StartupScreen } from '../components/startup-screen';
@@ -19,6 +20,10 @@ import { fetchCatalog, readPublicCatalog } from '../services/catalogService';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState, useRef, useEffect } from 'react';
 import { getValidAccessToken } from '../services/authService';
+
+const HOME_SECTION_GAP = 24;
+const HOME_TITLE_GAP = 10;
+const HOME_CONTENT_INSET = 4;
 
 const API_URL = 'https://mystore-backend-u6ey.onrender.com';
 
@@ -766,6 +771,7 @@ export default function Index() {
           </View>
         </View>
 
+        <View testID="home-categories" style={styles.homeSection}>
         {/* MAIN DEPARTMENTS */}
         <View style={styles.sectionHeader}>
           <View style={styles.sectionTitleRow}>
@@ -822,6 +828,8 @@ export default function Index() {
           </View>
         )}
 
+        </View>
+        <View testID="home-top-selling" style={styles.homeSection}>
         {/* TOP SELLING */}
 
         <View
@@ -921,6 +929,8 @@ export default function Index() {
           )}
         </View>
 
+        </View>
+        <View testID="home-recently-added" style={styles.homeSection}>
         {/* RECENTLY ADDED */}
 
         <View
@@ -974,8 +984,6 @@ export default function Index() {
                 index
               ) => (
                 <RecentProduct
-                  pending={shopping.pendingCart.has(product.id)}
-                  onAddToCart={() => void shopping.add(product)}
                   key={
                     product.id
                   }
@@ -1010,13 +1018,12 @@ export default function Index() {
           )}
         </ScrollView>
 
+        </View>
+        <View testID="home-offers" style={styles.homeSection}
+          onLayout={event => { offersSectionY.current = event.nativeEvent.layout.y; }}>
         {/* OFFERS */}
 
         <View
-          onLayout={event => {
-            offersSectionY.current =
-              event.nativeEvent.layout.y;
-          }}
           style={
             styles.offerHeader
           }
@@ -1210,6 +1217,7 @@ export default function Index() {
               </View>
             </Pressable>
               )} />
+          <OfferShine />
           </View>
         ) : (
           <View
@@ -1264,6 +1272,7 @@ export default function Index() {
           </View>
         ) : null}
 
+        </View>
         <View
           style={
             styles.bottomSpace
@@ -1693,33 +1702,7 @@ function TopSellingProductRow({
               </Text>
             )}
 
-            <Pressable
-              style={[
-                styles.topSellingAddButton,
-                pending && { backgroundColor: '#E35B3F' },
-                !isAvailable
-                  ? styles.topSellingDisabledButton
-                  : null,
-              ]}
-              onPress={event => {
-                event.stopPropagation();
-                onAddToCart();
-              }}
-              disabled={
-                !isAvailable || pending
-              }
-              hitSlop={4}
-            >
-              <Ionicons
-                name={
-                  isAvailable
-                    ? 'add'
-                    : 'close'
-                }
-                size={14}
-                color="#FFFFFF"
-              />
-            </Pressable>
+            <AddToCartButton compact name={product.name} pending={pending} unavailable={!isAvailable} onPress={onAddToCart} />
           </View>
         </View>
       </Pressable>
@@ -1728,8 +1711,6 @@ function TopSellingProductRow({
 }
 
 function RecentProduct({
-  pending,
-  onAddToCart,
   product,
   index,
   isFavorite,
@@ -1741,8 +1722,6 @@ function RecentProduct({
   isFavorite: boolean;
   onPress: () => void;
   onFavorite: () => void;
-  pending: boolean;
-  onAddToCart: () => void;
 }) {
   const [appear] = useState(() => new Animated.Value(0));
 
@@ -1877,9 +1856,6 @@ function RecentProduct({
             {getFinalPrice(product) < Number(product.price) && <Text style={{ textDecorationLine: "line-through", color: "#817B71", fontSize: 9 }}> ${Number(product.price).toFixed(2)}</Text>}
           </Text>
         ) : null}
-        <View style={{ alignSelf: 'flex-end', marginTop: 6 }}>
-          <AddToCartButton name={product.name} pending={pending} unavailable={product.availability === false} onPress={onAddToCart} />
-        </View>
       </Pressable>
     </Animated.View>
   );
@@ -2085,12 +2061,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
 
+  homeSection: { marginTop: HOME_SECTION_GAP },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 25,
-    marginBottom: 14,
+    marginTop: 0,
+    marginBottom: HOME_TITLE_GAP,
   },
 
   sectionTitleRow: {
@@ -2148,6 +2125,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     rowGap: 12,
+    paddingBottom: HOME_CONTENT_INSET,
   },
 
   topSellingItem: {
@@ -2254,24 +2232,11 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
 
-  topSellingAddButton: {
-    width: 27,
-    height: 27,
-    borderRadius: 14,
-    backgroundColor: '#171717',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  topSellingDisabledButton: {
-    backgroundColor: '#B8B3AA',
-  },
-
   categoriesLoading: {
     height: 105,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 26,
+    marginBottom: 0,
   },
 
   departmentGrid: {
@@ -2279,7 +2244,8 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     rowGap: 18,
-    marginBottom: 20,
+    paddingBottom: HOME_CONTENT_INSET,
+    marginBottom: 0,
   },
   departmentCard: {
     width: '31%',
@@ -2377,7 +2343,7 @@ const styles = StyleSheet.create({
 
   recentProducts: {
     gap: 16,
-    paddingBottom: 10,
+    paddingBottom: HOME_CONTENT_INSET,
     marginBottom: 0,
   },
 
@@ -2461,8 +2427,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 25,
-    marginBottom: 13,
+    marginTop: 0,
+    marginBottom: HOME_TITLE_GAP,
   },
 
   offerAccent: {
@@ -2475,12 +2441,12 @@ const styles = StyleSheet.create({
 
   offerShowcase: {
     width: '100%',
-    backgroundColor: '#171717',
+    backgroundColor: '#FFF0E8',
     borderRadius: 21,
     overflow: 'hidden',
     minHeight: 164,
     borderWidth: 1,
-    borderColor: '#2B2A28',
+    borderColor: '#EEAA91',
     shadowColor: '#171717',
     shadowOffset: {
       width: 0,
@@ -2531,6 +2497,7 @@ const styles = StyleSheet.create({
   },
 
   offerInfo: {
+    backgroundColor: '#FFF0E8',
     flex: 1,
     minWidth: 0,
     paddingHorizontal: 15,
@@ -2540,7 +2507,7 @@ const styles = StyleSheet.create({
 
   offerMiniLabel: {
     fontSize: 7,
-    color: '#A9A29A',
+    color: '#B53522',
     fontWeight: '900',
     letterSpacing: 1,
     marginBottom: 5,
@@ -2549,7 +2516,7 @@ const styles = StyleSheet.create({
   offerProductName: {
     fontSize: 16,
     lineHeight: 20,
-    color: '#FFFFFF',
+    color: '#171717',
     fontWeight: '900',
     marginBottom: 7,
   },
@@ -2564,7 +2531,7 @@ const styles = StyleSheet.create({
 
   offerOldPrice: {
     fontSize: 10,
-    color: '#B4ADA4',
+    color: '#756458',
     textDecorationLine: 'line-through',
     fontWeight: '700',
   },
@@ -2576,7 +2543,7 @@ const styles = StyleSheet.create({
   },
 
   loginOfferPrice: {
-    color: '#B4ADA4',
+    color: '#756458',
     fontSize: 10,
     fontWeight: '600',
     marginBottom: 10,

@@ -134,7 +134,7 @@ test('guest actions cannot populate private cart or favorite state', async () =>
 test('manual quantity accepts the actual input draft on blur without Done; invalid input never sends', async () => {
   const text = fs.readFileSync(path.join(__dirname, '../src/app/cart.tsx'), 'utf8'), ast = ts.createSourceFile('cart.tsx', text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX); let code;
   function walk(node) { if (ts.isVariableDeclaration(node) && node.name.getText(ast) === 'handleManualQuantitySubmit') code = node.initializer.getText(ast); ts.forEachChild(node, walk); } walk(ast);
-  const calls = [], context = { exports: {}, editingQuantity: { current: 'A' }, quantityDraft: { current: { A: '12' } }, manualQuantities: { A: '1' }, shoppingState: { getSnapshot: () => ({ cart: [item('A')] }) }, mutateCart: (...args) => calls.push(args), setManualQuantities: () => {}, Alert: { alert: () => {} } };
+  const calls = [], context = { exports: {}, editingQuantity: { current: 'A' }, quantityDraft: { current: { A: '12' } }, manualQuantities: { A: '1' }, shoppingState: { getSnapshot: () => ({ cart: [item('A')] }) }, mutateCart: (...args) => calls.push(args), setManualQuantities: () => {}, actionAlert: () => {} };
   vm.runInNewContext(ts.transpileModule('exports.fn = ' + code, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, context);
   await context.exports.fn('A'); assert.deepEqual(calls, [['A', 12]]); assert.equal(context.editingQuantity.current, null);
   await context.exports.fn('A'); assert.equal(calls.length, 1, 'keyboard hide followed by blur must not submit the stale displayed value');

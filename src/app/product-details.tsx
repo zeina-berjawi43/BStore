@@ -337,7 +337,6 @@ export default function ProductDetails() {
   ] = useState(false);
 
 
-  const addingToCart = shopping.pendingCart.has(String(product?._id));
 
 
   /* =======================================================
@@ -1252,8 +1251,8 @@ export default function ProductDetails() {
           ================================================= */}
 
           <Pressable
-            style={[
-              styles.cartButton, addingToCart && { backgroundColor: '#E35B3F' },
+            style={({ pressed }) => [
+              styles.cartButton, pressed && { backgroundColor: '#E35B3F' },
 
               isOutOfStock &&
                 styles.cartButtonDisabled,
@@ -1264,7 +1263,6 @@ export default function ProductDetails() {
             }
 
             disabled={
-              addingToCart ||
               isOutOfStock
             }
           >
@@ -2188,7 +2186,7 @@ const styles =
         24,
 
       backgroundColor:
-        '#E35B3F',
+        '#171717',
 
       minHeight:
         54,

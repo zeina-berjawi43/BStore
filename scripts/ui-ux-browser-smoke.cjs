@@ -22,7 +22,7 @@ const server = http.createServer((req, res) => {
 const mock = () => {
   const jwt = 'header.' + btoa(JSON.stringify({ exp: 4102444800, sid: 'smoke', sub: 'customer' })) + '.signature';
   localStorage.setItem('accessToken', jwt); localStorage.setItem('refreshToken', 'smoke-refresh');
-  localStorage.setItem('user', JSON.stringify({ _id: 'customer', name: 'Test Customer', phone: '71000000', role: 'customer', phoneVerified: true }));
+  localStorage.setItem('user', JSON.stringify({ _id: 'customer', name: 'Test Customer', phone: '71000000', role: 'customer', phoneVerified: true, address: 'Fixture address' }));
   localStorage.setItem('isLoggedIn', 'true');
   const products = [
     { _id: 'A', name: 'Test Almonds', price: 10, discount: 20, discountedPrice: 8, availability: true, category: { _id: 'category', name: 'Grocery' } },
@@ -57,7 +57,7 @@ const mock = () => {
     } else if (route === '/cart/add') {
       window.actionRequests.push([route, body.productId]); await new Promise(resolve => setTimeout(resolve, 1500));
       cart.set(body.productId, (cart.get(body.productId) || 0) + body.quantity); data = { cart: { items: items() } };
-    } else if (route === '/cart') data = { cart: { items: items() } };
+    } else if (route === '/cart') data = { cart: { items: items() }, minimumOrderValue: 1 };
     else if (route === '/users/me') data = { user: JSON.parse(localStorage.getItem('user')) };
     else if (route === '/departments') data = { departments: [{ _id: 'dept', name: 'Grocery', active: true }] };
     else if (route === '/categories') data = { categories: [{ _id: 'category', name: 'Grocery', department: 'dept' }] };
@@ -80,6 +80,7 @@ const mock = () => {
     const send = (method, params = {}) => new Promise((resolve, reject) => { const key = ++id; callbacks.set(key, { resolve, reject }); socket.send(JSON.stringify({ id: key, method, params })); });
     const evaluate = async expression => { const result = await send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true }); if (result.exceptionDetails) throw Error(JSON.stringify(result.exceptionDetails)); return result.result.value; };
     const until = async expression => { for (let n = 0; n < 100; n++) { if (await evaluate(expression)) return; await wait(100); } throw Error('Timed out: ' + expression + '\n' + await evaluate('document.body.innerText')); };
+    const clickDialog = async text => { await until(` [...document.querySelectorAll('[role="dialog"] [role="button"]')].some(e=>e.textContent===${JSON.stringify(text)}) `); return evaluate(`(() => { const e=[...document.querySelectorAll('[role="dialog"] [role="button"]')].find(e=>e.textContent===${JSON.stringify(text)}); if(!e)throw Error('Missing dialog action');e.click(); })()`); };
     const clickText = text => evaluate(`(() => { const e = [...document.querySelectorAll('div')].find(e => e.childElementCount === 0 && e.textContent === ${JSON.stringify(text)} && e.getBoundingClientRect().height); if (!e) throw Error('Missing text'); e.closest('[tabindex]')?.click(); })()`);
     const screenshot = async name => { const result = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false }); fs.writeFileSync(path.join(evidence, name + '.png'), Buffer.from(result.data, 'base64')); };
     await send('Runtime.enable'); await send('Page.enable');
@@ -91,6 +92,18 @@ const mock = () => {
     await evaluate(`window.ui = selector => [...document.querySelectorAll(selector)].find(e => e.getBoundingClientRect().width && !e.closest('[aria-hidden="true"]')); void 0`);
     await evaluate(`window.homeMarker = [...document.querySelectorAll('div')].find(e => e.childElementCount === 0 && e.textContent === 'Top Selling'); void 0`);
     assert.ok(await evaluate(`document.body.innerText.includes('$8.00') && document.body.innerText.includes('20% OFF')`)); checks.push('Home offer pricing renders');
+    for (const width of [320,360,412]) {
+      await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:true}); await wait(150);
+      const geometry=await evaluate(`(()=>{const ids=['home-categories','home-top-selling','home-recently-added','home-offers'];return ids.map(id=>{const e=window.ui('[data-testid="'+id+'"]'),r=e.getBoundingClientRect(),h=e.firstElementChild.getBoundingClientRect(),c=e.children[1].getBoundingClientRect();return {top:r.top,bottom:r.bottom,titleGap:c.top-h.bottom,contentBottom:c.bottom};});})()`);
+      assert.ok(geometry.every(g=>Math.abs(g.titleGap-10)<1),JSON.stringify(geometry));
+      const gaps=geometry.slice(1).map((g,i)=>g.top-geometry[i].bottom); assert.ok(gaps.every(g=>Math.abs(g-24)<1),JSON.stringify(gaps));
+      const visualGaps=geometry.slice(1).map((g,i)=>g.top-geometry[i].contentBottom+4);assert.ok(visualGaps.every(g=>Math.abs(g-28)<1),JSON.stringify(visualGaps));
+      assert.equal(await evaluate(`!!window.ui('[data-testid="home-recently-added"]').querySelector('[aria-label^="Add "]')`),false);
+      assert.equal(await evaluate(`(()=>{const n=window.ui('[data-testid="home-offers"]'),label=[...n.querySelectorAll('div')].find(e=>e.childElementCount===0&&e.textContent==='LIMITED DEAL');return getComputedStyle(label.parentElement).backgroundColor==='rgb(255, 240, 232)'&&getComputedStyle(label.nextElementSibling).color==='rgb(23, 23, 23)';})()`),true);
+    }
+    checks.push('Home effective section gaps 24px, title gaps 10px at 320/360/412px; Recently Added has no cart button; Offers has cream promo panel and dark text');
+    await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
+
     await wait(400);
     await screenshot('customer-home');
     await evaluate(`window.mainPager = [...document.querySelectorAll('div')].find(e => getComputedStyle(e).overflowX === 'auto' && e.querySelector('img[src*="slide="]')); window.slideSource = () => { const p=window.mainPager.getBoundingClientRect(); return [...window.mainPager.querySelectorAll('img')].find(i => { const r=i.getBoundingClientRect(); return Math.abs(r.left-p.left)<3; })?.src; }; void 0`);
@@ -188,9 +201,19 @@ const mock = () => {
     await until(`!window.ui('[aria-label="Test Biscuits quantity"]')`);
     checks.push('Remove from Cart removes the row immediately');
     await wait(1200);
-    await evaluate(`window.confirm=()=>false`); await clickText('Clear Cart');
+    await clickText('Checkout'); await until(`location.pathname==='/checkout'&&document.body.innerText.includes('Place Order')`);
+    await until(`!!window.ui('img[src*="fixture.svg"]')`);
+    assert.equal(await evaluate(`document.body.innerText.includes('$56.00')`),true);
+    assert.equal(await evaluate(`(()=>{let i=window.ui('img[src*="fixture.svg"]');while(i){const r=i.getBoundingClientRect();if(Math.abs(r.width-48)<1&&Math.abs(r.height-48)<1&&getComputedStyle(i).backgroundColor==='rgb(255, 255, 255)')return true;i=i.parentElement;}return false;})()`),true);
+    assert.equal(await evaluate(`window.actionRequests.some(([p])=>p==='/orders')`),false);
+    checks.push('Checkout renders framed white product image, unchanged $56 total and Place Order without submitting an order');
+    await evaluate(`[...document.querySelectorAll('[tabindex="0"]')].find(e=>e.getBoundingClientRect().height&&!e.closest('[aria-hidden="true"]')).click()`);
+    await until(`location.pathname==='/cart'&&!!window.ui('[aria-label="Test Almonds quantity"]')`);
+
+    await evaluate(`window.confirm=()=>{throw Error('Raw confirm must not be called')}`); await clickText('Clear Cart');
+    await until(`document.body.innerText.includes('Clear Cart?')`); await clickDialog('Cancel');
     assert.equal(await evaluate(`!!window.ui('[aria-label="Test Almonds quantity"]')`), true);
-    await evaluate(`window.confirm=()=>true`); await clickText('Clear Cart');
+    await clickText('Clear Cart'); await until(`document.body.innerText.includes('Clear Cart?')`); await clickDialog('Clear Cart');
     await until(`!window.ui('[aria-label="Test Almonds quantity"]')`);
     await wait(1800);
     checks.push('Clear Cart requires confirmation and empties immediately');
@@ -200,9 +223,9 @@ const mock = () => {
     await until(`location.pathname==='/'`); await clickText('Favorites');
     await until(`location.pathname==='/favorites' && document.body.innerText.includes('2 favorites')`);
     assert.equal(await evaluate(`!!window.ui('[aria-label="Open cart, 0 items"]')`), true);
-    await evaluate(`window.confirm=()=>false`); await clickText('Clear Favorites');
+    await clickText('Clear Favorites'); await until(`document.body.innerText.includes('Clear Favorites?')`); await clickText('Cancel');
     assert.equal(await evaluate(`document.body.innerText.includes('2 favorites')`), true);
-    await evaluate(`window.confirm=()=>true`); await clickText('Clear Favorites');
+    await clickText('Clear Favorites'); await until(`document.body.innerText.includes('Clear Favorites?')`); await clickDialog('Clear Favorites');
     await until(`document.body.innerText.includes('0 favorites')`);
     await wait(1800);
     checks.push('Favorites live count and zero cart badge track clears; Clear Favorites requires confirmation and empties immediately');

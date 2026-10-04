@@ -1,7 +1,7 @@
+import { useActionDialog } from '../components/action-dialog';
 import { request } from '../services/request';
 import {
   View,
-  Alert,
   Text,
   StyleSheet,
   Pressable,
@@ -107,6 +107,7 @@ const formatPrice = (
 ========================================================= */
 
 export default function Orders() {
+  const { alert: actionAlert, dialog } = useActionDialog();
 
   const [
     orders,
@@ -210,7 +211,7 @@ export default function Orders() {
 
 
         if (!response.ok) {
-          Alert.alert('Orders unavailable', data.message || 'Please try again.');
+          actionAlert('Orders unavailable', data.message || 'Please try again.');
 
           if (__DEV__) { console.log(
             'GET ORDERS ERROR:',
@@ -236,7 +237,7 @@ export default function Orders() {
 
 
       } catch (error) {
-        Alert.alert('Orders unavailable', error instanceof Error ? error.message : 'Please try again.');
+        actionAlert('Orders unavailable', error instanceof Error ? error.message : 'Please try again.');
 
         if (__DEV__) { console.log(
           'LOAD ORDERS ERROR:',
@@ -348,6 +349,7 @@ export default function Orders() {
         styles.container
       }
     >
+      {dialog}
 
       <ScrollView
         showsVerticalScrollIndicator={

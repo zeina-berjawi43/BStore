@@ -1,3 +1,4 @@
+import { useActionDialog } from '../components/action-dialog';
 import { updateTokens, saveSessionUser } from '../services/tokenStorage';
 import { request } from '../services/request';
 import {
@@ -7,7 +8,6 @@ import {
   Pressable,
   StyleSheet,
   ScrollView,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 
@@ -33,6 +33,7 @@ import {
 } from '../services/authService';
 
 export default function EditAccount() {
+  const { alert: actionAlert, dialog } = useActionDialog();
 
   const [name, setName] =
     useState('');
@@ -187,7 +188,7 @@ export default function EditAccount() {
         error
       ); }
 
-      Alert.alert(
+      actionAlert(
         'Connection Error',
         error?.message ||
           'Could not load your account information.'
@@ -380,7 +381,7 @@ export default function EditAccount() {
 
       if (!trimmedName) {
 
-        Alert.alert(
+        actionAlert(
           'Missing Information',
           'Please enter your name.'
         );
@@ -390,7 +391,7 @@ export default function EditAccount() {
 
       if (!trimmedPhone) {
 
-        Alert.alert(
+        actionAlert(
           'Missing Information',
           'Please enter your phone number.'
         );
@@ -400,7 +401,7 @@ export default function EditAccount() {
 
       if (!trimmedAddress) {
 
-        Alert.alert(
+        actionAlert(
           'Missing Information',
           'Please enter your address.'
         );
@@ -520,7 +521,7 @@ export default function EditAccount() {
             profileData
           ); }
 
-          Alert.alert(
+          actionAlert(
             'Update Failed',
             profileData.message ||
               'Could not update your account.'
@@ -579,7 +580,7 @@ export default function EditAccount() {
             originalPhone
           );
 
-          Alert.alert(
+          actionAlert(
             'Success',
             'Account updated successfully! 🎉',
             [
@@ -637,7 +638,7 @@ export default function EditAccount() {
             originalPhone
           );
 
-          Alert.alert(
+          actionAlert(
             'Phone Number Not Updated',
             phoneData.message ||
               'Could not start phone number verification.'
@@ -665,7 +666,7 @@ export default function EditAccount() {
           trimmedPhone
         );
 
-        Alert.alert(
+        actionAlert(
           'Verification Required',
           'A verification code has been requested. Please enter the code to confirm your new phone number.'
         );
@@ -677,7 +678,7 @@ export default function EditAccount() {
           error
         ); }
 
-        Alert.alert(
+        actionAlert(
           'Connection Error',
           'Could not connect to the server. Please try again.'
         );
@@ -702,7 +703,7 @@ export default function EditAccount() {
 
       if (!cleanOTP) {
 
-        Alert.alert(
+        actionAlert(
           'Missing Code',
           'Please enter the verification code.'
         );
@@ -715,7 +716,7 @@ export default function EditAccount() {
         cleanOTP.length !== 6
       ) {
 
-        Alert.alert(
+        actionAlert(
           'Invalid Code',
           'Please enter the 6-digit verification code.'
         );
@@ -813,7 +814,7 @@ export default function EditAccount() {
 
         if (!response.ok) {
 
-          Alert.alert(
+          actionAlert(
             'Verification Failed',
             data.message ||
               'Incorrect verification code.'
@@ -887,7 +888,7 @@ export default function EditAccount() {
         );
 
 
-        Alert.alert(
+        actionAlert(
           'Success',
           'Your phone number has been updated successfully! 🎉',
           [
@@ -906,7 +907,7 @@ export default function EditAccount() {
           error
         ); }
 
-        Alert.alert(
+        actionAlert(
           'Connection Error',
           'Could not connect to the server. Please try again.'
         );
@@ -931,7 +932,7 @@ export default function EditAccount() {
         return;
       }
 
-      Alert.alert(
+      actionAlert(
         'Cancel Verification',
         'Your old phone number will remain active. The new phone number will not be saved.',
         [
@@ -977,6 +978,7 @@ export default function EditAccount() {
           styles.loadingContainer
         }
       >
+      {dialog}
 
         <ActivityIndicator
           size="large"
@@ -1003,6 +1005,7 @@ export default function EditAccount() {
   return (
 
     <View style={styles.container}>
+      {dialog}
 
       <ScrollView
         showsVerticalScrollIndicator={
