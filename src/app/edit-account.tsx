@@ -185,7 +185,7 @@ export default function EditAccount() {
 
       if (__DEV__) { console.log(
         'LOAD ACCOUNT ERROR:',
-        error
+        error instanceof Error ? error.name : 'Error'
       ); }
 
       actionAlert(
@@ -675,7 +675,7 @@ export default function EditAccount() {
 
         if (__DEV__) { console.log(
           'SAVE ACCOUNT ERROR:',
-          error
+          error instanceof Error ? error.name : 'Error'
         ); }
 
         actionAlert(
@@ -904,7 +904,7 @@ export default function EditAccount() {
 
         if (__DEV__) { console.log(
           'VERIFY CHANGE PHONE ERROR:',
-          error
+          error instanceof Error ? error.name : 'Error'
         ); }
 
         actionAlert(

@@ -57,7 +57,7 @@ export default function Account() {
     } catch (error) {
       if (__DEV__) { console.log(
         'GET USER ERROR:',
-        error
+        error instanceof Error ? error.name : 'Error'
       ); }
     }
   };
@@ -93,7 +93,7 @@ export default function Account() {
     } catch (error) {
       if (__DEV__) { console.log(
         'LOGOUT ERROR:',
-        error
+        error instanceof Error ? error.name : 'Error'
       ); }
 
       Alert.alert(

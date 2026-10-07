@@ -267,7 +267,7 @@ export default function Index() {
         return previousSlide;
       });
     } catch (error) {
-      if (__DEV__) { console.log('LOAD SLIDESHOW ERROR:', error); }
+      if (__DEV__) { console.log('LOAD SLIDESHOW ERROR:', error instanceof Error ? error.name : 'Error'); }
       setSlides([]);
     } finally {
       setSlidesLoading(false);
@@ -431,7 +431,7 @@ export default function Index() {
     } catch (error) {
       if (__DEV__) { console.log(
         'LOAD OFFERS ERROR:',
-        error
+        error instanceof Error ? error.name : 'Error'
       ); }
       setOfferProducts([]);
       setActiveOfferIndex(0);
@@ -509,7 +509,7 @@ export default function Index() {
     } catch (error) {
       if (__DEV__) { console.log(
         'LOAD TOP SELLING ERROR:',
-        error
+        error instanceof Error ? error.name : 'Error'
       ); }
       setTopSellingProducts([]);
     }
@@ -563,7 +563,7 @@ export default function Index() {
       await Promise.all(requests);
       homeLoadedRef.current = true;
     } catch (error) {
-      if (__DEV__) console.log('HOME LOAD ERROR:', error);
+      if (__DEV__) console.log('HOME LOAD ERROR:', error instanceof Error ? error.name : 'Error');
     } finally {
       if (generation === homeGenerationRef.current) setInitialLoading(false);
     }

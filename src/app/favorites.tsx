@@ -163,7 +163,7 @@ export default function Favorites() {
 
           if (__DEV__) { console.log(
             'GET TOKEN ERROR:',
-            error
+            error instanceof Error ? error.name : 'Error'
           ); }
 
           throw error;
@@ -215,7 +215,7 @@ export default function Favorites() {
 
           if (__DEV__) { console.log(
             'CHECK LOGIN ERROR:',
-            error
+            error instanceof Error ? error.name : 'Error'
           ); }
 
           throw error;

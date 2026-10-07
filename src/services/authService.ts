@@ -328,7 +328,7 @@ export const getSavedUser = async (
   } catch (error) {
     if (__DEV__) { console.log(
       'GET SAVED USER ERROR:',
-      error
+      error instanceof Error ? error.name : 'Error'
     ); }
 
     return null;
@@ -716,7 +716,7 @@ export const isLoggedIn = async (
   } catch (error) {
     if (__DEV__) { console.log(
       'IS LOGGED IN ERROR:',
-      error
+      error instanceof Error ? error.name : 'Error'
     ); }
 
     return false;
@@ -736,7 +736,7 @@ export const isAdmin = async (
   } catch (error) {
     if (__DEV__) { console.log(
       'IS ADMIN ERROR:',
-      error
+      error instanceof Error ? error.name : 'Error'
     ); }
 
     return false;
@@ -780,7 +780,7 @@ export const deleteAccount = async (): Promise<void> => {
     await logoutLocal(accessToken);
   } catch (error) {
     if (__DEV__) {
-      console.error('Local cleanup failed:', error);
+      console.error('Local cleanup failed:', error instanceof Error ? error.name : 'Error');
     }
 
     // Try to clear the session independently.

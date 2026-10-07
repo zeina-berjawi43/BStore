@@ -18,7 +18,7 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/splash-logo.png"
     },
     "plugins": [
       "expo-router",
@@ -28,7 +28,8 @@
         {
           "backgroundColor": "#E7DED1",
           "image": "./assets/images/splash-logo.png",
-          "imageWidth": 300
+          "imageWidth": 132,
+          "resizeMode": "contain"
         }
       ],
       "expo-font",

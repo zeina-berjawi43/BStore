@@ -310,7 +310,7 @@ export default function OrderDetails() {
 
         if (__DEV__) { console.log(
           'GET TOKEN ERROR:',
-          error
+          error instanceof Error ? error.name : 'Error'
         ); }
 
         throw error;
@@ -458,7 +458,7 @@ export default function OrderDetails() {
 
         if (__DEV__) { console.log(
           'LOAD ORDER ERROR:',
-          error
+          error instanceof Error ? error.name : 'Error'
         ); }
 
         setOrder(null);
@@ -583,7 +583,7 @@ export default function OrderDetails() {
             styles.emptySubtitle
           }
         >
-          We couldn't find the order you're looking for.
+          We couldn&apos;t find the order you&apos;re looking for.
         </Text>
 
 

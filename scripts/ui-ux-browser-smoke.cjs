@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 // Validate an existing Expo web export; never builds native apps or contacts the API.
 const evidence = path.resolve(__dirname, '../.release-check');
 fs.mkdirSync(evidence, { recursive: true });
-const root = path.join(evidence, 'ui-ux-final');
+const root = process.env.BSTORE_WEB_EXPORT ? path.resolve(process.env.BSTORE_WEB_EXPORT) : path.join(evidence, 'ui-ux-final');
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 const server = http.createServer((req, res) => {
   let name = decodeURIComponent(req.url.split('?')[0]);
@@ -96,6 +96,7 @@ const mock = () => {
     await send('Page.addScriptToEvaluateOnNewDocument', { source: '(' + mock.toString() + ')()' });
     await send('Page.navigate', { url: 'http://127.0.0.1:4175/' });
     await until(`document.body && document.body.innerText.includes('Test Almonds')`);
+    await evaluate('document.fonts.ready.then(() => true)');
     await evaluate(`window.ui = selector => [...document.querySelectorAll(selector)].find(e => e.getBoundingClientRect().width && !e.closest('[aria-hidden="true"]')); void 0`);
     await evaluate(`window.homeMarker = [...document.querySelectorAll('div')].find(e => e.childElementCount === 0 && e.textContent === 'Top Selling'); void 0`);
     assert.ok(await evaluate(`document.body.innerText.includes('$8.00') && document.body.innerText.includes('20% OFF')`)); checks.push('Home offer pricing renders');
@@ -105,7 +106,7 @@ const mock = () => {
       assert.ok(Math.abs(offerGeometry.white-offerGeometry.info)<1,JSON.stringify(offerGeometry));
       assert.ok(Math.abs(offerGeometry.image-offerGeometry.card*.43)<1,JSON.stringify(offerGeometry));
       assert.equal(offerGeometry.overflow,false,JSON.stringify(offerGeometry));
-      assert.equal(await evaluate(`(()=>{const n=window.ui('[data-testid="home-top-selling"]'),text=[...n.querySelectorAll('div')].find(e=>e.childElementCount===0&&e.textContent==='20% OFF'),badge=text.parentElement,image=badge.parentElement,b=badge.getBoundingClientRect(),r=image.getBoundingClientRect();return Math.abs(b.top-r.top-6)<1&&b.bottom<=r.bottom&&r.height===145;})()`),true);
+      await until(`(()=>{const n=window.ui('[data-testid="home-top-selling"]'),text=[...n.querySelectorAll('div')].find(e=>e.childElementCount===0&&e.textContent==='20% OFF'),badge=text.parentElement,image=badge.parentElement,b=badge.getBoundingClientRect(),r=image.getBoundingClientRect();return Math.abs(b.top-r.top-6)<1&&b.bottom<=r.bottom&&r.height===145;})()`);
       const geometry=await evaluate(`(()=>{const ids=['home-categories','home-top-selling','home-recently-added','home-offers'];return ids.map(id=>{const e=window.ui('[data-testid="'+id+'"]'),r=e.getBoundingClientRect(),h=e.firstElementChild.getBoundingClientRect(),c=e.children[1].getBoundingClientRect();return {top:r.top,bottom:r.bottom,titleGap:c.top-h.bottom,contentBottom:c.bottom};});})()`);
       assert.ok(geometry.every(g=>Math.abs(g.titleGap-10)<1),JSON.stringify(geometry));
       const gaps=geometry.slice(1).map((g,i)=>g.top-geometry[i].bottom); assert.ok(gaps.every(g=>Math.abs(g-24)<1),JSON.stringify(gaps));
@@ -245,7 +246,7 @@ const mock = () => {
     await wait(1800);
     await evaluate(`window.ui('[aria-label="Open cart, 1 items"]').click()`);await until(`location.pathname==='/cart'`);
     await clickText('Checkout');await until(`location.pathname==='/checkout'&&document.body.innerText.includes('Place Order')`);
-    await clickText('Place Order');await clickText('Place Order');
+    await evaluate(`(()=>{const label=[...document.querySelectorAll('*')].find(e=>e.childElementCount===0&&e.textContent==='Place Order'&&e.getBoundingClientRect().height&&!e.closest('[aria-hidden="true"]'));if(!label)throw Error('Missing Place Order');label.click();label.click();})()`);
     await until(`!!document.querySelector('[role="dialog"]')&&document.body.innerText.includes('Order Placed')`);
     assert.equal(await evaluate(`window.placedOrders`),1);
     assert.equal(await evaluate(`[...document.querySelector('[role="dialog"]').querySelectorAll('*')].some(e=>getComputedStyle(e).fontFamily.toLowerCase().includes('ionicons'))`),false);

@@ -124,11 +124,11 @@ type FavoriteButtonProps = {
   onToggle: () => void;
   initialFavorite: boolean;
 };
-const FavoriteButton = memo(({ initialFavorite, onToggle }: FavoriteButtonProps) =>
+const FavoriteButton = memo(function FavoriteButton({ initialFavorite, onToggle }: FavoriteButtonProps) { return (
         <Pressable style={[styles.favoriteButton, initialFavorite && styles.favoriteButtonActive]} hitSlop={5}
           accessibilityRole="button" accessibilityState={{ selected: initialFavorite }} onPress={onToggle}>
           <Ionicons name={initialFavorite ? 'heart' : 'heart-outline'} size={20} color={initialFavorite ? '#E35B3F' : '#171717'} />
-        </Pressable>);
+        </Pressable>); });
 /* =========================================================
    DEPARTMENT CATEGORIES
 ========================================================= */
@@ -213,7 +213,7 @@ function DepartmentCategoriesScreen({ departmentId, departmentName }: { departme
     } catch (error) {
       if (__DEV__) { console.log(
         'CHECK LOGIN ERROR:',
-        error
+        error instanceof Error ? error.name : 'Error'
       ); }
       throw error;
     }
@@ -274,7 +274,7 @@ function DepartmentCategoriesScreen({ departmentId, departmentName }: { departme
     } catch (error) {
       if (__DEV__) { console.log(
         'LOAD PRODUCTS ERROR:',
-        error
+        error instanceof Error ? error.name : 'Error'
       ); }
     } finally {
       setLoadingProducts(
@@ -343,7 +343,7 @@ function DepartmentCategoriesScreen({ departmentId, departmentName }: { departme
       if (__DEV__) {
         console.log(
           'LOAD SUBCATEGORIES ERROR:',
-          error
+          error instanceof Error ? error.name : 'Error'
         );
       }
       setSubCategories([]);

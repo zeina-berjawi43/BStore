@@ -348,7 +348,7 @@ export default function VerifyOTP() {
           {isRegistration ? (
             <View style={styles.resendSection}>
               <Text style={styles.resendTitle}>
-                Didn't receive the code?
+                Didn&apos;t receive the code?
               </Text>
 
               <Text style={styles.resendDescription}>

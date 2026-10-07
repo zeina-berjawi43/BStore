@@ -302,7 +302,7 @@ export default function Login() {
 
         <View style={styles.registerSection}>
           <Text style={styles.registerQuestion}>
-            Don't have an account?
+            Don&apos;t have an account?
           </Text>
 
           <Pressable

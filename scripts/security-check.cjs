@@ -214,7 +214,7 @@ test('checkout cannot open while an onBlur cart mutation is pending before React
 
 test('root layout gates restoration, remounts on account changes, protects private routes and resets history', async () => {
   const { tokens, routes } = setup(() => {}, { accessToken: 'a', refreshToken: 'r' });
-  const resets = [];
+  const resets = [], splashCalls = [];
   const slots = [];
   let cursor = 0, effects = [];
   const hooks = {
@@ -232,6 +232,7 @@ test('root layout gates restoration, remounts on account changes, protects priva
     'react-native-safe-area-context': { SafeAreaView: 'SafeAreaView' },
     '../components/startup-screen': { StartupScreen: 'StartupScreen' },
     'expo-notifications': {}, 'expo-constants': {},
+    'expo-splash-screen': { preventAutoHideAsync: async () => splashCalls.push('hold'), hideAsync: async () => splashCalls.push('hide') },
     '../services/tokenStorage': tokens, '../services/sessionRoutes': routes,
     '../services/pushService': { installForegroundHandler: () => {}, syncPush: async () => {} },
   };
@@ -239,7 +240,7 @@ test('root layout gates restoration, remounts on account changes, protects priva
   const code = ts.transpileModule(fs.readFileSync(path.resolve(__dirname, '../src/app/_layout.tsx'), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true },
   }).outputText;
-  vm.runInNewContext(code, { exports, require: name => mocks[name] ?? require(name) });
+  vm.runInNewContext(code, { exports, requestAnimationFrame: callback => callback(), require: name => mocks[name] ?? require(name) });
   function render() {
     cursor = 0; effects = [];
     const child = exports.default().props.children;
@@ -248,6 +249,11 @@ test('root layout gates restoration, remounts on account changes, protects priva
   }
   assert.notEqual(render().type, Stack, 'private screens cannot mount before storage is restored');
   await tokens.readTokens();
+  const awaitingArtwork = render();
+  assert.notEqual(awaitingArtwork.type, Stack, 'session restoration alone cannot bypass the startup artwork');
+  assert.deepEqual(splashCalls, ['hold']);
+  awaitingArtwork.props.onReady();
+  assert.deepEqual(splashCalls, ['hold', 'hide']);
   const restored = render();
   assert.equal(restored.type, Stack);
   assert.equal(resets.length, 0, 'restoration preserves incoming deep links');

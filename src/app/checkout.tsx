@@ -221,7 +221,7 @@ export default function Checkout() {
 
       if (__DEV__) { console.log(
         "LOAD USER ERROR:",
-        error
+        error instanceof Error ? error.name : 'Error'
       ); }
 
 
@@ -367,7 +367,7 @@ export default function Checkout() {
 
       if (__DEV__) { console.log(
         "LOAD CART ERROR:",
-        error
+        error instanceof Error ? error.name : 'Error'
       ); }
 
 
@@ -404,7 +404,7 @@ export default function Checkout() {
 
       if (__DEV__) { console.log(
         "LOAD CHECKOUT DATA ERROR:",
-        error
+        error instanceof Error ? error.name : 'Error'
       ); }
 
     } finally {
@@ -811,7 +811,7 @@ export default function Checkout() {
 
       if (__DEV__) { console.log(
         "PLACE ORDER ERROR:",
-        error
+        error instanceof Error ? error.name : 'Error'
       ); }
 
 
@@ -1346,7 +1346,7 @@ export default function Checkout() {
             >
               Order Summary
             </Text>
-           
+
 
           </View>
 

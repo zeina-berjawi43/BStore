@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { AppState, Platform, Pressable, Text, View } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
+import * as SplashScreen from 'expo-splash-screen';
 import { StartupScreen } from '../components/startup-screen';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { installForegroundHandler, notificationDestination, syncPush } from '../services/pushService';
@@ -10,6 +11,8 @@ import { getSessionSnapshot, onSessionChanged, readTokens, subscribeSession } fr
 import { cleanSessionNavigationState, guestRoutes, privateRoutes, publicRoutes } from '../services/sessionRoutes';
 
 installForegroundHandler();
+// Hold native splash until the full React startup artwork has loaded and laid out.
+void SplashScreen.preventAutoHideAsync().catch(() => {});
 
 
 export default function RootLayout() {
@@ -17,6 +20,13 @@ export default function RootLayout() {
   const fullWindow = pathname === '/' || pathname === '/loading';
   const session = useSyncExternalStore(subscribeSession, getSessionSnapshot, getSessionSnapshot);
   const [restoreError, setRestoreError] = useState(false);
+  const [startupPainted, setStartupPainted] = useState(false);
+  const startupReady = () => {
+    requestAnimationFrame(() => {
+      setStartupPainted(true);
+      void SplashScreen.hideAsync().catch(() => {});
+    });
+  };
   const navigation = useRootNavigationState();
   const navigationRef = useNavigationContainerRef();
   const navigationRevision = useRef(0);
@@ -70,9 +80,9 @@ export default function RootLayout() {
     return () => { active = false; tap.remove(); rotation.remove(); foreground.remove(); };
   }, [navigation?.key, session.ready, session.revision]);
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: fullWindow || !session.ready ? '#E7DED1' : '#F7F3EC' }} edges={Platform.OS === 'android' && session.ready && !fullWindow ? ['top', 'bottom', 'left', 'right'] : []}>
-      {!session.ready ? (
-        <StartupScreen>
+    <SafeAreaView style={{ flex: 1, backgroundColor: fullWindow || !session.ready || !startupPainted ? '#E7DED1' : '#F7F3EC' }} edges={Platform.OS === 'android' && session.ready && startupPainted && !fullWindow ? ['top', 'bottom', 'left', 'right'] : []}>
+      {!session.ready || !startupPainted ? (
+        <StartupScreen onReady={startupReady}>
           {restoreError && <View style={{ position: 'absolute', bottom: '20%', padding: 24 }}>
             <Pressable onPress={restore}><Text>Unable to restore your session. Tap to retry.</Text></Pressable>
           </View>}
@@ -96,6 +106,4 @@ export default function RootLayout() {
     </SafeAreaView>
   );
 }
-
-
 

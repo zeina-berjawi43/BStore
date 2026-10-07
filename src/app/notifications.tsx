@@ -42,16 +42,6 @@ export default function Notifications() {
   // LOAD NOTIFICATION SETTING
   // =========================================================
 
-  useEffect(() => {
-
-    void loadNotificationSetting();
-    const listener = AppState.addEventListener('change', state => {
-      if (state === 'active' && !savingRef.current) void loadNotificationSetting();
-    });
-    return () => listener.remove();
-  }, []);
-
-
   const loadNotificationSetting =
     async () => {
       setBusy(true);
@@ -71,7 +61,7 @@ export default function Notifications() {
 
         if (__DEV__) { console.log(
           'ERROR LOADING NOTIFICATION SETTING:',
-          error
+          error instanceof Error ? error.name : 'Error'
         ); }
 
       } finally {
@@ -79,6 +69,16 @@ export default function Notifications() {
       }
 
     };
+
+
+  useEffect(() => {
+
+    const initialLoad = setTimeout(() => void loadNotificationSetting(), 0);
+    const listener = AppState.addEventListener('change', state => {
+      if (state === 'active' && !savingRef.current) void loadNotificationSetting();
+    });
+    return () => { clearTimeout(initialLoad); listener.remove(); };
+  }, []);
 
 
   // =========================================================
@@ -134,7 +134,7 @@ export default function Notifications() {
 
         if (__DEV__) { console.log(
           'ERROR UPDATING NOTIFICATION SETTING:',
-          error
+          error instanceof Error ? error.name : 'Error'
         ); }
 
 
@@ -940,4 +940,3 @@ const styles =
     },
 
   });
-

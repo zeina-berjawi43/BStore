@@ -242,7 +242,7 @@ export default function Orders() {
 
         if (__DEV__) { console.log(
           'LOAD ORDERS ERROR:',
-          error
+          error instanceof Error ? error.name : 'Error'
         ); }
 
         setOrders([]);

@@ -539,7 +539,7 @@ export default function ProductDetails() {
 
         if (__DEV__) { console.log(
           'LOAD PRODUCT ERROR:',
-          error
+          error instanceof Error ? error.name : 'Error'
         ); }
 
       }
