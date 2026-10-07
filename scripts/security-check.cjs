@@ -240,7 +240,8 @@ test('root layout gates restoration, remounts on account changes, protects priva
   const code = ts.transpileModule(fs.readFileSync(path.resolve(__dirname, '../src/app/_layout.tsx'), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true },
   }).outputText;
-  vm.runInNewContext(code, { exports, requestAnimationFrame: callback => callback(), require: name => mocks[name] ?? require(name) });
+  let timerCallback, timerDelay;
+  vm.runInNewContext(code, { exports, setTimeout: (callback, delay) => { timerCallback = callback; timerDelay = delay; return 1; }, clearTimeout: () => {}, require: name => mocks[name] ?? require(name) });
   function render() {
     cursor = 0; effects = [];
     const child = exports.default().props.children;
@@ -253,6 +254,11 @@ test('root layout gates restoration, remounts on account changes, protects priva
   assert.notEqual(awaitingArtwork.type, Stack, 'session restoration alone cannot bypass the startup artwork');
   assert.deepEqual(splashCalls, ['hold']);
   awaitingArtwork.props.onReady();
+  render();
+  assert.ok(timerDelay >= 0 && timerDelay <= 700);
+  assert.deepEqual(splashCalls, ['hold']);
+  timerCallback();
+  await Promise.resolve(); await Promise.resolve();
   assert.deepEqual(splashCalls, ['hold', 'hide']);
   const restored = render();
   assert.equal(restored.type, Stack);

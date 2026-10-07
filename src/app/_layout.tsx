@@ -13,6 +13,7 @@ import { cleanSessionNavigationState, guestRoutes, privateRoutes, publicRoutes }
 installForegroundHandler();
 // Hold the centered logo briefly, then reveal the ready React loading screen.
 void SplashScreen.preventAutoHideAsync().catch(() => {});
+const splashStartedAt = Date.now();
 
 
 export default function RootLayout() {
@@ -21,18 +22,19 @@ export default function RootLayout() {
   const session = useSyncExternalStore(subscribeSession, getSessionSnapshot, getSessionSnapshot);
   const [restoreError, setRestoreError] = useState(false);
   const [startupPainted, setStartupPainted] = useState(false);
-  const splashStartedAt = useRef(Date.now());
-  const splashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => {
-    if (splashTimer.current !== null) clearTimeout(splashTimer.current);
-  }, []);
-  const startupReady = () => {
-    if (splashTimer.current !== null) return;
-    splashTimer.current = setTimeout(() => {
-      setStartupPainted(true);
-      void SplashScreen.hideAsync().catch(() => {});
-    }, Math.max(0, 1200 - (Date.now() - splashStartedAt.current)));
-  };
+  const [startupArtworkReady, setStartupArtworkReady] = useState(false);
+  useEffect(() => {
+    if (!startupArtworkReady) return;
+    let active = true;
+    const timer = setTimeout(() => {
+      // Keep matching React artwork mounted until native removal finishes.
+      void SplashScreen.hideAsync().catch(() => {}).then(() => {
+        if (active) setStartupPainted(true);
+      });
+    }, Math.max(0, 700 - (Date.now() - splashStartedAt)));
+    return () => { active = false; clearTimeout(timer); };
+  }, [startupArtworkReady]);
+  const startupReady = () => setStartupArtworkReady(true);
   const navigation = useRootNavigationState();
   const navigationRef = useNavigationContainerRef();
   const navigationRevision = useRef(0);
@@ -86,7 +88,7 @@ export default function RootLayout() {
     return () => { active = false; tap.remove(); rotation.remove(); foreground.remove(); };
   }, [navigation?.key, session.ready, session.revision]);
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: fullWindow || !session.ready || !startupPainted ? '#E7DED1' : '#F7F3EC' }} edges={Platform.OS === 'android' && session.ready && startupPainted && !fullWindow ? ['top', 'bottom', 'left', 'right'] : []}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: fullWindow || !session.ready || !startupPainted ? '#FFFFFF' : '#F7F3EC' }} edges={Platform.OS === 'android' && session.ready && startupPainted && !fullWindow ? ['top', 'bottom', 'left', 'right'] : []}>
       {!session.ready || !startupPainted ? (
         <StartupScreen onReady={startupReady}>
           {restoreError && <View style={{ position: 'absolute', bottom: '20%', padding: 24 }}>
@@ -99,7 +101,7 @@ export default function RootLayout() {
         initialRouteName="index"
         screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: '#E7DED1' },
+          contentStyle: { backgroundColor: fullWindow ? '#FFFFFF' : '#E7DED1' },
           ...(Platform.OS === 'android' ? { statusBarStyle: 'dark' as const } : {}),
         }}
       >
