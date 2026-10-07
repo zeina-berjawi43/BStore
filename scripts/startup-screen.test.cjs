@@ -22,10 +22,12 @@ for (const order of ['layout-first', 'image-first']) {
     vm.runInNewContext(code, { exports, require: name => name.endsWith('.png') ? name : mocks[name] ?? require(name) });
     const screen = exports.StartupScreen({ onReady: () => ready++ });
     const artwork = screen.props.children.find(child => child?.type === 'Image');
-    assert.equal(screen.props.style.backgroundColor, '#FFFFFF');
+    assert.equal(screen.props.style.backgroundColor, '#E7DED1');
+    assert.equal(artwork.props.source, '../../assets/images/loading-screen.png');
     assert.equal(artwork.props.resizeMode, 'contain');
-    assert.equal(artwork.props.style.width, 140);
-    assert.equal(artwork.props.style.height, 140 * 723 / 748);
+    assert.equal(artwork.props.style[0], mocks['react-native'].StyleSheet.absoluteFill);
+    assert.equal(artwork.props.style[1].width, '100%');
+    assert.equal(artwork.props.style[1].height, '100%');
     const first = order === 'layout-first' ? screen.props.onLayout : artwork.props.onLoad;
     const second = order === 'layout-first' ? artwork.props.onLoad : screen.props.onLayout;
     first(); assert.equal(ready, 0, 'must retain native splash before both prerequisites');
