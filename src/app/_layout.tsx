@@ -11,7 +11,7 @@ import { getSessionSnapshot, onSessionChanged, readTokens, subscribeSession } fr
 import { cleanSessionNavigationState, guestRoutes, privateRoutes, publicRoutes } from '../services/sessionRoutes';
 
 installForegroundHandler();
-// Hold native splash until the full React startup artwork has loaded and laid out.
+// Hold the centered logo briefly, then reveal the ready React loading screen.
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 
 
@@ -21,11 +21,17 @@ export default function RootLayout() {
   const session = useSyncExternalStore(subscribeSession, getSessionSnapshot, getSessionSnapshot);
   const [restoreError, setRestoreError] = useState(false);
   const [startupPainted, setStartupPainted] = useState(false);
+  const splashStartedAt = useRef(Date.now());
+  const splashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (splashTimer.current !== null) clearTimeout(splashTimer.current);
+  }, []);
   const startupReady = () => {
-    requestAnimationFrame(() => {
+    if (splashTimer.current !== null) return;
+    splashTimer.current = setTimeout(() => {
       setStartupPainted(true);
       void SplashScreen.hideAsync().catch(() => {});
-    });
+    }, Math.max(0, 1200 - (Date.now() - splashStartedAt.current)));
   };
   const navigation = useRootNavigationState();
   const navigationRef = useNavigationContainerRef();
@@ -106,4 +112,3 @@ export default function RootLayout() {
     </SafeAreaView>
   );
 }
-

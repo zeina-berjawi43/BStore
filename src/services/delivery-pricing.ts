@@ -16,5 +16,5 @@ export function deliverySummary(subtotal: number, rules?: DeliveryRules, minimum
   const freeProgress = allowed ? fill(Math.max(0, cents - minimumCents), Math.max(0, threshold - minimumCents)) : 0;
   return { minimumProgress, freeProgress, subtotal, deliveryFee, total: (cents + Math.round(deliveryFee * 100)) / 100, allowed, classC, remaining, toFree,
     message: !allowed ? `Add $${remaining.toFixed(2)} more to reach the minimum order.`
-      : classC ? (toFree > 0 ? `Add $${toFree.toFixed(2)} more to enjoy FREE delivery.` : "You've got FREE delivery!") : 'Minimum order reached' };
+      : classC ? (toFree > 0 ? `Add $${toFree.toFixed(2)} more to get FREE delivery.` : "You've got FREE delivery!") : 'Minimum order reached' };
 }

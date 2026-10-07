@@ -201,7 +201,7 @@ export default function Cart() {
 
   const loadRevision = useRef(0);
   const formatPrice = useCallback((price: number) => '$' + (Number(price) || 0).toFixed(2), []);
-
+  const formatPrice2 = useCallback((price: number) => '$' + (Number(price) || 0).toFixed(0), []);
 
   const loadCart = useCallback(async () => { try { await shoppingState.refresh(true); } catch (error) { actionAlert('Cart unavailable', error instanceof Error ? error.message : 'Please retry.'); } }, [actionAlert]);
 
@@ -251,12 +251,12 @@ export default function Cart() {
   const delivery = deliverySummary(total, shopping.deliveryRules, MINIMUM_ORDER);
   const showClassC = delivery.classC && getSessionSnapshot().authenticated;
   const progress = showClassC ? <View style={styles.progressBox}>
-    <View style={styles.progressLabels}><Text style={styles.progressLabel}>$0</Text><Text style={styles.progressLabel}>Minimum {formatPrice(shopping.deliveryRules!.minimumCheckoutAmount)}</Text><Text style={styles.progressLabel}>Free {formatPrice(shopping.deliveryRules!.freeDeliveryThreshold ?? shopping.deliveryRules!.minimumCheckoutAmount)}</Text></View>
+    <View style={styles.progressLabels}><Text style={styles.progressLabel}>$0</Text><Text style={styles.progressLabel}>Minimum {formatPrice2(shopping.deliveryRules!.minimumCheckoutAmount)}</Text><Text style={styles.progressLabel}>Free Delivery {formatPrice2(shopping.deliveryRules!.freeDeliveryThreshold ?? shopping.deliveryRules!.minimumCheckoutAmount)}</Text></View>
     <View style={styles.progressLine}>
-      <View style={[styles.progressTrack, { backgroundColor: '#FCE5E5' }]} accessibilityRole="progressbar" accessibilityLabel="Minimum checkout" accessibilityValue={{ min: 0, max: 100, now: delivery.minimumProgress }}><View style={{ height: '100%', width: `${delivery.minimumProgress}%`, backgroundColor: delivery.allowed ? '#27804A' : '#D74343' }} /></View>
-      <View style={[styles.progressTrack, { backgroundColor: '#FFF2CC' }]} accessibilityRole="progressbar" accessibilityLabel="Free delivery" accessibilityValue={{ min: 0, max: 100, now: delivery.freeProgress }}><View style={{ height: '100%', width: `${delivery.freeProgress}%`, backgroundColor: delivery.allowed && delivery.toFree === 0 ? '#27804A' : '#D9A521' }} /></View>
+      <View style={[styles.progressTrack, { backgroundColor: '#FCE5E5' }]} accessibilityRole="progressbar" accessibilityLabel="Minimum checkout" accessibilityValue={{ min: 0, max: 100, now: delivery.minimumProgress }}><View style={{ height: '100%', width: `${delivery.minimumProgress}%`, backgroundColor: delivery.allowed ? '#039320' : '#D74343' }} /></View>
+      <View style={[styles.progressTrack, { backgroundColor: '#FFF2CC' }]} accessibilityRole="progressbar" accessibilityLabel="Free delivery" accessibilityValue={{ min: 0, max: 100, now: delivery.freeProgress }}><View style={{ height: '100%', width: `${delivery.freeProgress}%`, backgroundColor: delivery.allowed && delivery.toFree === 0 ? '#039320' : '#D9A521' }} /></View>
     </View>
-    <Text style={styles.progressMessage}>{delivery.message.replace('enjoy', 'get')}</Text>
+    <Text style={styles.progressMessage}>{delivery.message}</Text>
   </View> : null;
 
 

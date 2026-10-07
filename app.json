@@ -4,7 +4,7 @@
     "slug": "mystore",
     "version": "1.0.0",
     "orientation": "portrait",
-    "backgroundColor": "#E7DED1",
+    "backgroundColor": "#FFFFFF",
     "icon": "./assets/images/splash-logo.png",
     "scheme": "bstore",
     "userInterfaceStyle": "automatic",
@@ -26,10 +26,14 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#E7DED1",
+          "backgroundColor": "#FFFFFF",
           "image": "./assets/images/splash-logo.png",
-          "imageWidth": 132,
-          "resizeMode": "contain"
+          "imageWidth": 180,
+          "resizeMode": "contain",
+          "dark": {
+            "backgroundColor": "#FFFFFF",
+            "image": "./assets/images/splash-logo.png"
+          }
         }
       ],
       "expo-font",

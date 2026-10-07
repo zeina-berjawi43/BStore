@@ -74,6 +74,8 @@ type BackendOrder = {
   user:
     | {
         _id?: string;
+        firstName?: string;
+        lastName?: string;
         name?: string;
         email?: string;
         phone?: string;
@@ -633,7 +635,8 @@ export default function OrderDetails() {
 
 
   const customerName =
-    customer?.name ||
+    customer?.name?.trim() ||
+    `${customer?.firstName || ''} ${customer?.lastName || ''}`.trim() ||
     'Customer';
 
 
