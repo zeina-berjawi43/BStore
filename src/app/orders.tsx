@@ -57,6 +57,7 @@ type OrderItem = {
 
 
 type BackendOrder = {
+  customerOrderNumber?: number;
   _id: string;
 
   user: string;
@@ -620,12 +621,7 @@ export default function Orders() {
                           }
                           numberOfLines={1}
                         >
-                          Order #
-                          {
-                            order._id.slice(
-                              -8
-                            )
-                          }
+                          {Number.isSafeInteger(order.customerOrderNumber) && Number(order.customerOrderNumber) > 0 ? `Order #${order.customerOrderNumber}` : 'Order'}
                         </Text>
 
 

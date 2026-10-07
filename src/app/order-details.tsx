@@ -68,6 +68,7 @@ type OrderItem = {
 
 
 type BackendOrder = {
+  customerOrderNumber?: number;
   _id: string;
 
   user:
@@ -857,7 +858,7 @@ export default function OrderDetails() {
                 }
                 numberOfLines={1}
               >
-                #{order._id}
+                {Number.isSafeInteger(order.customerOrderNumber) && Number(order.customerOrderNumber) > 0 ? `Order #${order.customerOrderNumber}` : 'Order'}
               </Text>
 
 
@@ -1360,7 +1361,7 @@ export default function OrderDetails() {
           }
         >
           {order.deliveryRules && <View>
-            <Text style={styles.totalItems}>Subtotal: {formatPrice(order.subtotal ?? legacyOrderTotal)}</Text>
+            <Text style={styles.totalItems}>Products subtotal: {formatPrice(order.subtotal ?? legacyOrderTotal)}</Text>
             {!!order.discountAmount && <Text style={styles.totalItems}>Discount: -{formatPrice(order.discountAmount)}</Text>}
             {order.deliveryRules.priceClass === 'C' && <Text style={styles.totalItems}>Delivery: {order.deliveryFee === 0 ? 'FREE' : formatPrice(order.deliveryFee ?? 0)}</Text>}
           </View>}

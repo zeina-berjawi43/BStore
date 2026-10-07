@@ -9,6 +9,7 @@ import { ProductImage } from '../components/product-image';
 import { ImageFrame } from '../services/image-frame';
 
 import { cartTotal } from '../services/cartPricing';
+import { getSessionSnapshot } from '../services/tokenStorage';
 import { deliverySummary } from '../services/delivery-pricing';
 import {
   View,
@@ -248,6 +249,15 @@ export default function Cart() {
   const total =
     cartTotal(cart);
   const delivery = deliverySummary(total, shopping.deliveryRules, MINIMUM_ORDER);
+  const showClassC = delivery.classC && getSessionSnapshot().authenticated;
+  const progress = showClassC ? <View style={styles.progressBox}>
+    <View style={styles.progressLabels}><Text style={styles.progressLabel}>$0</Text><Text style={styles.progressLabel}>Minimum {formatPrice(shopping.deliveryRules!.minimumCheckoutAmount)}</Text><Text style={styles.progressLabel}>Free {formatPrice(shopping.deliveryRules!.freeDeliveryThreshold ?? shopping.deliveryRules!.minimumCheckoutAmount)}</Text></View>
+    <View style={styles.progressLine}>
+      <View style={[styles.progressTrack, { backgroundColor: '#FCE5E5' }]} accessibilityRole="progressbar" accessibilityLabel="Minimum checkout" accessibilityValue={{ min: 0, max: 100, now: delivery.minimumProgress }}><View style={{ height: '100%', width: `${delivery.minimumProgress}%`, backgroundColor: delivery.allowed ? '#27804A' : '#D74343' }} /></View>
+      <View style={[styles.progressTrack, { backgroundColor: '#FFF2CC' }]} accessibilityRole="progressbar" accessibilityLabel="Free delivery" accessibilityValue={{ min: 0, max: 100, now: delivery.freeProgress }}><View style={{ height: '100%', width: `${delivery.freeProgress}%`, backgroundColor: delivery.allowed && delivery.toFree === 0 ? '#27804A' : '#D9A521' }} /></View>
+    </View>
+    <Text style={styles.progressMessage}>{delivery.message.replace('enjoy', 'get')}</Text>
+  </View> : null;
 
 
   // ==========================================================
@@ -407,6 +417,7 @@ export default function Cart() {
           >
             Add some products to your cart
           </Text>
+          {progress}
 
 
           <Pressable
@@ -869,6 +880,10 @@ export default function Cart() {
                 }
               >
 
+                {showClassC && <View style={styles.breakdown}>
+                  <View style={styles.breakdownRow}><Text style={styles.breakdownLabel}>Products subtotal</Text><Text style={styles.breakdownAmount}>{formatPrice(delivery.subtotal)}</Text></View>
+                  {delivery.allowed && <View style={styles.breakdownRow}><Text style={styles.breakdownLabel}>Delivery</Text><Text style={styles.breakdownAmount}>{delivery.deliveryFee === 0 ? 'FREE' : formatPrice(delivery.deliveryFee)}</Text></View>}
+                </View>}
                 {/* TOTAL ROW */}
 
                 <View
@@ -917,12 +932,9 @@ export default function Cart() {
 
 
                 {/* MINIMUM ORDER */}
-                {delivery.classC && <View style={styles.minimumContent}>
-                  <Text style={styles.minimumText}>Subtotal: {formatPrice(delivery.subtotal)}</Text>
-                  {delivery.allowed && <Text style={styles.minimumText}>Delivery: {delivery.deliveryFee === 0 ? 'FREE' : formatPrice(delivery.deliveryFee)}</Text>}
-                </View>}
+                {progress}
 
-                {!canCheckout && (
+                {!showClassC && !canCheckout && (
 
                   <View
                     style={
@@ -988,7 +1000,7 @@ export default function Cart() {
 
                 {/* READY */}
 
-                {canCheckout && (
+                {!showClassC && canCheckout && (
 
                   <View
                     style={
@@ -1079,6 +1091,16 @@ const styles =
   // CONTAINER
   // ==========================================================
 
+  progressBox: { width: '100%', marginTop: 12 },
+  progressLabels: { flexDirection: 'row', justifyContent: 'space-between', gap: 4 },
+  progressLabel: { fontSize: 10, color: '#817B71', fontWeight: '600', flexShrink: 1 },
+  progressLine: { flexDirection: 'row', gap: 3, marginTop: 6 },
+  progressTrack: { flex: 1, height: 7, borderRadius: 4, backgroundColor: '#EDE7DC', overflow: 'hidden' },
+  progressMessage: { fontSize: 12, fontWeight: '700', color: '#24221E', marginTop: 7 },
+  breakdown: { paddingBottom: 10, marginBottom: 10, borderBottomWidth: 1, borderBottomColor: '#E7DED1', gap: 7 },
+  breakdownRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
+  breakdownLabel: { fontSize: 13, fontWeight: '600', color: '#24221E' },
+  breakdownAmount: { fontSize: 14, fontWeight: '800', color: '#24221E' },
   container: {
     flex: 1,
     backgroundColor: '#F7F3EC',

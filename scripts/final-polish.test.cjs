@@ -232,15 +232,46 @@ test('Class C Cart renders minimum, paid delivery and FREE states from current s
   for(const [subtotal,allowed,total,message] of [[20,false,20,'Add $10.00 more to reach the minimum order.'],[30,true,35,'Add $70.00 more to enjoy FREE delivery.'],[60,true,65,'Add $40.00 more to enjoy FREE delivery.'],[100,true,100,"You've got FREE delivery!"],[120,true,120,"You've got FREE delivery!"]]) {
     const actual=ctx.exports.summary(subtotal,rules);assert.equal(actual.allowed,allowed);assert.equal(actual.total,total);assert.equal(actual.message,message);
     const shopping={cart:[{product:{_id:'A',name:'Almonds',availability:true,discountedPrice:subtotal},quantity:1,price:subtotal}],ready:true,busy:false,minimum:30,deliveryRules:rules};
-    const render=fixture('app/cart.tsx','Cart',{useShopping:()=>shopping,useActionDialog:()=>({dialog:null}),deliverySummary:ctx.exports.summary,cartTotal:items=>items.reduce((sum,item)=>sum+item.price*item.quantity,0),useEffect:()=>{},useFocusEffect:()=>{},styles:{},getImageUrl:()=>null,
+    const render=fixture('app/cart.tsx','Cart',{getSessionSnapshot:()=>({authenticated:true}),useShopping:()=>shopping,useActionDialog:()=>({dialog:null}),deliverySummary:ctx.exports.summary,cartTotal:items=>items.reduce((sum,item)=>sum+item.price*item.quantity,0),useEffect:()=>{},useFocusEffect:()=>{},styles:{},getImageUrl:()=>null,
       View:'View',Text:'Text',TextInput:'TextInput',Pressable:'Pressable',ScrollView:'ScrollView',ProductImage:'ProductImage',Ionicons:'Icon',router:{},goBackOrHome:()=>{}});
     const tree=render();const texts=nodes(tree,node=>node.type==='Text').map(node=>JSON.stringify(node.props.children)).join('');
-    assert.ok(texts.includes(allowed?message:'more to reach the minimum order.'));
+    assert.ok(texts.includes(allowed?message.replace('to enjoy FREE delivery','to get FREE delivery'):'more to reach the minimum order.'));
     const checkout=nodes(tree,node=>node.type==='Pressable'&&nodes(node,child=>child.type==='Text'&&JSON.stringify(child.props.children).includes('Checkout')).length).at(-1);
     assert.equal(checkout.props.disabled,!allowed);
     if(allowed)assert.ok(texts.includes(subtotal>=100?'FREE':'$5.00'));
   }
   for(const priceClass of ['A','B'])assert.equal(ctx.exports.summary(29,{priceClass,minimumCheckoutAmount:30}).allowed,false);
+});
+
+test('two-stage Cart fills, colors and totals use current Class C rules only, including zero and decimal boundaries',()=>{
+  const ast=ts.createSourceFile('delivery.ts',source('services/delivery-pricing.ts'),ts.ScriptTarget.Latest,true);
+  const fn=ast.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name.text==='deliverySummary');
+  const context={exports:{}};vm.runInNewContext(ts.transpileModule(fn.getText(ast)+'\nexports.summary=deliverySummary;', {compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText,context);
+  const summary=context.exports.summary;
+  const rules={priceClass:'C',minimumCheckoutAmount:30,freeDeliveryThreshold:100,deliveryFeeBelowThreshold:5};
+  const renderCart=(subtotal,rules,authenticated=true,empty=false)=>fixture('app/cart.tsx','Cart',{
+    useShopping:()=>({cart:empty?[]:[{product:{_id:'P',name:'Product',availability:true,discountedPrice:subtotal},quantity:1,price:subtotal}],ready:true,busy:false,minimum:rules.minimumCheckoutAmount,deliveryRules:rules}),
+    getSessionSnapshot:()=>({authenticated}),useActionDialog:()=>({dialog:null}),deliverySummary:summary,cartTotal:items=>items.reduce((sum,item)=>sum+item.price*item.quantity,0),
+    useEffect:()=>{},useFocusEffect:()=>{},styles:{},getImageUrl:()=>null,View:'View',Text:'Text',TextInput:'TextInput',Pressable:'Pressable',ScrollView:'ScrollView',ProductImage:'ProductImage',Ionicons:'Icon',router:{},goBackOrHome:()=>{}})();
+  for(const [subtotal,first,second] of [[0,0,0],[15,50,0],[29.99,29.99/30*100,0],[30,100,0],[65,100,50],[100,100,100],[200,100,100]]) {
+    const tree=renderCart(subtotal,rules), bars=nodes(tree,node=>node.props?.accessibilityRole==='progressbar');assert.equal(bars.length,2);
+    assert.ok(Math.abs(bars[0].props.accessibilityValue.now-first)<1e-8);assert.ok(Math.abs(bars[1].props.accessibilityValue.now-second)<1e-8);
+    const fills=bars.map(bar=>nodes(bar,node=>node.props?.style?.width)[0].props.style);
+    assert.equal(fills[0].backgroundColor,subtotal>=30?'#27804A':'#D74343');assert.equal(fills[1].backgroundColor,subtotal>=100?'#27804A':'#D9A521');
+    const text=nodes(tree,node=>node.type==='Text').map(node=>JSON.stringify(node.props.children)).join('');
+    assert.ok(text.includes('Products subtotal'));assert.ok(!text.includes('enjoy FREE delivery'));
+    assert.ok(text.includes('$'+summary(subtotal,rules).total.toFixed(2)));
+    if(subtotal>=30)assert.ok(text.includes(subtotal>=100?'FREE':'$5.00'));
+  }
+  assert.equal(nodes(renderCart(0,rules,true,true),node=>node.props?.accessibilityRole==='progressbar').length,2);
+  for(const priceClass of ['A','B']) {
+    const tree=renderCart(65,{...rules,priceClass});assert.equal(nodes(tree,node=>node.props?.accessibilityRole==='progressbar').length,0);
+    const text=nodes(tree,node=>node.type==='Text').map(node=>JSON.stringify(node.props.children)).join('');assert.ok(!text.includes('Products subtotal'));assert.ok(!text.includes('FREE'));
+  }
+  assert.equal(nodes(renderCart(65,rules,false),node=>node.props?.accessibilityRole==='progressbar').length,0);
+  const changed=summary(60,{...rules,minimumCheckoutAmount:40,freeDeliveryThreshold:80,deliveryFeeBelowThreshold:7});assert.equal(changed.freeProgress,50);assert.equal(changed.total,67);
+  for(const minimum of [0,30]) {const equal=summary(minimum,{...rules,minimumCheckoutAmount:minimum,freeDeliveryThreshold:minimum});assert.equal(equal.minimumProgress,100);assert.equal(equal.freeProgress,100);}
+  assert.equal(summary(30.01,{...rules,minimumCheckoutAmount:30.01,freeDeliveryThreshold:30.03}).minimumProgress,100);
 });
 
 test('Checkout blocks below the minimum before a request and handles authoritative price changes without clearing cart',async()=>{
@@ -255,12 +286,28 @@ test('Checkout blocks below the minimum before a request and handles authoritati
 
 test('Customer Order Details uses historical paid/FREE delivery and saved grand total; legacy orders remain readable',()=>{
   for(const fee of [5,0,undefined]) {
-    const order={_id:'A',items:[{product:{_id:'P',name:'Almonds',image:''},quantity:1,price:80}],totalPrice:80+(fee||0),status:'Pending',shippingAddress:'Beirut',
+    const order={_id:'507f1f77bcf86cd799439011',customerOrderNumber:fee===undefined?undefined:3,items:[{product:{_id:'P',name:'Almonds',image:''},quantity:1,price:80}],totalPrice:80+(fee||0),status:'Pending',shippingAddress:'Beirut',
       ...(fee===undefined?{}:{subtotal:80,discountAmount:0,deliveryFee:fee,deliveryRules:{priceClass:'C'}})};
-    const render=fixture('app/order-details.tsx','OrderDetails',{useLocalSearchParams:()=>({orderId:'A'}),useState:initial=>[initial===null?order:false,()=>{}],useFocusEffect:()=>{},
+    const render=fixture('app/order-details.tsx','OrderDetails',{useLocalSearchParams:()=>({orderId:order._id}),useState:initial=>[initial===null?order:false,()=>{}],useFocusEffect:()=>{},
       formatPrice:price=>'$'+Number(price).toFixed(2),formatOrderDate:()=>'',getImageUrl:()=>'',getStatusStyles:()=>({}),styles:{},router:{},
       View:'View',Text:'Text',ScrollView:'ScrollView',Pressable:'Pressable',ProductImage:'ProductImage',Ionicons:'Icon'});
     const text=nodes(render(),node=>node.type==='Text').map(node=>JSON.stringify(node.props.children)).join('');
+    assert.equal(text.includes('Order #3'),fee!==undefined);assert.ok(!text.includes(order._id));
     assert.ok(text.includes('$'+order.totalPrice.toFixed(2)));if(fee!==undefined)assert.ok(text.includes(fee?'$5.00':'FREE'));else assert.ok(!text.includes('Delivery:'));
+  }
+});
+
+test('My Orders retains stable saved numbers under sorting/status changes and navigates with internal IDs; legacy IDs stay hidden',()=>{
+  const orders=[{_id:'507f1f77bcf86cd799439011',customerOrderNumber:1,totalPrice:85,status:'Cancelled',createdAt:'2020-01-01',items:[]},
+    {_id:'507f1f77bcf86cd799439012',customerOrderNumber:2,totalPrice:120,status:'Pending',createdAt:'2020-02-01',items:[]},
+    {_id:'507f1f77bcf86cd799439013',totalPrice:80,status:'Pending',createdAt:'2019-01-01',items:[]}];
+  let destination;
+  const render=fixture('app/orders.tsx','Orders',{useState:initial=>[Array.isArray(initial)?orders:false,()=>{}],useActionDialog:()=>({dialog:null}),useFocusEffect:()=>{},formatPrice:value=>'$'+value.toFixed(2),
+    View:'View',Text:'Text',Pressable:'Pressable',ScrollView:'ScrollView',Ionicons:'Icon',styles:{},router:{push:value=>destination=value},goBackOrHome:()=>{}});
+  for(const sorted of [false,true]) {
+    if(sorted)orders.reverse();
+    const tree=render(),text=nodes(tree,node=>node.type==='Text').map(node=>JSON.stringify(node.props.children)).join('');
+    assert.ok(text.includes('Order #1'));assert.ok(text.includes('Order #2'));for(const order of orders)assert.ok(!text.includes(order._id));
+    const card=nodes(tree,node=>node.props?.key===orders[0]._id)[0];card.props.onPress();assert.equal(destination.params.orderId,orders[0]._id);
   }
 });

@@ -262,7 +262,7 @@ const mock = () => {
     checks.push('Favorites live count and zero cart badge track clears; Clear Favorites requires confirmation and empties immediately');
     for(const [quantity,threshold,message,total,fee] of [
       [2,100,'Add $14.00 more to reach the minimum order.',16,null],
-      [4,100,'Add $68.00 more to enjoy FREE delivery.',37,5],
+      [4,100,'Add $68.00 more to get FREE delivery.',37,5],
       [4,32,"You've got FREE delivery!",32,0],
       [13,100,"You've got FREE delivery!",104,0]]) {
       await evaluate(`window.deliveryFixture(${quantity},{priceClass:'C',minimumCheckoutAmount:30,freeDeliveryThreshold:${threshold},deliveryFeeBelowThreshold:5})`);
@@ -270,8 +270,8 @@ const mock = () => {
       await until(`location.pathname==='/cart'&&document.body.innerText.includes('$${total.toFixed(2)}')`);
       if(quantity===2)assert.ok(await evaluate(`document.body.innerText.includes('more to reach the minimum order.')&&!document.body.innerText.includes('enjoy FREE delivery')`));
       else {
-        assert.ok(await evaluate(`document.body.innerText.includes(${JSON.stringify(message)})&&document.body.innerText.includes(${JSON.stringify(fee?'Delivery: $5.00':'Delivery: FREE')})`));
-        await clickText('Checkout');await until(`location.pathname==='/checkout'&&document.body.innerText.includes(${JSON.stringify(message)})`);
+        assert.ok(await evaluate(`document.body.innerText.includes(${JSON.stringify(message)})&&document.body.innerText.includes('Products subtotal')&&document.body.innerText.includes('Delivery')&&document.body.innerText.includes(${JSON.stringify(fee?'$5.00':'FREE')})&&document.querySelectorAll('[role="progressbar"]').length===2`));
+        await clickText('Checkout');await until(`location.pathname==='/checkout'&&document.body.innerText.includes(${JSON.stringify(message.replace('to get FREE delivery','to enjoy FREE delivery'))})`);
         assert.ok(await evaluate(`document.body.innerText.includes('$${total.toFixed(2)}')&&document.body.innerText.includes(${JSON.stringify(fee?'Delivery: $5.00':'Delivery: FREE')})`));
         await evaluate('history.back()');await until(`location.pathname==='/cart'`);
       }
