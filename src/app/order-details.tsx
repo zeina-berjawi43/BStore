@@ -83,6 +83,10 @@ type BackendOrder = {
   items: OrderItem[];
 
   totalPrice: number;
+  subtotal?: number;
+  discountAmount?: number;
+  deliveryFee?: number;
+  deliveryRules?: { priceClass: string };
 
   status:
     | 'Pending'
@@ -689,7 +693,7 @@ export default function OrderDetails() {
   // ORDER TOTAL
   // =======================================================
 
-  const orderTotal =
+  const legacyOrderTotal =
     Array.isArray(
       order.items
     ) &&
@@ -722,6 +726,7 @@ export default function OrderDetails() {
       : Number(
           order.totalPrice
         ) || 0;
+  const orderTotal = Number(order.totalPrice ?? legacyOrderTotal);
 
 
   // =======================================================
@@ -1354,6 +1359,11 @@ export default function OrderDetails() {
             styles.totalCard
           }
         >
+          {order.deliveryRules && <View>
+            <Text style={styles.totalItems}>Subtotal: {formatPrice(order.subtotal ?? legacyOrderTotal)}</Text>
+            {!!order.discountAmount && <Text style={styles.totalItems}>Discount: -{formatPrice(order.discountAmount)}</Text>}
+            {order.deliveryRules.priceClass === 'C' && <Text style={styles.totalItems}>Delivery: {order.deliveryFee === 0 ? 'FREE' : formatPrice(order.deliveryFee ?? 0)}</Text>}
+          </View>}
 
           <View>
 

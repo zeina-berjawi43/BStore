@@ -3,6 +3,7 @@ import { ProductImage } from '../components/product-image';
 import { ImageFrame } from '../services/image-frame';
 import { request } from '../services/request';
 import { cartTotal, currentCartPrices } from '../services/cartPricing';
+import { deliverySummary, DeliveryRules } from '../services/delivery-pricing';
 import { getCheckoutAttempt } from '../services/checkoutAttempt';
 import {
   View,
@@ -150,6 +151,8 @@ export default function Checkout() {
   const [cart, setCart] =
     useState<CartItem[]>([]);
   const [cartRevision, setCartRevision] = useState<string | undefined>();
+  const [deliveryRules, setDeliveryRules] = useState<DeliveryRules | undefined>();
+  const [minimumOrder, setMinimumOrder] = useState(Infinity);
 
 
   const [loading, setLoading] =
@@ -345,6 +348,8 @@ export default function Checkout() {
 
 
         setCart(currentCartPrices(items));
+        setDeliveryRules(data.pricing?.deliveryRules);
+        setMinimumOrder(data.minimumOrderValue ?? Infinity);
         setCartRevision(cartData.updatedAt ? `${cartData._id}:${cartData.updatedAt}` : undefined);
 
       } else {
@@ -461,10 +466,11 @@ export default function Checkout() {
 
   const totalPrice =
     cartTotal(cart);
+  const delivery = deliverySummary(totalPrice, deliveryRules, minimumOrder);
 
 
   const formattedTotal =
-    totalPrice.toFixed(2);
+    delivery.total.toFixed(2);
 
 
   // ==========================================================
@@ -594,6 +600,10 @@ export default function Checkout() {
     }
 
 
+    if (!delivery.allowed) {
+      actionAlert('Minimum Order', delivery.message);
+      return;
+    }
     try {
 
       orderInFlight.current = true;
@@ -672,6 +682,7 @@ export default function Checkout() {
             body:
               JSON.stringify({
                 idempotencyKey: attempt.key,
+                expectedTotal: delivery.total,
                 shippingAddress:
                   user.address.trim(),
               }),
@@ -734,6 +745,11 @@ export default function Checkout() {
 
 
       if (!response.ok) {
+        if (data?.pricing) {
+          setDeliveryRules(data.pricing.deliveryRules);
+          setMinimumOrder(data.pricing.deliveryRules.minimumCheckoutAmount);
+          void loadData();
+        }
 
         Alert.alert(
           "Order Failed",
@@ -1514,6 +1530,11 @@ export default function Checkout() {
         </View>
 
 
+        {delivery.classC && <View style={styles.totalCard}>
+          <View><Text style={styles.totalSubtext}>Subtotal: ${delivery.subtotal.toFixed(2)}</Text>
+            {delivery.allowed ? <Text style={styles.totalSubtext}>Delivery: {delivery.deliveryFee === 0 ? 'FREE' : `$${delivery.deliveryFee.toFixed(2)}`}</Text> : null}
+            <Text style={styles.totalSubtext}>{delivery.message}</Text></View>
+        </View>}
         {/* ==================================================
             PAYMENT
         ================================================== */}
@@ -1633,13 +1654,13 @@ export default function Checkout() {
             }
 
             disabled={
-              placingOrder
+              placingOrder || !delivery.allowed
             }
 
             style={[
               styles.placeOrderButton,
 
-              placingOrder &&
+              (placingOrder || !delivery.allowed) &&
                 styles.placeOrderButtonDisabled,
             ]}
           >

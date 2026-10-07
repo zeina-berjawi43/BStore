@@ -9,6 +9,7 @@ import { ProductImage } from '../components/product-image';
 import { ImageFrame } from '../services/image-frame';
 
 import { cartTotal } from '../services/cartPricing';
+import { deliverySummary } from '../services/delivery-pricing';
 import {
   View,
   Text,
@@ -246,6 +247,7 @@ export default function Cart() {
 
   const total =
     cartTotal(cart);
+  const delivery = deliverySummary(total, shopping.deliveryRules, MINIMUM_ORDER);
 
 
   // ==========================================================
@@ -253,8 +255,7 @@ export default function Cart() {
   // ==========================================================
 
   const canCheckout =
-    total >=
-    MINIMUM_ORDER && !updatingProduct;
+    delivery.allowed && !updatingProduct;
 
 
   const remainingAmount =
@@ -907,7 +908,7 @@ export default function Cart() {
                   >
                     {
                       formatPrice(
-                        total
+                        delivery.total
                       )
                     }
                   </Text>
@@ -916,6 +917,10 @@ export default function Cart() {
 
 
                 {/* MINIMUM ORDER */}
+                {delivery.classC && <View style={styles.minimumContent}>
+                  <Text style={styles.minimumText}>Subtotal: {formatPrice(delivery.subtotal)}</Text>
+                  {delivery.allowed && <Text style={styles.minimumText}>Delivery: {delivery.deliveryFee === 0 ? 'FREE' : formatPrice(delivery.deliveryFee)}</Text>}
+                </View>}
 
                 {!canCheckout && (
 
@@ -971,7 +976,7 @@ export default function Cart() {
                             remainingAmount
                           )
                         }{' '}
-                        more to checkout
+                        more to reach the minimum order.
                       </Text>
 
                     </View>
@@ -1002,7 +1007,7 @@ export default function Cart() {
                         styles.readyText
                       }
                     >
-                      Minimum order reached
+                      {delivery.message}
                     </Text>
 
                   </View>

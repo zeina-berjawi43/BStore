@@ -31,6 +31,7 @@ const mock = () => {
   ];
   products.forEach(p => { p.image = 'http://127.0.0.1:4175/fixture.svg'; p.imageFrame = { zoom: 1.2, x: 0.4, y: 0 }; });
   const favorites = new Set(['A']); const cart = new Map(); window.actionRequests = [];
+  window.deliveryFixture = (quantity, rules) => { cart.clear(); cart.set('A', quantity); window.deliveryRules = rules; };
   const originalFetch = window.fetch;
   window.fetch = async (input, options = {}) => {
     const url = typeof input === 'string' ? input : input.url;
@@ -64,6 +65,10 @@ const mock = () => {
     else if (route === '/departments') data = { departments: [{ _id: 'dept', name: 'Grocery', active: true }] };
     else if (route === '/categories') data = { categories: [{ _id: 'category', name: 'Grocery', department: 'dept' }] };
     else if (route === '/slideshows') data = { slides: [1, 2, 3].map(id => ({ _id: String(id), image: 'http://127.0.0.1:4175/fixture.svg?slide=' + id, active: true, order: id })) };
+    if (route.startsWith('/cart') && window.deliveryRules) {
+      data.minimumOrderValue = window.deliveryRules.minimumCheckoutAmount;
+      data.pricing = { deliveryRules: window.deliveryRules };
+    }
     return new Response(JSON.stringify(data), { status: 200, headers: { 'Content-Type': 'application/json' } });
   };
 };
@@ -255,6 +260,24 @@ const mock = () => {
     await until(`document.body.innerText.includes('0 favorites')`);
     await wait(1800);
     checks.push('Favorites live count and zero cart badge track clears; Clear Favorites requires confirmation and empties immediately');
+    for(const [quantity,threshold,message,total,fee] of [
+      [2,100,'Add $14.00 more to reach the minimum order.',16,null],
+      [4,100,'Add $68.00 more to enjoy FREE delivery.',37,5],
+      [4,32,"You've got FREE delivery!",32,0],
+      [13,100,"You've got FREE delivery!",104,0]]) {
+      await evaluate(`window.deliveryFixture(${quantity},{priceClass:'C',minimumCheckoutAmount:30,freeDeliveryThreshold:${threshold},deliveryFeeBelowThreshold:5})`);
+      await evaluate(`window.ui('[aria-label^="Open cart,"]').click()`);
+      await until(`location.pathname==='/cart'&&document.body.innerText.includes('$${total.toFixed(2)}')`);
+      if(quantity===2)assert.ok(await evaluate(`document.body.innerText.includes('more to reach the minimum order.')&&!document.body.innerText.includes('enjoy FREE delivery')`));
+      else {
+        assert.ok(await evaluate(`document.body.innerText.includes(${JSON.stringify(message)})&&document.body.innerText.includes(${JSON.stringify(fee?'Delivery: $5.00':'Delivery: FREE')})`));
+        await clickText('Checkout');await until(`location.pathname==='/checkout'&&document.body.innerText.includes(${JSON.stringify(message)})`);
+        assert.ok(await evaluate(`document.body.innerText.includes('$${total.toFixed(2)}')&&document.body.innerText.includes(${JSON.stringify(fee?'Delivery: $5.00':'Delivery: FREE')})`));
+        await evaluate('history.back()');await until(`location.pathname==='/cart'`);
+      }
+      await evaluate('history.back()');await until(`location.pathname==='/favorites'`);
+    }
+    checks.push('Class C Cart/Checkout show blocked minimum, paid delivery, exact/above FREE thresholds and matching totals from changed server rules');
     await send('Page.navigate',{url:'http://127.0.0.1:4175/account'});await until(`document.body.innerText.includes('Logout')`);
     await clickText('Logout');await until(`!!document.querySelector('[role="dialog"]')`);
     assert.equal(await evaluate(`location.pathname==='/account'&&document.body.innerText.includes('Logout')`),true);await clickDialog('Cancel');

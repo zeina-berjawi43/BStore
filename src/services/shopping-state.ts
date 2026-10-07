@@ -3,10 +3,11 @@ import { request } from './request';
 import { getSessionSnapshot, subscribeSession } from './tokenStorage';
 import { currentCartPrices } from './cartPricing';
 import { getFinalPrice } from './product-price';
+import type { DeliveryRules } from './delivery-pricing';
 
 export type ShoppingProduct = { _id?: string; id?: string; name: string; discountedPrice?: number; price?: number; availability?: boolean; [key: string]: any };
 export type ShoppingItem = { product: ShoppingProduct & { _id: string }; quantity: number; price: number };
-type Data = { cart: ShoppingItem[]; favorites: ShoppingProduct[]; minimum: number };
+type Data = { cart: ShoppingItem[]; favorites: ShoppingProduct[]; minimum: number; deliveryRules?: DeliveryRules };
 type Operation = { kind: 'add' | 'quantity' | 'remove' | 'favorite' | 'clearCart' | 'clearFavorites'; id: string; product?: ShoppingProduct; quantity?: number; selected?: boolean; started?: boolean; resolve: () => void; reject: (error: Error) => void; promise: Promise<void> };
 const productId = (product: ShoppingProduct) => String(product._id || product.id || '');
 const empty = (): Data => ({ cart: [], favorites: [], minimum: Infinity });
@@ -54,7 +55,7 @@ export function createShoppingState(deps: { send: (path: string, method?: string
       if (!initial && readRevision !== mutationRevision) return;
       confirmed = { cart: currentCartPrices(Array.isArray(cart.cart?.items) ? cart.cart.items : []),
         favorites: (favorites.favorites || []).map((item: any) => item.product).filter((p: any) => p && typeof p === 'object'),
-        minimum: cart.minimumOrderValue ?? Infinity };
+        minimum: cart.minimumOrderValue ?? Infinity, deliveryRules: cart.pricing?.deliveryRules };
       loaded = true; publish();
     }).finally(() => { if (version === generation) { loading = null; publish(); } });
     loading = work; publish(); return work;
@@ -75,7 +76,7 @@ export function createShoppingState(deps: { send: (path: string, method?: string
         const data = await deps.send(path, method, op.id ? { productId: op.id, ...(op.kind === 'add' ? { quantity: 1 } : op.kind === 'quantity' ? { quantity: op.quantity } : {}) } : undefined);
         if (version !== generation) break;
         const next = apply(confirmed, op);
-        confirmed = Array.isArray(data.cart?.items) ? { ...next, cart: currentCartPrices(data.cart.items), minimum: data.minimumOrderValue ?? next.minimum } : next;
+        confirmed = Array.isArray(data.cart?.items) ? { ...next, cart: currentCartPrices(data.cart.items), minimum: data.minimumOrderValue ?? next.minimum, deliveryRules: data.pricing?.deliveryRules ?? next.deliveryRules } : next;
         operations.shift(); mutationRevision++; publish(); op.resolve();
       } catch (error) {
         if (version !== generation) break;

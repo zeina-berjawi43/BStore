@@ -174,12 +174,13 @@ test('successful checkout keeps one request/payload/cleanup and routes to Orders
   const cart = [{ product: { _id: '507f1f77bcf86cd799439011' }, quantity: 2, price: 8 }];
   let notice, finish, cleaned, cleared; const requests = [], routes = [], orderInFlight = { current: false };
   const place = handler('app/checkout.tsx', 'placeOrder', { cart, user: { _id: 'customer', phone: '71000000', address: ' Beirut ' }, displayName: 'Maya', placingOrder: false, orderInFlight, cartRevision: 'revision', API_URL: 'https://fixture.test',
+    delivery: { allowed: true, total: 16 },
     setPlacingOrder: () => {}, getAccessToken: async () => 'fixture', getCheckoutAttempt: async () => ({ key: 'same-attempt', storageKey: 'attempt-key' }),
     request: async (url, init) => { requests.push({ url, init }); await new Promise(resolve => { finish = resolve; }); return { status: 201, ok: true }; },
     readJsonResponse: async () => ({ order: { _id: 'order' } }), AsyncStorage: { multiRemove: async keys => { cleaned = Array.from(keys); } }, setCart: value => { cleared = Array.from(value); },
     actionAlert: (...args) => { notice = args; }, router: { replace: route => routes.push(route) }, Alert: { alert: () => assert.fail('Raw success alert') } });
   const first = place(); await place(); await new Promise(resolve => setImmediate(resolve)); assert.equal(requests.length, 1);
-  finish(); await first; assert.deepEqual(JSON.parse(requests[0].init.body), { idempotencyKey: 'same-attempt', shippingAddress: 'Beirut' });
+  finish(); await first; assert.deepEqual(JSON.parse(requests[0].init.body), { idempotencyKey: 'same-attempt', expectedTotal: 16, shippingAddress: 'Beirut' });
   assert.deepEqual(cleaned, ['attempt-key', 'cart']); assert.deepEqual(cleared, []); assert.deepEqual(routes, []);
   assert.equal(notice[0], 'Order Placed'); notice[2][0].onPress(); assert.deepEqual(routes, ['/orders']);
 });
@@ -219,5 +220,47 @@ test('Top Selling keeps the badge design at a 6px top inset for single/double-di
     const badges = nodes(tree, node => Array.isArray(node.props?.style) && node.props.style.includes(position));
     assert.equal(badges.length, discount ? 1 : 0);
     if (discount) assert.ok(JSON.stringify(badges[0].props.children).includes(String(discount)));
+  }
+});
+
+test('Class C Cart renders minimum, paid delivery and FREE states from current server rules without changing A/B minimums',()=>{
+  // Compile the production function with its full signature.
+  const ast=ts.createSourceFile('delivery.ts',source('services/delivery-pricing.ts'),ts.ScriptTarget.Latest,true);
+  const fn=ast.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name.text==='deliverySummary');
+  const ctx={exports:{}};vm.runInNewContext(ts.transpileModule(fn.getText(ast)+'\nexports.summary=deliverySummary;',{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText,ctx);
+  const rules={priceClass:'C',minimumCheckoutAmount:30,freeDeliveryThreshold:100,deliveryFeeBelowThreshold:5};
+  for(const [subtotal,allowed,total,message] of [[20,false,20,'Add $10.00 more to reach the minimum order.'],[30,true,35,'Add $70.00 more to enjoy FREE delivery.'],[60,true,65,'Add $40.00 more to enjoy FREE delivery.'],[100,true,100,"You've got FREE delivery!"],[120,true,120,"You've got FREE delivery!"]]) {
+    const actual=ctx.exports.summary(subtotal,rules);assert.equal(actual.allowed,allowed);assert.equal(actual.total,total);assert.equal(actual.message,message);
+    const shopping={cart:[{product:{_id:'A',name:'Almonds',availability:true,discountedPrice:subtotal},quantity:1,price:subtotal}],ready:true,busy:false,minimum:30,deliveryRules:rules};
+    const render=fixture('app/cart.tsx','Cart',{useShopping:()=>shopping,useActionDialog:()=>({dialog:null}),deliverySummary:ctx.exports.summary,cartTotal:items=>items.reduce((sum,item)=>sum+item.price*item.quantity,0),useEffect:()=>{},useFocusEffect:()=>{},styles:{},getImageUrl:()=>null,
+      View:'View',Text:'Text',TextInput:'TextInput',Pressable:'Pressable',ScrollView:'ScrollView',ProductImage:'ProductImage',Ionicons:'Icon',router:{},goBackOrHome:()=>{}});
+    const tree=render();const texts=nodes(tree,node=>node.type==='Text').map(node=>JSON.stringify(node.props.children)).join('');
+    assert.ok(texts.includes(allowed?message:'more to reach the minimum order.'));
+    const checkout=nodes(tree,node=>node.type==='Pressable'&&nodes(node,child=>child.type==='Text'&&JSON.stringify(child.props.children).includes('Checkout')).length).at(-1);
+    assert.equal(checkout.props.disabled,!allowed);
+    if(allowed)assert.ok(texts.includes(subtotal>=100?'FREE':'$5.00'));
+  }
+  for(const priceClass of ['A','B'])assert.equal(ctx.exports.summary(29,{priceClass,minimumCheckoutAmount:30}).allowed,false);
+});
+
+test('Checkout blocks below the minimum before a request and handles authoritative price changes without clearing cart',async()=>{
+  let notice,calls=0,cleared=false;
+  const base={cart:[{product:{_id:'A'},quantity:1,price:20}],user:{_id:'customer',phone:'71000000',address:'Beirut'},displayName:'Maya',placingOrder:false,orderInFlight:{current:false},
+    delivery:{allowed:false,message:'Add $10.00 more to reach the minimum order.',total:20},actionAlert:(...args)=>notice=args,Alert:{alert:(...args)=>notice=args},setPlacingOrder:()=>{},
+    request:async()=>{calls++;return{ok:false,status:409};},getAccessToken:async()=>'fixture',getCheckoutAttempt:async()=>({key:'same-attempt'}),cartRevision:'revision',API_URL:'https://fixture.test',
+    readJsonResponse:async()=>({message:'Review updated total',pricing:{deliveryRules:{minimumCheckoutAmount:30}}}),setDeliveryRules:()=>{},setMinimumOrder:()=>{},loadData:async()=>{},setCart:()=>{cleared=true;}};
+  await handler('app/checkout.tsx','placeOrder',base)();assert.equal(calls,0);assert.equal(notice[0],'Minimum Order');
+  await handler('app/checkout.tsx','placeOrder',{...base,delivery:{allowed:true,total:25}})();assert.equal(calls,1);assert.equal(cleared,false);assert.equal(notice[0],'Order Failed');
+});
+
+test('Customer Order Details uses historical paid/FREE delivery and saved grand total; legacy orders remain readable',()=>{
+  for(const fee of [5,0,undefined]) {
+    const order={_id:'A',items:[{product:{_id:'P',name:'Almonds',image:''},quantity:1,price:80}],totalPrice:80+(fee||0),status:'Pending',shippingAddress:'Beirut',
+      ...(fee===undefined?{}:{subtotal:80,discountAmount:0,deliveryFee:fee,deliveryRules:{priceClass:'C'}})};
+    const render=fixture('app/order-details.tsx','OrderDetails',{useLocalSearchParams:()=>({orderId:'A'}),useState:initial=>[initial===null?order:false,()=>{}],useFocusEffect:()=>{},
+      formatPrice:price=>'$'+Number(price).toFixed(2),formatOrderDate:()=>'',getImageUrl:()=>'',getStatusStyles:()=>({}),styles:{},router:{},
+      View:'View',Text:'Text',ScrollView:'ScrollView',Pressable:'Pressable',ProductImage:'ProductImage',Ionicons:'Icon'});
+    const text=nodes(render(),node=>node.type==='Text').map(node=>JSON.stringify(node.props.children)).join('');
+    assert.ok(text.includes('$'+order.totalPrice.toFixed(2)));if(fee!==undefined)assert.ok(text.includes(fee?'$5.00':'FREE'));else assert.ok(!text.includes('Delivery:'));
   }
 });
