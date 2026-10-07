@@ -48,3 +48,5 @@ example
 
 # Local Firebase application configuration
 google-services.json
+
+.splash-validation/
