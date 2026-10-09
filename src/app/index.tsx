@@ -12,9 +12,10 @@ import { ImageFrame } from '../services/image-frame';
 
 
 import { request } from '../services/request';
-import { View, Text, StyleSheet, Pressable, ScrollView, Animated, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, Animated, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
+import { HomeImage } from '../components/home-image';
+import { useHomeSection } from '../hooks/use-home-section';
 import { fetchCatalog, readPublicCatalog } from '../services/catalogService';
 
 import { router, useFocusEffect } from 'expo-router';
@@ -42,13 +43,6 @@ type Product = {
   availability?: boolean;
 };
 
-type Department = {
-  id: string;
-  name: string;
-  image: string;
-  order: number;
-  active: boolean;
-};
 
 const departmentIcons: Record<string, keyof typeof Ionicons.glyphMap> = {
   'Sweets & Chocolate': 'ice-cream-outline',
@@ -65,12 +59,6 @@ type OfferProduct = Product & {
   discount: number;
 };
 
-type Slide = {
-  id: string;
-  image: string;
-  order: number;
-  active: boolean;
-};
 
 type Category = {
   id: string;
@@ -178,17 +166,16 @@ export default function Index() {
     },
   ]);
 
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [departmentsLoading, setDepartmentsLoading] = useState(true);
-  const [departmentsError, setDepartmentsError] = useState('');
+  const { items: departments, loading: departmentsLoading, error: departmentsError,
+    hydrated: departmentsHydrated, refresh: loadDepartments } = useHomeSection('departments');
   const [categoriesLoading, setCategoriesLoading] = useState(false);
 
   const cartCount = shopping.cartCount;
   const favorites = shopping.favorites.map(p => ({ ...p, id: String(p._id || p.id), category: typeof p.category === 'object' ? p.category?.name || '' : p.category || '', brand: typeof p.brand === 'object' ? p.brand?.name || '' : p.brand || '' })) as Product[];
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-  const [slides, setSlides] = useState<Slide[]>([]);
-  const [slidesLoading, setSlidesLoading] = useState(true);
+  const { items: slides, loading: slidesLoading, error: slidesError,
+    hydrated: slidesHydrated, refresh: loadSlideshow } = useHomeSection('slides');
   const [currentSlide, setCurrentSlide] = useState(0);
 
   const scrollViewRef = useRef<ScrollView>(null);
@@ -200,108 +187,6 @@ export default function Index() {
 
 
 
-
-
-
-  const convertSlide = (slide: any): Slide => {
-    const slideId = String(slide._id ?? slide.id);
-    const imageUrl = buildImageUrl(slide.image);
-
-    return {
-      id: slideId,
-      image: imageUrl,
-      order: Number(slide.order) || 1,
-      active: slide.active !== false,
-    };
-  };
-
-  const loadSlideshow = async (showLoading = true) => {
-    try {
-      if (showLoading) setSlidesLoading(true);
-
-      const response = await request(`${API_URL}/slideshows`, {
-        method: 'GET',
-        headers: {
-          Accept: 'application/json',
-        },
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        if (__DEV__) { console.log('GET SLIDESHOW ERROR:', response.status, data); }
-        setSlides([]);
-        return;
-      }
-
-      if (!Array.isArray(data.slides)) {
-        if (__DEV__) { console.log('INVALID SLIDESHOW RESPONSE:', data); }
-        setSlides([]);
-        return;
-      }
-
-      const convertedSlides: Slide[] = data.slides
-        .map((slide: any) => convertSlide(slide))
-        .filter(
-          (slide: Slide) =>
-            slide.active && !!slide.image
-        )
-        .sort(
-          (a: Slide, b: Slide) =>
-            a.order - b.order
-        );
-
-
-      setSlides(convertedSlides);
-
-      setCurrentSlide(previousSlide => {
-        if (convertedSlides.length === 0) return 0;
-
-        if (
-          previousSlide >=
-          convertedSlides.length
-        ) {
-          return 0;
-        }
-
-        return previousSlide;
-      });
-    } catch (error) {
-      if (__DEV__) { console.log('LOAD SLIDESHOW ERROR:', error instanceof Error ? error.name : 'Error'); }
-      setSlides([]);
-    } finally {
-      setSlidesLoading(false);
-    }
-  };
-
-  const loadDepartments = async (showLoading = true) => {
-    try {
-      if (showLoading) setDepartmentsLoading(true);
-      setDepartmentsError('');
-      const response = await request(`${API_URL}/departments`, {
-        method: 'GET',
-        headers: { Accept: 'application/json' },
-      });
-      if (!response.ok) throw new Error('Could not load departments.');
-      const data = await response.json();
-      if (!Array.isArray(data.departments)) throw new Error('Invalid departments response.');
-      setDepartments(data.departments
-        .filter((item: any) => item && item.active !== false && (item._id || item.id))
-        .map((item: any) => ({
-          id: String(item._id ?? item.id),
-          name: String(item.name ?? ''),
-          image: buildImageUrl(item.image),
-          order: Number(item.order) || 0,
-          active: item.active !== false,
-        }))
-        .filter((item: Department) => item.name.trim().length > 0)
-        .sort((a: Department, b: Department) => a.order - b.order || a.name.localeCompare(b.name)));
-    } catch (error) {
-      setDepartmentsError(error instanceof Error ? error.message : 'Could not load departments.');
-    } finally {
-      setDepartmentsLoading(false);
-    }
-  };
 
 
 
@@ -539,7 +424,7 @@ export default function Index() {
         });
       }
       // Public sections can load without waiting for a token refresh.
-      const requests: Promise<unknown>[] = homeLoadedRef.current && !force ? [] : [loadSlideshow(!force), loadDepartments(!force)];
+      const requests: Promise<unknown>[] = [loadSlideshow(!force), loadDepartments(!force)];
       const { token, loggedIn } = await loadData();
       if (generation !== homeGenerationRef.current) return;
       accessTokenRef.current = token;
@@ -616,7 +501,7 @@ export default function Index() {
     products.slice(0, 4);
 
   // Initial loading owns the screen; refresh owns only RefreshControl.
-  if (initialLoading) return <StartupLoading />;
+  if (initialLoading && !(slidesHydrated && departmentsHydrated)) return <StartupLoading />;
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
@@ -681,29 +566,21 @@ export default function Index() {
           <View
             style={styles.slider}
           >
-            {slidesLoading ? (
+            {slidesLoading && slides.length === 0 ? (
               <View
                 style={
                   styles.slideLoading
                 }
               >
-                <View
-                  style={
-                    styles.slideLoadingCircle
-                  }
-                >
-                  <ActivityIndicator
-                    size="small"
-                    color="#E35B3F"
-                  />
-                </View>
+                <View style={{ width: '84%', height: 110, borderRadius: 18, backgroundColor: '#E9DED0' }} />
+                <View style={{ width: '45%', height: 12, marginTop: 14, borderRadius: 6, backgroundColor: '#E9DED0' }} />
 
                 <Text
                   style={
                     styles.slideLoadingText
                   }
                 >
-                  Loading...
+                  Loading highlights
                 </Text>
               </View>
             ) : slides.length ===
@@ -730,14 +607,16 @@ export default function Index() {
                     styles.emptySlideText
                   }
                 >
-                  No slideshow images
+                  {slidesError || 'No slideshow images'}
                 </Text>
+                {!!slidesError && <Pressable onPress={() => void loadSlideshow()} style={styles.departmentRetry}>
+                  <Text style={styles.departmentExploreText}>Retry</Text>
+                </Pressable>}
               </View>
             ) : (
               <PagedCarousel items={slides} itemKey={slide => slide.id} height={218}
                 onIndexChange={setCurrentSlide}
-                renderItem={slide => <Image source={{ uri: slide.image }} style={styles.slideImage}
-                  contentFit="cover" cachePolicy="memory-disk" />} />
+                renderItem={slide => <HomeImage uri={slide.image} cacheKey={slide.imageKey} style={styles.slideImage} />} />
             )}
 
             {slides.length > 1 &&
@@ -759,7 +638,7 @@ export default function Index() {
                       style={[
                         styles.slideDot,
                         index ===
-                        currentSlide
+                        (currentSlide < slides.length ? currentSlide : 0)
                           ? styles.slideDotActive
                           : null,
                       ]}
@@ -782,8 +661,11 @@ export default function Index() {
         </View>
 
         {departmentsLoading && departments.length === 0 ? (
-          <View style={styles.categoriesLoading}>
-            <ActivityIndicator size="small" color="#E35B3F" />
+          <View style={styles.departmentGrid} accessibilityLabel="Loading categories">
+            {Array.from({ length: 6 }, (_, index) => <View key={index} style={styles.departmentCard}>
+              <View style={[styles.departmentVisual, { backgroundColor: '#E9DED0' }]} />
+              <View style={{ width: '72%', height: 12, marginTop: 8, marginBottom: 20, borderRadius: 6, backgroundColor: '#E9DED0' }} />
+            </View>)}
           </View>
         ) : departments.length > 0 ? (
           <View style={styles.departmentGrid}>
@@ -798,12 +680,7 @@ export default function Index() {
               >
                 <View style={styles.departmentVisual}>
                   {department.image ? (
-                    <Image
-                      source={{ uri: department.image }}
-                      style={styles.departmentImage}
-                      contentFit="cover"
-                      cachePolicy="memory-disk"
-                    />
+                    <HomeImage uri={department.image} cacheKey={department.imageKey} style={styles.departmentImage} />
                   ) : (
                     <Ionicons
                       name={departmentIcons[department.name] ?? 'grid-outline'}

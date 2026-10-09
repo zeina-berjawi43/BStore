@@ -229,13 +229,13 @@ test('Class C Cart renders minimum, paid delivery and FREE states from current s
   const fn=ast.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name.text==='deliverySummary');
   const ctx={exports:{}};vm.runInNewContext(ts.transpileModule(fn.getText(ast)+'\nexports.summary=deliverySummary;',{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText,ctx);
   const rules={priceClass:'C',minimumCheckoutAmount:30,freeDeliveryThreshold:100,deliveryFeeBelowThreshold:5};
-  for(const [subtotal,allowed,total,message] of [[20,false,20,'Add $10.00 more to reach the minimum order.'],[30,true,35,'Add $70.00 more to enjoy FREE delivery.'],[60,true,65,'Add $40.00 more to enjoy FREE delivery.'],[100,true,100,"You've got FREE delivery!"],[120,true,120,"You've got FREE delivery!"]]) {
+  for(const [subtotal,allowed,total,message] of [[20,false,20,'Add $10.00 more to reach the minimum order.'],[30,true,35,'Add $70.00 more to get FREE delivery.'],[60,true,65,'Add $40.00 more to get FREE delivery.'],[100,true,100,"You've got FREE delivery!"],[120,true,120,"You've got FREE delivery!"]]) {
     const actual=ctx.exports.summary(subtotal,rules);assert.equal(actual.allowed,allowed);assert.equal(actual.total,total);assert.equal(actual.message,message);
     const shopping={cart:[{product:{_id:'A',name:'Almonds',availability:true,discountedPrice:subtotal},quantity:1,price:subtotal}],ready:true,busy:false,minimum:30,deliveryRules:rules};
     const render=fixture('app/cart.tsx','Cart',{getSessionSnapshot:()=>({authenticated:true}),useShopping:()=>shopping,useActionDialog:()=>({dialog:null}),deliverySummary:ctx.exports.summary,cartTotal:items=>items.reduce((sum,item)=>sum+item.price*item.quantity,0),useEffect:()=>{},useFocusEffect:()=>{},styles:{},getImageUrl:()=>null,
       View:'View',Text:'Text',TextInput:'TextInput',Pressable:'Pressable',ScrollView:'ScrollView',ProductImage:'ProductImage',Ionicons:'Icon',router:{},goBackOrHome:()=>{}});
     const tree=render();const texts=nodes(tree,node=>node.type==='Text').map(node=>JSON.stringify(node.props.children)).join('');
-    assert.ok(texts.includes(allowed?message.replace('to enjoy FREE delivery','to get FREE delivery'):'more to reach the minimum order.'));
+    assert.ok(texts.includes(message));
     const checkout=nodes(tree,node=>node.type==='Pressable'&&nodes(node,child=>child.type==='Text'&&JSON.stringify(child.props.children).includes('Checkout')).length).at(-1);
     assert.equal(checkout.props.disabled,!allowed);
     if(allowed)assert.ok(texts.includes(subtotal>=100?'FREE':'$5.00'));
@@ -257,7 +257,7 @@ test('two-stage Cart fills, colors and totals use current Class C rules only, in
     const tree=renderCart(subtotal,rules), bars=nodes(tree,node=>node.props?.accessibilityRole==='progressbar');assert.equal(bars.length,2);
     assert.ok(Math.abs(bars[0].props.accessibilityValue.now-first)<1e-8);assert.ok(Math.abs(bars[1].props.accessibilityValue.now-second)<1e-8);
     const fills=bars.map(bar=>nodes(bar,node=>node.props?.style?.width)[0].props.style);
-    assert.equal(fills[0].backgroundColor,subtotal>=30?'#27804A':'#D74343');assert.equal(fills[1].backgroundColor,subtotal>=100?'#27804A':'#D9A521');
+    assert.equal(fills[0].backgroundColor,subtotal>=30?'#039320':'#D74343');assert.equal(fills[1].backgroundColor,subtotal>=100?'#039320':'#D9A521');
     const text=nodes(tree,node=>node.type==='Text').map(node=>JSON.stringify(node.props.children)).join('');
     assert.ok(text.includes('Products subtotal'));assert.ok(!text.includes('enjoy FREE delivery'));
     assert.ok(text.includes('$'+summary(subtotal,rules).total.toFixed(2)));
