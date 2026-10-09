@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View, type AlertButton } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View, type AlertButton } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 type Notice = { title: string; message: string; buttons: AlertButton[] };
@@ -22,6 +22,7 @@ export function useActionDialog({ showIcon = true, acknowledgeOnDismiss = false 
     onRequestClose={() => choose(notice?.buttons.find(button => button.style === 'cancel') ||
       (acknowledgeOnDismiss && notice?.buttons.length === 1 ? notice.buttons[0] : undefined))}>
     <View style={styles.overlay}>
+      <ScrollView style={styles.scroll} keyboardShouldPersistTaps="handled">
       <View style={styles.card} accessibilityViewIsModal accessibilityLabel={notice?.title}>
         {showIcon && <View style={styles.icon}><Ionicons name={destructive ? 'trash-outline' : notice?.title.toLowerCase().includes('success') ? 'checkmark-circle-outline' : 'information-circle-outline'} size={28} color="#E35B3F" /></View>}
         <Text accessibilityRole="header" style={styles.title}>{notice?.title}</Text>
@@ -32,6 +33,7 @@ export function useActionDialog({ showIcon = true, acknowledgeOnDismiss = false 
           <Text style={[styles.buttonText, button.style === 'cancel' && styles.secondaryText]}>{button.text || 'OK'}</Text>
         </Pressable>)}</View>
       </View>
+      </ScrollView>
     </View>
   </Modal>;
   return { alert, dialog };
@@ -39,6 +41,7 @@ export function useActionDialog({ showIcon = true, acknowledgeOnDismiss = false 
 
 const styles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(23,23,23,0.42)', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  scroll: { width: '100%', maxWidth: 420, flexGrow: 0, flexShrink: 1 },
   card: { width: '100%', maxWidth: 420, backgroundColor: '#FFFCF7', borderRadius: 24, padding: 24, borderWidth: 1, borderColor: '#E9DED0', gap: 14 },
   icon: { width: 48, height: 48, backgroundColor: '#FDE5DA', borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   title: { color: '#171717', fontSize: 21, lineHeight: 27, fontWeight: '800' },

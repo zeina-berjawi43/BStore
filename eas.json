@@ -9,6 +9,9 @@
       "distribution": "internal"
     },
     "preview": {
+      "environment": "production",
+      "developmentClient": false,
+      "autoIncrement": false,
       "distribution": "internal",
       "android": {
         "buildType": "apk"

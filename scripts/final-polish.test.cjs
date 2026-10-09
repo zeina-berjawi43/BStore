@@ -97,7 +97,7 @@ test('checkout passes framing, caches the image, resolves relative URLs, and han
 });
 
 test('themed clear dialog cancels safely and invokes a destructive callback once only', () => {
-  const render = fixture('components/action-dialog.tsx', 'useActionDialog', { Modal: 'Modal', View: 'View', Text: 'Text', Pressable: 'Pressable', Ionicons: 'Icon', styles: {} });
+  const render = fixture('components/action-dialog.tsx', 'useActionDialog', { Modal: 'Modal', ScrollView: 'ScrollView', View: 'View', Text: 'Text', Pressable: 'Pressable', Ionicons: 'Icon', styles: {} });
   let count = 0; const actions = [{ text: 'Cancel', style: 'cancel' }, { text: 'Clear Cart', style: 'destructive', onPress: () => count++ }];
   render().alert('Clear Cart?', 'Remove products?', actions);
   let dialog = render().dialog; assert.equal(dialog.props.visible, true);
@@ -140,7 +140,7 @@ test('Offers scrolling measures the section wrapper in ScrollView coordinates af
 });
 
 test('symbol-free confirmations preserve Cancel, Back and once-only destructive actions; success Back acknowledges once', () => {
-  const context = { Modal: 'Modal', View: 'View', Text: 'Text', Pressable: 'Pressable', Ionicons: 'Icon', styles: {} };
+  const context = { Modal: 'Modal', ScrollView: 'ScrollView', View: 'View', Text: 'Text', Pressable: 'Pressable', Ionicons: 'Icon', styles: {} };
   const render = fixture('components/action-dialog.tsx', 'useActionDialog', context);
   let confirmed = 0;
   const options = { showIcon: false };
