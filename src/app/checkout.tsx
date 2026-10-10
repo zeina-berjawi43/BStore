@@ -1685,7 +1685,7 @@ export default function Checkout() {
 
 
                 <Ionicons
-                  name="arrow-forward"
+                  name="checkmark"
                   size={19}
                   color="#FFFFFF"
                 />

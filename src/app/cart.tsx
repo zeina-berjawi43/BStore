@@ -433,7 +433,6 @@ export default function Cart() {
           >
             Add some products to your cart
           </Text>
-          {progress}
 
 
           <Pressable
@@ -1069,13 +1068,6 @@ export default function Cart() {
                   >
                     {checkingOut ? 'Checking cart...' : 'Checkout'}
                   </Text>
-
-
-                  <Ionicons
-                    name="arrow-forward"
-                    size={19}
-                    color="#FFFFFF"
-                  />
 
                 </Pressable>
 
