@@ -35,6 +35,7 @@ function setup(fetchImpl, initial = {}, config = {}) {
     }).outputText;
     vm.runInNewContext(code, {
       exports, __DEV__: false, console, setTimeout, clearTimeout, AbortController,
+      window: config.window,
       fetch: fetchImpl,
       require: name => name === '@react-native-async-storage/async-storage'
         ? asyncStorage : name === 'expo-secure-store' ? secureStore
@@ -531,12 +532,56 @@ test('access-only replacement preserves the refresh credential', async () => {
   assert.equal(storage.size, 0);
 });
 
-test('web credentials stay in memory without plaintext persistence', async () => {
-  const { tokens, storage, secure } = setup(() => {}, {}, { platform: 'web' });
-  await tokens.updateTokens({ accessToken: 'access', refreshToken: 'refresh' });
-  assert.equal((await tokens.readTokens()).refreshToken, 'refresh');
-  assert.equal(storage.size, 0);
-  assert.equal(secure.size, 0);
+function browserStorage() {
+  const values = new Map();
+  return {
+    getItem: key => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, value),
+    removeItem: key => values.delete(key),
+  };
+}
+
+for (const remember of [false, true]) {
+  test(`web session restores after refresh; Remember Me ${remember} controls browser restart`, async () => {
+    const window = { sessionStorage: browserStorage(), localStorage: browserStorage() };
+    const config = { platform: 'web', window };
+    const response = async () => reply(200, { accessToken: 'access', refreshToken: 'refresh', user: { id: 'web-user' } });
+    const first = setup(response, {}, config);
+    await first.auth.loginUser('phone', 'password', remember);
+    assert.equal(first.secure.size, 0);
+    const refreshed = setup(response, Object.fromEntries(first.storage), config);
+    assert.equal((await refreshed.tokens.readTokens()).refreshToken, 'refresh');
+    assert.equal(refreshed.tokens.getSessionSnapshot().authenticated, true);
+    assert.equal(JSON.parse(await refreshed.tokens.readSessionUser()).id, 'web-user');
+    await refreshed.tokens.applyRefresh('refresh', 'renewed');
+    assert.equal((await setup(response, {}, config).tokens.readTokens()).accessToken, 'renewed');
+    const restarted = setup(response, {}, { platform: 'web', window: { ...window, sessionStorage: browserStorage() } });
+    assert.equal(!!(await restarted.tokens.readTokens()).refreshToken, remember);
+    await refreshed.tokens.clearTokens();
+    assert.equal(window.localStorage.getItem('mystore.auth.v1'), null);
+    assert.equal((await setup(response, {}, config).tokens.readTokens()).accessToken, null);
+    assert.equal((await setup(response, {}, { platform: 'web', window: { ...window, sessionStorage: browserStorage() } }).tokens.readTokens()).refreshToken, null);
+    assert.equal(await refreshed.tokens.applyRefresh('refresh', 'late'), null);
+  });
+}
+
+test('web changing Remember Me removes the previous persistent copy and rejects stale login writes', async () => {
+  const window = { sessionStorage: browserStorage(), localStorage: browserStorage() };
+  const { tokens } = setup(() => {}, {}, { platform: 'web', window });
+  await tokens.updateTokens({ accessToken: 'a', refreshToken: 'r' }, undefined, undefined, 0, true);
+  await assert.rejects(tokens.updateTokens({ accessToken: 'stale', refreshToken: 'stale' }, undefined, undefined, 0, false), /session changed/);
+  assert.ok(window.localStorage.getItem('mystore.auth.v1'));
+  await tokens.updateTokens({ accessToken: 'b', refreshToken: 's' }, undefined, undefined, 1, false);
+  assert.equal(window.localStorage.getItem('mystore.auth.v1'), null);
+  assert.equal(JSON.parse(window.sessionStorage.getItem('mystore.auth.v1')).refreshToken, 's');
+});
+
+test('web storage failure surfaces without publishing a successful login', async () => {
+  const window = { sessionStorage: browserStorage(), localStorage: browserStorage() };
+  window.sessionStorage.setItem = () => { throw Error('storage blocked'); };
+  const { tokens } = setup(() => {}, {}, { platform: 'web', window });
+  await assert.rejects(tokens.updateTokens({ accessToken: 'a', refreshToken: 'r' }), /storage blocked/);
+  assert.equal(tokens.getSessionSnapshot().authenticated, false);
 });
 
 

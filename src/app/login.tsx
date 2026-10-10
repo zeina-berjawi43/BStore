@@ -6,6 +6,7 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 
 import { router } from 'expo-router';
@@ -20,6 +21,7 @@ import {
 export default function Login() {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
 
   const [showPassword, setShowPassword] =
     useState(false);
@@ -83,7 +85,7 @@ export default function Login() {
 
       // loginUser saves the authentication data
       // using authService.
-      await loginUser(cleanPhone, password);
+      await loginUser(cleanPhone, password, Platform.OS === 'web' ? rememberMe : undefined);
 
       // No OTP is required for normal login.
       router.replace('/');
@@ -247,6 +249,20 @@ export default function Login() {
 
           {/* FORGOT PASSWORD */}
 
+          {Platform.OS === 'web' && (
+            <Pressable
+              onPress={() => setRememberMe(previous => !previous)}
+              disabled={loading}
+              accessibilityRole="checkbox"
+              accessibilityLabel="Remember Me"
+              accessibilityState={{ checked: rememberMe, disabled: loading }}
+              style={styles.rememberMe}
+            >
+              <Ionicons name={rememberMe ? 'checkbox' : 'square-outline'} size={22} color="#E35B3F" />
+              <Text style={styles.label}>Remember Me</Text>
+            </Pressable>
+          )}
+
           <Pressable
             style={styles.forgotButton}
             onPress={() =>
@@ -333,6 +349,12 @@ export default function Login() {
 // =========================================================
 
 const styles = StyleSheet.create({
+  rememberMe: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 10,
+  },
   container: {
     flex: 1,
     backgroundColor: '#F7F3EC',

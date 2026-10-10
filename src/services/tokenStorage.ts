@@ -7,7 +7,7 @@ const KEY = 'mystore.auth.v1';
 const LEGACY_KEYS = ['accessToken', 'refreshToken'];
 const EMPTY: Tokens = { accessToken: null, refreshToken: null };
 const options = { keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY };
-let webTokens: Tokens | null = null;
+let webRemember = false;
 let cachedTokens: Tokens | null = null;
 let queue: Promise<unknown> = Promise.resolve();
 const listeners = new Set<() => void>();
@@ -39,10 +39,15 @@ function serialized<T>(operation: () => Promise<T>): Promise<T> {
   return result;
 }
 
-async function persist(tokens: Tokens): Promise<void> {
+async function persist(tokens: Tokens, rememberMe?: boolean): Promise<void> {
   if (Platform.OS === 'web') {
-    // No secure native store on web: keep credentials only for this page lifetime.
-    webTokens = tokens;
+    // Browser storage is readable by same-origin JavaScript, unlike SecureStore.
+    const remember = !!(tokens.accessToken || tokens.refreshToken) && (rememberMe ?? webRemember);
+    const target = remember ? window.localStorage : window.sessionStorage;
+    const other = remember ? window.sessionStorage : window.localStorage;
+    other.removeItem(KEY);
+    target.setItem(KEY, JSON.stringify(tokens));
+    webRemember = remember;
   } else {
     await SecureStore.setItemAsync(KEY, JSON.stringify(tokens), options);
   }
@@ -51,9 +56,15 @@ async function persist(tokens: Tokens): Promise<void> {
 
 async function read(): Promise<Tokens> {
   if (cachedTokens) return { ...cachedTokens };
-  const raw = Platform.OS === 'web'
-    ? (webTokens ? JSON.stringify(webTokens) : null)
-    : await SecureStore.getItemAsync(KEY, options);
+  if (Platform.OS === 'web' && typeof window === 'undefined') return { ...EMPTY };
+  let raw: string | null;
+  if (Platform.OS === 'web') {
+    const session = window.sessionStorage.getItem(KEY);
+    raw = session ?? window.localStorage.getItem(KEY);
+    webRemember = session === null && raw !== null;
+  } else {
+    raw = await SecureStore.getItemAsync(KEY, options);
+  }
   let tokens: Tokens;
   if (raw !== null) {
     const parsed = JSON.parse(raw);
@@ -62,6 +73,9 @@ async function read(): Promise<Tokens> {
       refreshToken: typeof parsed?.refreshToken === 'string' ? parsed.refreshToken : null,
       pendingLogouts: Array.isArray(parsed?.pendingLogouts) ? parsed.pendingLogouts.filter((value: unknown) => typeof value === 'string') : [],
     };
+  } else if (Platform.OS === 'web') {
+    // Do not resurrect legacy persistent credentials in a new browser session.
+    tokens = { ...EMPTY };
   } else {
     tokens = {
       accessToken: await AsyncStorage.getItem('accessToken'),
@@ -83,7 +97,7 @@ export const readSessionUser = (): Promise<string | null> => serialized(async ()
   return tokens.accessToken || tokens.refreshToken ? AsyncStorage.getItem('user') : null;
 });
 
-export const updateTokens = (tokens: Partial<Tokens>, user?: object, expectedAccessToken?: string, expectedRevision?: number): Promise<void> => serialized(async () => {
+export const updateTokens = (tokens: Partial<Tokens>, user?: object, expectedAccessToken?: string, expectedRevision?: number, rememberMe?: boolean): Promise<void> => serialized(async () => {
   const current = await read();
   if (expectedRevision !== undefined && expectedRevision !== sessionSnapshot.revision) {
     throw new Error('Your session changed. Please try again.');
@@ -98,7 +112,7 @@ export const updateTokens = (tokens: Partial<Tokens>, user?: object, expectedAcc
   // Clear the old profile before installing another session, even if a later write fails.
   if (changed) await AsyncStorage.multiRemove(['user', 'isLoggedIn']);
   const next = { ...current, ...tokens, pendingLogouts };
-  await persist(next);
+  await persist(next, rememberMe);
   try {
     if (user) {
       await AsyncStorage.setItem('user', JSON.stringify(user));

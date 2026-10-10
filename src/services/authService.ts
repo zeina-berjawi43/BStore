@@ -108,10 +108,11 @@ const isTokenExpired = (token: string): boolean => {
 
 const saveAuthData = async (
   data: AuthResponse,
-  expectedRevision: number
+  expectedRevision: number,
+  rememberMe?: boolean
 ): Promise<void> => {
   if (data.accessToken && data.refreshToken) {
-    await updateTokens({ accessToken: data.accessToken, refreshToken: data.refreshToken }, data.user, undefined, expectedRevision);
+    await updateTokens({ accessToken: data.accessToken, refreshToken: data.refreshToken }, data.user, undefined, expectedRevision, rememberMe);
   }
 };
 const clearLocalAccountData = async (expectedAccessToken?: string | null): Promise<void> => {
@@ -218,7 +219,8 @@ export const registerUser = async ({
 
 export const loginUser = async (
   phone: string,
-  password: string
+  password: string,
+  rememberMe?: boolean
 ): Promise<AuthResponse> => {
   await readTokens();
   const revision = getSessionSnapshot().revision;
@@ -227,7 +229,7 @@ export const loginUser = async (
     password,
   });
 
-  await saveAuthData(data, revision);
+  await saveAuthData(data, revision, rememberMe);
 
   return data;
 };
