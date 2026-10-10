@@ -17,6 +17,8 @@ const empty = (): Data => ({ cart: [], favorites: [], minimum: Infinity });
 export function createShoppingState(deps: { send: (path: string, method?: string, body?: object) => Promise<any>; authenticated: () => boolean }) {
   let confirmed = empty(), operations: Operation[] = [], generation = 0, running = false;
   let loaded = false, loading: Promise<void> | null = null, mutationRevision = 0;
+  let cartLoading: Promise<void> | null = null;
+  let cartError: Error | null = null;
   const listeners = new Set<() => void>();
   let snapshot = { ...empty(), ready: false, busy: false, pendingCart: new Set<string>(), pendingFavorites: new Set<string>(), cartCount: 0 };
   const apply = (data: Data, op: Operation): Data => {
@@ -40,7 +42,7 @@ export function createShoppingState(deps: { send: (path: string, method?: string
     listeners.forEach(fn => fn());
   };
   const reset = () => {
-    generation++; confirmed = empty(); loaded = false; loading = null;
+    generation++; confirmed = empty(); loaded = false; loading = null; cartLoading = null; cartError = null;
     const previous = operations; operations = []; running = false; publish();
     previous.forEach(op => op.reject(Error('Your session changed.')));
   };
@@ -50,13 +52,25 @@ export function createShoppingState(deps: { send: (path: string, method?: string
     if (loaded && (!force || operations.length)) return Promise.resolve();
     const version = generation;
     const readRevision = mutationRevision, initial = !loaded;
-    const work = Promise.all([deps.send('/cart'), deps.send('/favorites')]).then(([cart, favorites]) => {
+    const cartWork = deps.send('/cart').then(cart => {
       if (version !== generation) return;
       if (!initial && readRevision !== mutationRevision) return;
-      confirmed = { cart: currentCartPrices(Array.isArray(cart.cart?.items) ? cart.cart.items : []),
-        favorites: (favorites.favorites || []).map((item: any) => item.product).filter((p: any) => p && typeof p === 'object'),
+      confirmed = { ...confirmed, cart: currentCartPrices(Array.isArray(cart.cart?.items) ? cart.cart.items : []),
         minimum: cart.minimumOrderValue ?? Infinity, deliveryRules: cart.pricing?.deliveryRules };
+      cartError = null;
       loaded = true; publish();
+    }).catch(error => {
+      if (version === generation) cartError = error instanceof Error ? error : Error('Could not load your cart.');
+      throw error;
+    }).finally(() => { if (version === generation) cartLoading = null; });
+    cartLoading = cartWork;
+    const favoriteWork = deps.send('/favorites').then(favorites => {
+      if (version !== generation || (!initial && readRevision !== mutationRevision)) return;
+      confirmed = { ...confirmed, favorites: (favorites.favorites || []).map((item: any) => item.product).filter((p: any) => p && typeof p === 'object') };
+      publish();
+    });
+    const work = Promise.allSettled([cartWork, favoriteWork]).then(results => {
+      for (const result of results) if (result.status === 'rejected') throw result.reason;
     }).finally(() => { if (version === generation) { loading = null; publish(); } });
     loading = work; publish(); return work;
   };
@@ -81,6 +95,7 @@ export function createShoppingState(deps: { send: (path: string, method?: string
       } catch (error) {
         if (version !== generation) break;
         reconcile = true;
+        if (!['favorite', 'clearFavorites'].includes(op.kind)) cartError = error instanceof Error ? error : Error('Could not save your cart.');
         operations.shift(); mutationRevision++; publish(); op.reject(error instanceof Error ? error : Error('Could not save your change.'));
       }
     }
@@ -89,6 +104,18 @@ export function createShoppingState(deps: { send: (path: string, method?: string
       // A timeout may occur after the server committed. Read back once, after
       // queued writes settle; never retry a mutation or overwrite newer intent.
       if (reconcile) void refresh(true).catch(() => {});
+    }
+  };
+  const synchronizeCart = async () => {
+    const version = generation;
+    for (;;) {
+      if (version !== generation || !deps.authenticated()) throw Error('Your session changed.');
+      const pending = operations.filter(op => !['favorite', 'clearFavorites'].includes(op.kind));
+      if (pending.length) { await Promise.all(pending.map(op => op.promise)); continue; }
+      if (cartLoading) { await cartLoading; continue; }
+      if (cartError) throw cartError;
+      if (!loaded) throw Error('Please wait for your cart to load.');
+      return snapshot;
     }
   };
   const enqueue = (input: Omit<Operation, 'promise' | 'resolve' | 'reject'>) => {
@@ -104,7 +131,7 @@ export function createShoppingState(deps: { send: (path: string, method?: string
     const promise = new Promise<void>((yes, no) => { resolve = yes; reject = no; });
     operations.push({ ...input, promise, resolve, reject }); mutationRevision++; publish(); void drain(); return promise;
   };
-  return { getSnapshot: () => snapshot, subscribe: (fn: () => void) => { listeners.add(fn); return () => { listeners.delete(fn); }; }, reset, refresh,
+  return { getSnapshot: () => snapshot, subscribe: (fn: () => void) => { listeners.add(fn); return () => { listeners.delete(fn); }; }, reset, refresh, synchronizeCart,
     add: (product: ShoppingProduct) => enqueue({ kind: 'add', id: productId(product), product }),
     favorite: (product: ShoppingProduct, selected: boolean) => enqueue({ kind: 'favorite', id: productId(product), product, selected }),
     quantity: (id: string, quantity: number) => Number.isSafeInteger(quantity) && quantity >= 1 ? enqueue({ kind: 'quantity', id, quantity }) : Promise.reject(Error('Enter a whole number of at least 1.')),

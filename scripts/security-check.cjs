@@ -202,15 +202,110 @@ for (const file of ['category-products.tsx', 'department-categories.tsx']) {
   });
 }
 
-test('checkout cannot open while an onBlur cart mutation is pending before React rerenders', () => {
-  let pushes = 0;
-  const busy = { current: true };
-  const checkout = screenFunction('cart.tsx', 'handleCheckout', { canCheckout: true, shoppingState: { getSnapshot: () => ({ busy: busy.current }) }, router: { push: () => { pushes++; } } });
-  checkout();
-  assert.equal(pushes, 0);
-  busy.current = false;
-  checkout();
-  assert.equal(pushes, 1);
+const cartFixture = require('./shopping-fixture.cjs');
+const cartPrice = (() => {
+  const exports = {};
+  vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.resolve(__dirname, '../src/services/cartPricing.ts'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, { exports });
+  return exports.cartTotal;
+})();
+const deliveryProjection = (() => {
+  const exports = {};
+  vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.resolve(__dirname, '../src/services/delivery-pricing.ts'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, { exports });
+  return exports.deliverySummary;
+})();
+const cartRow = (quantity, price = 10) => ({ product: { ...cartFixture.product('A'), discountedPrice: price }, quantity, price: 999 });
+function checkoutHandler(state, extra = {}) {
+  const pushes = [], alerts = [], context = {
+    shoppingState: state, checkoutInFlight: { current: false }, setCheckingOut: () => {},
+    getSessionSnapshot: () => ({ revision: 1 }), editingQuantity: { current: null }, quantityDraft: { current: {} },
+    cartTotal: cartPrice, deliverySummary: deliveryProjection,
+    actionAlert: (...args) => alerts.push(args), router: { push: value => pushes.push(value) }, ...extra,
+  };
+  return { handler: screenFunction('cart.tsx', 'handleCheckout', context), pushes, alerts };
+}
+
+test('cart checkout initial readiness does not wait for favorites and adds no checkout API call', async () => {
+  const gate = cartFixture.deferred(), calls = [];
+  const state = cartFixture.createShoppingState({ authenticated: () => true, send: async url => {
+    calls.push(url); return url === '/favorites' ? gate.promise : { cart: { items: [cartRow(10)] }, minimumOrderValue: 100 };
+  } });
+  const loading = state.refresh(); await cartFixture.flush();
+  assert.equal(state.getSnapshot().ready, true);
+  assert.equal(state.getSnapshot().busy, true);
+  const { handler, pushes } = checkoutHandler(state); await handler(); assert.deepEqual(pushes, ['/checkout']);
+  assert.equal(calls.length, 2); gate.resolve({ favorites: [] }); await loading;
+});
+
+test('cart checkout early cart readiness preserves initial favorites when a quantity is queued', async () => {
+  const gate = cartFixture.deferred();
+  const state = cartFixture.createShoppingState({ authenticated: () => true, send: async (url, method, body) => {
+    if (method) return { cart: { items: [cartRow(body.quantity)] } };
+    return url === '/favorites' ? gate.promise : { cart: { items: [cartRow(10)] }, minimumOrderValue: 100 };
+  } });
+  const loading = state.refresh(); await cartFixture.flush(); const write = state.quantity('A', 11);
+  gate.resolve({ favorites: [{ product: cartFixture.product('B') }] }); await Promise.all([loading, write]);
+  assert.equal(state.getSnapshot().favorites[0]._id, 'B');
+  assert.equal(state.getSnapshot().cart[0].quantity, 11);
+});
+
+for (const priceClass of ['A', 'B', 'C']) test(`cart checkout threshold transitions immediately use server ${priceClass} rules during pending quantities`, async () => {
+  const gate = cartFixture.deferred();
+  const rules = { priceClass, minimumCheckoutAmount: 100, freeDeliveryThreshold: 150, deliveryFeeBelowThreshold: 5 };
+  const state = cartFixture.createShoppingState({ authenticated: () => true, send: async (url, method, body) => {
+    if (method) { await gate.promise; return { cart: { items: [cartRow(body.quantity)] }, pricing: { deliveryRules: rules } }; }
+    return url === '/cart' ? { cart: { items: [cartRow(9)] }, minimumOrderValue: 999, pricing: { deliveryRules: rules } } : { favorites: [] };
+  } });
+  await state.refresh();
+  const allowed = () => { const s = state.getSnapshot(); return deliveryProjection(cartPrice(s.cart), s.deliveryRules, s.minimum).allowed; };
+  assert.equal(allowed(), false);
+  const ten = state.quantity('A', 10); assert.equal(allowed(), true);
+  const eleven = state.quantity('A', 11); assert.equal(allowed(), true);
+  const nine = state.quantity('A', 9); assert.equal(allowed(), false);
+  gate.resolve(); await Promise.all([ten, eleven, nine]); assert.equal(allowed(), false);
+  const source = fs.readFileSync(path.resolve(__dirname, '../src/app/cart.tsx'), 'utf8');
+  assert.match(source, /shopping.ready && cart.length > 0 && delivery.allowed && !checkingOut/);
+});
+
+test('cart checkout waits for rapid quantity writes, rejects duplicate taps and validates final server prices', async () => {
+  const first = cartFixture.deferred(), second = cartFixture.deferred();
+  const { state, calls } = cartFixture.fixture({ cart: [cartRow(10)], send: async (_url, _method, body) => {
+    await (body.quantity === 11 ? first.promise : second.promise);
+    return { cart: { items: [cartRow(body.quantity, body.quantity === 13 ? 5 : 10)] }, minimumOrderValue: 100 };
+  } });
+  await state.refresh(); const eleven = state.quantity('A', 11); await cartFixture.flush();
+  const twelve = state.quantity('A', 12), thirteen = state.quantity('A', 13);
+  const { handler, pushes, alerts } = checkoutHandler(state); const checkout = handler(); await handler();
+  assert.equal(pushes.length, 0); first.resolve(); await eleven; await cartFixture.flush(); assert.equal(pushes.length, 0);
+  second.resolve(); await Promise.all([twelve, thirteen, checkout]);
+  assert.equal(pushes.length, 0); assert.equal(alerts.length, 1);
+  assert.deepEqual(calls.filter(c => c.method).map(c => c.body.quantity), [11, 13]);
+});
+
+test('cart checkout submits active manual draft and waits for its pending write before navigating', async () => {
+  const gate = cartFixture.deferred(), { state } = cartFixture.fixture({ cart: [cartRow(10)], send: () => gate.promise }); await state.refresh();
+  const { handler, pushes } = checkoutHandler(state, { editingQuantity: { current: 'A' }, quantityDraft: { current: { A: '12' } }, handleManualQuantitySubmit: () => state.quantity('A', 12) });
+  const checkout = handler(); await cartFixture.flush(); assert.equal(pushes.length, 0);
+  gate.resolve({ cart: { items: [cartRow(12)] } }); await checkout; assert.deepEqual(pushes, ['/checkout']);
+});
+
+test('cart checkout uncertain writes wait for reconciliation and failed readback never navigates', async () => {
+  const read = cartFixture.deferred(); let reads = 0;
+  const state = cartFixture.createShoppingState({ authenticated: () => true, send: async (url, method) => {
+    if (method) throw Error('timed out');
+    if (url === '/favorites') return { favorites: [] };
+    if (++reads > 1) return read.promise;
+    return { cart: { items: [cartRow(10)] }, minimumOrderValue: 100 };
+  } });
+  await state.refresh(); await assert.rejects(state.quantity('A', 11), /timed out/); await cartFixture.flush();
+  const { handler, pushes, alerts } = checkoutHandler(state); const checkout = handler(); await cartFixture.flush(); assert.equal(pushes.length, 0);
+  read.reject(Error('offline')); await checkout; assert.equal(pushes.length, 0); assert.equal(alerts.length, 1);
+  await handler(); assert.equal(pushes.length, 0);
+});
+
+test('cart checkout session reset during synchronization never navigates', async () => {
+  const gate = cartFixture.deferred(), { state } = cartFixture.fixture({ cart: [cartRow(10)], send: () => gate.promise }); await state.refresh();
+  const write = state.quantity('A', 11), failed = assert.rejects(write, /session changed/);
+  const { handler, pushes } = checkoutHandler(state); const checkout = handler(); state.reset(); gate.resolve(); await Promise.all([failed, checkout]); assert.equal(pushes.length, 0);
 });
 
 test('root layout gates restoration, remounts on account changes, protects private routes and resets history', async () => {

@@ -184,7 +184,8 @@ export default function Cart() {
   const hasLoadedOnce = shopping.ready;
 
 
-  const updatingProduct = shopping.busy ? "sync" : null;
+  const [checkingOut, setCheckingOut] = useState(false);
+  const checkoutInFlight = useRef(false);
 
 
   const [
@@ -265,7 +266,7 @@ export default function Cart() {
   // ==========================================================
 
   const canCheckout =
-    delivery.allowed && !updatingProduct;
+    shopping.ready && cart.length > 0 && delivery.allowed && !checkingOut;
 
 
   const remainingAmount =
@@ -277,21 +278,36 @@ export default function Cart() {
 
 
   const handleCheckout =
-    () => {
-
-      if (
-        !canCheckout || shoppingState.getSnapshot().busy
-      ) {
-
-        return;
-
+    async () => {
+      if (checkoutInFlight.current) return;
+      checkoutInFlight.current = true;
+      setCheckingOut(true);
+      const revision = getSessionSnapshot().revision;
+      try {
+        const editing = editingQuantity.current;
+        if (editing) {
+          const draft = quantityDraft.current[editing];
+          if (draft !== undefined && (!draft.trim() || !Number.isSafeInteger(Number(draft)) || Number(draft) < 1)) {
+            await handleManualQuantitySubmit(editing);
+            return;
+          }
+          await handleManualQuantitySubmit(editing);
+        }
+        await shoppingState.synchronizeCart();
+        const latest = shoppingState.getSnapshot();
+        if (revision !== getSessionSnapshot().revision || latest.pendingCart.size) return;
+        const eligibility = deliverySummary(cartTotal(latest.cart), latest.deliveryRules, latest.minimum);
+        if (!latest.cart.length || !eligibility.allowed) {
+          actionAlert('Checkout unavailable', eligibility.message);
+          return;
+        }
+        router.push('/checkout');
+      } catch (error) {
+        actionAlert('Cart unavailable', error instanceof Error ? error.message : 'Please retry.');
+      } finally {
+        checkoutInFlight.current = false;
+        setCheckingOut(false);
       }
-
-
-      router.push(
-        '/checkout'
-      );
-
     };
 
 
@@ -1051,7 +1067,7 @@ export default function Cart() {
                       styles.checkoutButtonText
                     }
                   >
-                    Checkout
+                    {checkingOut ? 'Checking cart...' : 'Checkout'}
                   </Text>
 
 
