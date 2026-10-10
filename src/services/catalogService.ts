@@ -21,22 +21,28 @@ export type CatalogProduct = {
 const CACHE_KEY = 'publicCatalog:v1';
 const FRESH_MS = 60_000;
 let publicProducts: CatalogProduct[] = [];
+export type ProductSection = 'catalog' | 'offers' | 'top-selling';
+const sectionProducts = new Map<ProductSection, CatalogProduct[]>();
+const sectionReads = new Map<ProductSection, Promise<CatalogProduct[]>>();
 let diskRead: Promise<CatalogProduct[]> | null = null;
 // Only one authenticated snapshot is retained; credentials never enter disk keys.
 let snapshot: { token: string | null; products: CatalogProduct[]; time: number } | null = null;
 const pending = new Map<string | null, Promise<CatalogProduct[]>>();
+const sectionSnapshots = new Map<ProductSection, { token: string | null; products: CatalogProduct[]; time: number }>();
+const sectionPending = new Map<string, Promise<CatalogProduct[]>>();
 let generation = 0;
-onSessionChanged(() => { generation++; snapshot = null; pending.clear(); });
+onSessionChanged(() => { generation++; snapshot = null; pending.clear(); sectionSnapshots.clear(); sectionPending.clear(); });
 
 function normalize(data: unknown): CatalogProduct[] {
   if (!Array.isArray(data)) throw new Error('Unable to read the product list.');
-  return data.filter((item): item is CatalogProduct => Boolean(item && typeof item._id === 'string' && typeof item.name === 'string'));
+  if (data.some(item => !item || typeof item._id !== 'string' || typeof item.name !== 'string')) throw new Error('Unable to read the product list.');
+  return data as CatalogProduct[];
 }
 
 function publicOnly(products: CatalogProduct[]): CatalogProduct[] {
   // Persist display metadata only. Logged-out customers must never see cached prices.
-  return products.map(({ _id, name, description, image, imageFrame, discount, availability, category, brand }) => ({
-    _id, name, description, image, imageFrame, discount, availability, category, brand,
+  return products.map(({ _id, name, description, image, imageFrame, category, brand }) => ({
+    _id, name, description, image, imageFrame, category, brand,
   }));
 }
 
@@ -59,7 +65,7 @@ export async function fetchCatalog(token: string | null, force = false): Promise
   if (!force && snapshot?.token === token && Date.now() - snapshot.time < FRESH_MS) return snapshot.products;
   const existing = pending.get(token);
   if (existing) return existing;
-  const revision = ++generation;
+  const revision = generation;
   const operation = (async () => {
     const response = await request(`${API_URL}/products`, {
       headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
@@ -69,12 +75,53 @@ export async function fetchCatalog(token: string | null, force = false): Promise
     const products = normalize(Array.isArray(data) ? data : data.products);
     if (revision === generation) {
       snapshot = { token, products, time: Date.now() };
-      publicProducts = publicOnly(products);
+      // An unexpected empty refresh must not destroy the last usable cold-start metadata.
+      if (products.length || !publicProducts.length) publicProducts = publicOnly(products);
     // Rendering never waits for disk I/O.
       void AsyncStorage.setItem(CACHE_KEY, JSON.stringify(publicProducts)).catch(() => {});
     }
     return products;
   })().finally(() => { if (pending.get(token) === operation) pending.delete(token); });
   pending.set(token, operation);
+  return operation;
+}
+
+// Reuse the metadata-only catalog cache for independently loaded Home sections.
+export async function readProductSection(section: ProductSection): Promise<CatalogProduct[]> {
+  if (section === 'catalog') return readPublicCatalog();
+  const cached = sectionProducts.get(section);
+  if (cached?.length) return cached;
+  const existing = sectionReads.get(section);
+  if (existing) return existing;
+  const read = AsyncStorage.getItem(`${CACHE_KEY}:${section}`).then(saved => {
+    if (saved && !sectionProducts.has(section)) sectionProducts.set(section, publicOnly(normalize(JSON.parse(saved))));
+    return sectionProducts.get(section) || [];
+  }).catch(() => sectionProducts.get(section) || []).finally(() => sectionReads.delete(section));
+  sectionReads.set(section, read);
+  return read;
+}
+
+export async function fetchProductSection(section: ProductSection, token: string | null, force = false): Promise<CatalogProduct[]> {
+  if (section === 'catalog') return fetchCatalog(token, force);
+  const saved = sectionSnapshots.get(section);
+  if (!force && saved?.token === token && Date.now() - saved.time < FRESH_MS) return saved.products;
+  const key = JSON.stringify([section, token]);
+  const existing = sectionPending.get(key);
+  if (existing) return existing;
+  const revision = generation;
+  const operation = (async () => {
+    const response = await request(`${API_URL}/products/${section}`, { headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) } });
+    const data = await response.json();
+    if (!response.ok) throw new Error('Could not load products. Please try again.');
+    const products = normalize(section === 'top-selling' && Array.isArray(data.products) ? data.products.map((item: any) => item?.product) : data.products);
+    if (section === 'top-selling' && !products.length) throw new Error('Top selling products are temporarily unavailable. Please refresh.');
+    if (revision === generation) {
+      sectionSnapshots.set(section, { token, products, time: Date.now() });
+      sectionProducts.set(section, publicOnly(products));
+      void AsyncStorage.setItem(`${CACHE_KEY}:${section}`, JSON.stringify(publicOnly(products))).catch(() => {});
+    }
+    return products;
+  })().finally(() => { if (sectionPending.get(key) === operation) sectionPending.delete(key); });
+  sectionPending.set(key, operation);
   return operation;
 }

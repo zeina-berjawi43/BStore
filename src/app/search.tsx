@@ -1,3 +1,4 @@
+import { getSessionSnapshot } from '../services/tokenStorage';
 import { useShopping } from '../hooks/use-shopping';
 
 import { CartButton } from '../components/cart-button';
@@ -71,7 +72,12 @@ export default function Search() {
     `${product.name} ${label(product.category)} ${label(product.brand)}`.toLowerCase().includes(query)
   ), [products, query]);
 
-  const changeProduct = (product: CatalogProduct, action: 'cart' | 'favorite') => action === 'cart' ? shopping.add(product) : shopping.toggle(product);
+  const changeProduct = (product: CatalogProduct, action: 'cart' | 'favorite') => {
+    if (action === 'cart' && getSessionSnapshot().authenticated && product.price === undefined) {
+      shopping.showAlert('Please wait for current product prices to load.'); return Promise.resolve();
+    }
+    return action === 'cart' ? shopping.add(product) : shopping.toggle(product);
+  };
 
   return (
     <View style={styles.container}>

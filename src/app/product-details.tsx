@@ -1,3 +1,5 @@
+import { readPublicCatalog } from '../services/catalogService';
+import { getSessionSnapshot } from '../services/tokenStorage';
 import { useShopping } from '../hooks/use-shopping';
 
 import { CartButton } from '../components/cart-button';
@@ -406,162 +408,49 @@ export default function ProductDetails() {
      LOAD PRODUCT
   ======================================================= */
 
+  const [productError, setProductError] = useState('');
+  const productFresh = useRef(false);
+  const productRequest = useRef(0);
   const loadProduct = async () => {
-
-    setProductLoaded(
-      false
-    );
-
-
-    if (!productId) {
-
-      setProduct(
-        null
-      );
-
-      setProductLoaded(
-        true
-      );
-
-      return;
-
-    }
-
-
-    const controller =
-      new AbortController();
-
-
-    const timeout =
-      scheduleTimeout(() => {
-
-        controller.abort();
-
-      }, 8000);
-
-
+    const operation = ++productRequest.current;
+    const revision = getSessionSnapshot().revision;
+    productFresh.current = false;
+    setProductError('');
+    if (!product) setProductLoaded(false);
+    let completed = false;
+    void readPublicCatalog().then(items => {
+      const cached = items.find(item => item._id === productId);
+      if (productRequest.current === operation && revision === getSessionSnapshot().revision && !completed && cached) {
+        setProduct({ ...cached, image: cached.image || '' });
+        setProductLoaded(true);
+      }
+    });
+    const controller = new AbortController();
+    const timeout = scheduleTimeout(() => controller.abort(), 8000);
     try {
-
-      const accessToken =
-        await checkLogin();
-
-
-      const headers:
-        Record<string, string> = {
-
-        Accept:
-          'application/json',
-
-      };
-
-
-      if (accessToken) {
-
-        headers.Authorization =
-          `Bearer ${accessToken}`;
-
-      }
-
-
-      const response =
-        await request(
-          `${API_URL}/products/${productId}`,
-          {
-            method: 'GET',
-            headers,
-            signal:
-              controller.signal,
-          }
-        );
-
-
-      clearTimeout(
-        timeout
-      );
-
-
+      if (!productId) throw new Error('Product not found');
+      const token = await checkLogin();
+      const response = await request(API_URL + '/products/' + productId, {
+        headers: { Accept: 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) }, signal: controller.signal,
+      });
+      if (productRequest.current !== operation || revision !== getSessionSnapshot().revision) return;
       if (!response.ok) {
-
-        setProduct(
-          null
-        );
-
-        setProductLoaded(
-          true
-        );
-
-        return;
-
+        if (response.status === 404) { completed = true; setProduct(null); setProductError('Product not found'); return; }
+        throw new Error('Product is unavailable. Please try again.');
       }
-
-
-      const data =
-        await response.json();
-
-
-      if (
-        !data?.product
-      ) {
-
-        setProduct(
-          null
-        );
-
-        setProductLoaded(
-          true
-        );
-
-        return;
-
-      }
-
-
-      setProduct(
-        data.product
-      );
-
-
-      setProductLoaded(
-        true
-      );
-
-    } catch (error: any) {
-
-      clearTimeout(
-        timeout
-      );
-
-
-      if (
-        error?.name !==
-        'AbortError'
-      ) {
-
-        if (__DEV__) { console.log(
-          'LOAD PRODUCT ERROR:',
-          error instanceof Error ? error.name : 'Error'
-        ); }
-
-      }
-
-
-      setProduct(
-        null
-      );
-
-
-      setProductLoaded(
-        true
-      );
-
+      const data = await response.json();
+      if (productRequest.current !== operation || revision !== getSessionSnapshot().revision) return;
+      if (!data?.product?._id || typeof data.product.name !== 'string') throw new Error('Product is unavailable. Please try again.');
+      completed = true;
+      productFresh.current = true;
+      setProduct(data.product);
+    } catch {
+      if (productRequest.current === operation) setProductError('Product is unavailable. Please try again.');
+    } finally {
+      clearTimeout(timeout);
+      if (productRequest.current === operation) setProductLoaded(true);
     }
-
   };
-
-
-  /* =======================================================
-     LOAD FAVORITE STATUS
-  ======================================================= */
 
   const loadFavoriteStatus = async () => { await shopping.refresh(); };
 
@@ -598,7 +487,10 @@ export default function ProductDetails() {
      ADD TO CART
   ======================================================= */
 
-  const addToCart = () => product ? shopping.add(product) : Promise.resolve();
+  const addToCart = () => {
+    if (!productFresh.current) { shopping.showAlert(productError || 'Please wait for current product information to load.'); return Promise.resolve(); }
+    return product ? shopping.add(product) : Promise.resolve();
+  };
 
 
   /* =======================================================
@@ -645,16 +537,8 @@ export default function ProductDetails() {
      PREVENT "PRODUCT NOT FOUND" DURING FETCH
   ======================================================= */
 
-  if (!productLoaded) {
-
-    return (
-      <View
-        style={
-          styles.container
-        }
-      />
-    );
-
+  if (!productLoaded && !product) {
+    return <View style={styles.container}><Text style={{ color: '#817B71', padding: 24 }}>Loading product...</Text></View>;
   }
 
 
@@ -692,7 +576,7 @@ export default function ProductDetails() {
             styles.errorTitle
           }
         >
-          Product not found
+          {productError || 'Product not found'}
         </Text>
 
 

@@ -1,3 +1,4 @@
+import { getSessionSnapshot } from '../services/tokenStorage';
 import { useShopping } from '../hooks/use-shopping';
 
 
@@ -11,12 +12,11 @@ import { ProductImage } from '../components/product-image';
 import { ImageFrame } from '../services/image-frame';
 
 
-import { request } from '../services/request';
 import { View, Text, StyleSheet, Pressable, ScrollView, Animated, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { HomeImage } from '../components/home-image';
 import { useHomeSection } from '../hooks/use-home-section';
-import { fetchCatalog, readPublicCatalog } from '../services/catalogService';
+import { fetchCatalog, readPublicCatalog, readProductSection, fetchProductSection } from '../services/catalogService';
 
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState, useRef, useEffect } from 'react';
@@ -144,8 +144,14 @@ export default function Index() {
   const [products, setProducts] = useState<Product[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
   const [productsError, setProductsError] = useState('');
+  const [topLoading, setTopLoading] = useState(true);
+  const [topError, setTopError] = useState('');
+  const [offersLoading, setOffersLoading] = useState(true);
+  const [offersError, setOffersError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const catalogueLoadedRef = useRef(false);
+  const topLoadedRef = useRef(false);
+  const offersLoadedRef = useRef(false);
   const sectionsRef = useRef<{ token: string | null; time: number } | null>(null);
   const [topSellingProducts, setTopSellingProducts] =
     useState<TopSellingProduct[]>([]);
@@ -233,10 +239,12 @@ export default function Index() {
   };
 
   const loadProducts = async (token: string | null, force = false) => {
+    if (!products.length) setProductsLoading(true);
     setProductsError('');
     try {
       const data = await fetchCatalog(token, force);
       if (accessTokenRef.current !== token) return;
+      if (!data.length) throw new Error('Products are temporarily unavailable. Please refresh.');
       catalogueLoadedRef.current = true;
       setProducts(data.map(convertProduct));
     } catch (error) {
@@ -246,160 +254,35 @@ export default function Index() {
     }
   };
 
-  const loadOffers = async (
-    accessToken?: string | null
-  ) => {
+  const loadOffers = async (token: string | null = accessTokenRef.current, force = false) => {
+    setOffersLoading(true);
+    setOffersError('');
     try {
-      const token =
-        accessToken ??
-        accessTokenRef.current;
-
-      const headers: Record<string, string> = {
-        Accept: 'application/json',
-      };
-
-      if (token) {
-        headers.Authorization = `Bearer ${token}`;
-      }
-
-      const response = await request(
-        `${API_URL}/products/offers`,
-        {
-          method: 'GET',
-          headers,
-        }
-      );
-
-      const data = await response.json();
+      const data = await fetchProductSection('offers', token, force);
       if (token !== accessTokenRef.current) return;
-
-      if (!response.ok) {
-        if (__DEV__) { console.log(
-          'GET OFFERS ERROR:',
-          response.status,
-          data
-        ); }
-        setOfferProducts([]);
-        setActiveOfferIndex(0);
-        return;
-      }
-
-      if (!Array.isArray(data.products)) {
-        if (__DEV__) { console.log(
-          'INVALID OFFERS RESPONSE:',
-          data
-        ); }
-        setOfferProducts([]);
-        setActiveOfferIndex(0);
-        return;
-      }
-
-      const convertedOffers: OfferProduct[] =
-        data.products
-          .map((product: any) => {
-            const converted =
-              convertProduct(product);
-
-            return {
-              ...converted,
-              discount:
-                Number(product.discount) || 0,
-            };
-          })
-          .filter(
-            (product: OfferProduct) =>
-              product.discount > 0
-          );
-
-      setOfferProducts(convertedOffers);
+      offersLoadedRef.current = true;
+      setOfferProducts(data.filter(product => Number(product.discount) > 0).map(product => ({ ...convertProduct(product), discount: Number(product.discount) || 0 })));
       setActiveOfferIndex(0);
-    } catch (error) {
-      if (__DEV__) { console.log(
-        'LOAD OFFERS ERROR:',
-        error instanceof Error ? error.name : 'Error'
-      ); }
-      setOfferProducts([]);
-      setActiveOfferIndex(0);
+    } catch {
+      if (token === accessTokenRef.current) setOffersError('Offers are unavailable. Please refresh.');
+    } finally {
+      if (token === accessTokenRef.current) setOffersLoading(false);
     }
   };
-
-  const loadTopSelling = async (
-    accessToken?: string | null
-  ) => {
+  const loadTopSelling = async (token: string | null = accessTokenRef.current, force = false) => {
+    setTopLoading(true);
+    setTopError('');
     try {
-      const token =
-        accessToken ??
-        accessTokenRef.current;
-
-      const headers: Record<string, string> = {
-        Accept: 'application/json',
-      };
-
-      if (token) {
-        headers.Authorization = `Bearer ${token}`;
-      }
-
-      const response = await request(
-        `${API_URL}/products/top-selling`,
-        {
-          method: 'GET',
-          headers,
-        }
-      );
-
-      const data = await response.json();
+      const data = await fetchProductSection('top-selling', token, force);
       if (token !== accessTokenRef.current) return;
-
-      if (!response.ok) {
-        if (__DEV__) { console.log(
-          'GET TOP SELLING ERROR:',
-          response.status,
-          data
-        ); }
-        setTopSellingProducts([]);
-        return;
-      }
-
-      if (!Array.isArray(data.products)) {
-        if (__DEV__) { console.log(
-          'INVALID TOP SELLING RESPONSE:',
-          data
-        ); }
-        setTopSellingProducts([]);
-        return;
-      }
-
-      const convertedTopSelling:
-        TopSellingProduct[] =
-        data.products
-          .map((item: any) => {
-            if (!item.product) return null;
-
-            return convertProduct(
-              item.product
-            );
-          })
-          .filter(
-            (
-              product:
-                | TopSellingProduct
-                | null
-            ): product is TopSellingProduct =>
-              product !== null
-          );
-
-      setTopSellingProducts(
-        convertedTopSelling
-      );
-    } catch (error) {
-      if (__DEV__) { console.log(
-        'LOAD TOP SELLING ERROR:',
-        error instanceof Error ? error.name : 'Error'
-      ); }
-      setTopSellingProducts([]);
+      topLoadedRef.current = true;
+      setTopSellingProducts(data.map(convertProduct));
+    } catch {
+      if (token === accessTokenRef.current) setTopError('Top selling products are unavailable. Please refresh.');
+    } finally {
+      if (token === accessTokenRef.current) setTopLoading(false);
     }
   };
-
 
   const loadCartCount = async (_token?: string | null) => { await shopping.refresh(true); };
 
@@ -423,6 +306,14 @@ export default function Index() {
           if (generation === homeGenerationRef.current && !catalogueLoadedRef.current && cached.length) setProducts(cached.map(convertProduct));
         });
       }
+      if (!homeLoadedRef.current) {
+        void readProductSection('top-selling').then(cached => {
+          if (generation === homeGenerationRef.current && !topLoadedRef.current && cached.length) setTopSellingProducts(current => current.length ? current : cached.map(convertProduct));
+        });
+        void readProductSection('offers').then(cached => {
+          if (generation === homeGenerationRef.current && !offersLoadedRef.current && cached.length) setOfferProducts(current => current.length ? current : cached.map(product => ({ ...convertProduct(product), discount: 0 })));
+        });
+      }
       // Public sections can load without waiting for a token refresh.
       const requests: Promise<unknown>[] = [loadSlideshow(!force), loadDepartments(!force)];
       const { token, loggedIn } = await loadData();
@@ -438,7 +329,7 @@ export default function Index() {
       // This async loader runs from focus/refresh events, never during render.
       // eslint-disable-next-line react-hooks/purity
       if (force || !previous || previous.token !== token || Date.now() - previous.time > 60000) {
-        requests.push(loadOffers(token), loadTopSelling(token));
+        requests.push(loadOffers(token, force), loadTopSelling(token, force));
         // eslint-disable-next-line react-hooks/purity -- Event-driven cache timestamp.
         sectionsRef.current = { token, time: Date.now() };
       }
@@ -480,7 +371,10 @@ export default function Index() {
     );
   };
 
-  const addToCart = (product: Product, _cartPrice?: number) => shopping.add(product);
+  const addToCart = (product: Product, _cartPrice?: number) => {
+    if (getSessionSnapshot().authenticated && product.price === undefined) { showAlert('Please wait for current product prices to load.'); return Promise.resolve(); }
+    return shopping.add(product);
+  };
 
 
 
@@ -501,7 +395,7 @@ export default function Index() {
     products.slice(0, 4);
 
   // Initial loading owns the screen; refresh owns only RefreshControl.
-  if (initialLoading && !(slidesHydrated && departmentsHydrated)) return <StartupLoading />;
+  if (initialLoading && !(slidesHydrated && departmentsHydrated) && !products.length && !topSellingProducts.length && !offerProducts.length) return <StartupLoading />;
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
@@ -801,7 +695,7 @@ export default function Index() {
                 styles.emptyText
               }
             >
-              No top selling products yet.
+              {topLoading ? 'Loading top selling products...' : topError || 'Top selling products are temporarily unavailable. Please refresh.'}
             </Text>
           )}
         </View>
@@ -890,7 +784,7 @@ export default function Index() {
                 styles.emptyText
               }
             >
-              {productsLoading ? 'Loading products...' : productsError || 'No products available.'}
+              {productsLoading ? 'Loading products...' : productsError || 'Products are temporarily unavailable. Please refresh.'}
             </Text>
           )}
         </ScrollView>
@@ -987,9 +881,7 @@ export default function Index() {
                       styles.offerBadgeText
                     }
                   >
-                    {
-                      activeOffer.discount
-                    }% OFF
+                    {activeOffer.discount > 0 ? `${activeOffer.discount}% OFF` : 'Offer'}
                   </Text>
                 </View>
               </View>
@@ -1072,7 +964,8 @@ export default function Index() {
                       activeOffer.price ===
                       undefined
                     ) {
-                      router.push('/login');
+                      if (isLoggedIn) showAlert('Please wait for current product prices to load.');
+                      else router.push('/login');
                       return;
                     }
 
@@ -1115,7 +1008,7 @@ export default function Index() {
                 styles.emptyOfferText
               }
             >
-              No offers available.
+              {offersLoading ? 'Loading offers...' : offersError || 'No offers available.'}
             </Text>
           </View>
         )}

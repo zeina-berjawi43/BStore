@@ -1,3 +1,5 @@
+import { getSessionSnapshot } from '../services/tokenStorage';
+import { fetchCatalog, readPublicCatalog } from '../services/catalogService';
 import { useShopping } from '../hooks/use-shopping';
 
 import { CartButton } from '../components/cart-button';
@@ -171,6 +173,8 @@ function CategoryProductsScreen({ category }: { category: string }) {
     loadingProducts,
     setLoadingProducts,
   ] = useState(true);
+  const [productsError, setProductsError] = useState('');
+  const productLoad = useRef(0);
   const favorites = shopping.favorites.map(p => String(p._id || p.id));
   const [
     isLoggedIn,
@@ -215,64 +219,23 @@ function CategoryProductsScreen({ category }: { category: string }) {
      LOAD PRODUCTS
   ======================================================= */
   const loadProducts = async () => {
+    if (!products.length) setLoadingProducts(true);
+    const operation = ++productLoad.current;
+    let fresh = false;
+    setProductsError('');
+    void readPublicCatalog().then(cached => {
+      if (productLoad.current === operation && !fresh && cached.length) setProducts(current => current.length ? current : cached as Product[]);
+    });
     try {
-      if (products.length === 0) {
-        setLoadingProducts(
-          true
-        );
-      }
-      const accessToken =
-        await getValidAccessToken();
-      const headers:
-        Record<string, string> = {
-        Accept:
-          'application/json',
-      };
-      if (accessToken) {
-        headers.Authorization =
-          `Bearer ${accessToken}`;
-      }
-      const response =
-        await request(
-          `${API_URL}/products`,
-          {
-            method: 'GET',
-            headers,
-          }
-        );
-      const data =
-        await response.json();
-      if (!response.ok) {
-        if (__DEV__) { console.log(
-          'GET PRODUCTS ERROR:',
-          data
-        ); }
-        return;
-      }
-      const receivedProducts =
-        Array.isArray(data)
-          ? data
-          : Array.isArray(
-              data?.products
-            )
-            ? data.products
-            : [];
-      if (__DEV__) { console.log(
-        'PRODUCTS FROM DATABASE:',
-        receivedProducts.length
-      ); }
-      setProducts(
-        receivedProducts
-      );
-    } catch (error) {
-      if (__DEV__) { console.log(
-        'LOAD PRODUCTS ERROR:',
-        error instanceof Error ? error.name : 'Error'
-      ); }
+      const token = await getValidAccessToken();
+      const data = await fetchCatalog(token);
+      if (productLoad.current !== operation) return;
+      fresh = true;
+      setProducts(data as Product[]);
+    } catch {
+      if (productLoad.current === operation) setProductsError('Products are unavailable. Please try again.');
     } finally {
-      setLoadingProducts(
-        false
-      );
+      if (productLoad.current === operation) setLoadingProducts(false);
     }
   };
   /* =======================================================
@@ -449,7 +412,10 @@ function CategoryProductsScreen({ category }: { category: string }) {
   /* =======================================================
      ADD TO CART
   ======================================================= */
-  const addToCart = (product: Product) => shopping.add(product);
+  const addToCart = (product: Product) => {
+    if (getSessionSnapshot().authenticated && product.price === undefined) { showAlert('Please wait for current product prices to load.'); return Promise.resolve(); }
+    return shopping.add(product);
+  };
   /* =======================================================
      OPEN PRODUCT
   ======================================================= */
@@ -675,14 +641,14 @@ function CategoryProductsScreen({ category }: { category: string }) {
                 styles.emptyTitle
               }
             >
-              No products found
+              {loadingProducts ? 'Loading products...' : productsError || 'No products found'}
             </Text>
             <Text
               style={
                 styles.emptyText
               }
             >
-              {selectedSubCategory === 'ALL'
+              {loadingProducts || productsError ? 'Please try again shortly.' : selectedSubCategory === 'ALL'
                 ? 'There are no products in this category yet.'
                 : 'There are no products in this subcategory yet.'}
             </Text>
