@@ -88,7 +88,7 @@ export default function Login() {
       await loginUser(cleanPhone, password, Platform.OS === 'web' ? rememberMe : undefined);
 
       // No OTP is required for normal login.
-      router.replace('/');
+      // RootLayout resets session history and resumes any pending order.
 
     } catch (error: any) {
       if (error instanceof PhoneVerificationRequiredError) {

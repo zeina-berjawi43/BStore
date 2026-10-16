@@ -1,4 +1,4 @@
-import { getSessionSnapshot } from '../services/tokenStorage';
+import { getSessionSnapshot, onPricingChanged } from '../services/tokenStorage';
 import { useShopping } from '../hooks/use-shopping';
 
 
@@ -12,11 +12,11 @@ import { ProductImage } from '../components/product-image';
 import { ImageFrame } from '../services/image-frame';
 
 
-import { View, Text, StyleSheet, Pressable, ScrollView, Animated, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, Animated, RefreshControl, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { HomeImage } from '../components/home-image';
 import { useHomeSection } from '../hooks/use-home-section';
-import { fetchCatalog, readPublicCatalog, readProductSection, fetchProductSection } from '../services/catalogService';
+import { fetchCatalog, readPublicCatalog, readProductSection, fetchProductSection, peekPricedSection } from '../services/catalogService';
 
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState, useRef, useEffect } from 'react';
@@ -60,36 +60,6 @@ type OfferProduct = Product & {
 };
 
 
-type Category = {
-  id: string;
-  name: string;
-  image?: string;
-  icon?: keyof typeof Ionicons.glyphMap;
-};
-
-const getCategoryIcon = (
-  categoryName: string
-): keyof typeof Ionicons.glyphMap => {
-  const name = categoryName.toLowerCase().trim();
-
-  if (name.includes('chocolate')) return 'cafe-outline';
-  if (name.includes('wafer')) return 'layers-outline';
-  if (name.includes('chip') || name.includes('snack'))
-    return 'fast-food-outline';
-  if (name.includes('drink') || name.includes('beverage'))
-    return 'water-outline';
-  if (name.includes('candy') || name.includes('sweet'))
-    return 'heart-outline';
-  if (name.includes('cookie') || name.includes('biscuit'))
-    return 'nutrition-outline';
-  if (name.includes('ice cream') || name.includes('icecream'))
-    return 'ice-cream-outline';
-  if (name.includes('coffee')) return 'cafe-outline';
-  if (name.includes('international') || name.includes('brand'))
-    return 'globe-outline';
-
-  return 'pricetag-outline';
-};
 
 const buildImageUrl = (image: any): string => {
   if (!image) return '';
@@ -149,6 +119,9 @@ export default function Index() {
   const [offersLoading, setOffersLoading] = useState(true);
   const [offersError, setOffersError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState('');
+  const [slideResetKey, setSlideResetKey] = useState(0);
+  const refreshInFlight = useRef<Promise<void> | null>(null);
   const catalogueLoadedRef = useRef(false);
   const topLoadedRef = useRef(false);
   const offersLoadedRef = useRef(false);
@@ -163,18 +136,9 @@ export default function Index() {
 
   const [showAllTopSelling, setShowAllTopSelling] = useState(false);
 
-  const [categories, setCategories] = useState<Category[]>([
-    {
-      id: 'all',
-      name: 'ALL',
-      image: '',
-      icon: 'apps-outline',
-    },
-  ]);
 
   const { items: departments, loading: departmentsLoading, error: departmentsError,
     hydrated: departmentsHydrated, refresh: loadDepartments } = useHomeSection('departments');
-  const [categoriesLoading, setCategoriesLoading] = useState(false);
 
   const cartCount = shopping.cartCount;
   const favorites = shopping.favorites.map(p => ({ ...p, id: String(p._id || p.id), category: typeof p.category === 'object' ? p.category?.name || '' : p.category || '', brand: typeof p.brand === 'object' ? p.brand?.name || '' : p.brand || '' })) as Product[];
@@ -247,8 +211,10 @@ export default function Index() {
       if (!data.length) throw new Error('Products are temporarily unavailable. Please refresh.');
       catalogueLoadedRef.current = true;
       setProducts(data.map(convertProduct));
+      return true;
     } catch (error) {
       setProductsError(error instanceof Error ? error.message : 'Could not load products.');
+      return false;
     } finally {
       setProductsLoading(false);
     }
@@ -262,9 +228,10 @@ export default function Index() {
       if (token !== accessTokenRef.current) return;
       offersLoadedRef.current = true;
       setOfferProducts(data.filter(product => Number(product.discount) > 0).map(product => ({ ...convertProduct(product), discount: Number(product.discount) || 0 })));
-      setActiveOfferIndex(0);
+      return true;
     } catch {
       if (token === accessTokenRef.current) setOffersError('Offers are unavailable. Please refresh.');
+      return false;
     } finally {
       if (token === accessTokenRef.current) setOffersLoading(false);
     }
@@ -277,8 +244,10 @@ export default function Index() {
       if (token !== accessTokenRef.current) return;
       topLoadedRef.current = true;
       setTopSellingProducts(data.map(convertProduct));
+      return true;
     } catch {
       if (token === accessTokenRef.current) setTopError('Top selling products are unavailable. Please refresh.');
+      return false;
     } finally {
       if (token === accessTokenRef.current) setTopLoading(false);
     }
@@ -293,7 +262,7 @@ export default function Index() {
       const token = await getValidAccessToken();
       return { token, loggedIn: Boolean(token) };
     } catch {
-      return { token: null, loggedIn: false };
+      return { token: null, loggedIn: false, failed: true };
     }
   };
 
@@ -316,9 +285,15 @@ export default function Index() {
       }
       // Public sections can load without waiting for a token refresh.
       const requests: Promise<unknown>[] = [loadSlideshow(!force), loadDepartments(!force)];
-      const { token, loggedIn } = await loadData();
-      if (generation !== homeGenerationRef.current) return;
+      const { token, loggedIn, failed } = await loadData();
+      if (failed || generation !== homeGenerationRef.current) return false;
       accessTokenRef.current = token;
+      const cachedCatalog = peekPricedSection('catalog', token);
+      const cachedOffers = peekPricedSection('offers', token);
+      const cachedTop = peekPricedSection('top-selling', token);
+      if (cachedCatalog.length) setProducts(cachedCatalog.map(convertProduct));
+      if (cachedOffers.length) setOfferProducts(cachedOffers.map(product => ({ ...convertProduct(product), discount: Number(product.discount) || 0 })));
+      if (cachedTop.length) setTopSellingProducts(cachedTop.map(convertProduct));
       setIsLoggedIn(loggedIn);
       if (!loggedIn) {
         setProducts(current => current.map(({ price, discountedPrice, ...product }) => product));
@@ -327,26 +302,50 @@ export default function Index() {
       requests.push(loadProducts(token, force));
       const previous = sectionsRef.current;
       // This async loader runs from focus/refresh events, never during render.
-      // eslint-disable-next-line react-hooks/purity
       if (force || !previous || previous.token !== token || Date.now() - previous.time > 60000) {
         requests.push(loadOffers(token, force), loadTopSelling(token, force));
-        // eslint-disable-next-line react-hooks/purity -- Event-driven cache timestamp.
         sectionsRef.current = { token, time: Date.now() };
       }
       if (loggedIn) {
         requests.push(loadCartCount(token), loadFavorites(token));
       }
-      await Promise.all(requests);
+      const results = await Promise.allSettled(requests);
       homeLoadedRef.current = true;
+      return generation === homeGenerationRef.current && results.every(result => result.status === 'fulfilled' && result.value !== false);
     } catch (error) {
       if (__DEV__) console.log('HOME LOAD ERROR:', error instanceof Error ? error.name : 'Error');
+      return false;
     } finally {
       if (generation === homeGenerationRef.current) setInitialLoading(false);
     }
   };
 
+  const refreshHome = () => {
+    if (refreshInFlight.current) return refreshInFlight.current;
+    const revision = getSessionSnapshot().revision;
+    setRefreshing(true); setRefreshError('');
+    const operation = loadHome(true).then(success => {
+      if (revision !== getSessionSnapshot().revision) return;
+      if (success) { setCurrentSlide(0); setSlideResetKey(value => value + 1); }
+      else setRefreshError('Some Home content could not be refreshed. Please try again.');
+    }).catch(() => {
+      if (revision === getSessionSnapshot().revision) setRefreshError('Home could not be refreshed. Please try again.');
+    }).finally(() => { setRefreshing(false); refreshInFlight.current = null; });
+    refreshInFlight.current = operation;
+    return operation;
+  };
+
+  const pricingRefreshRef = useRef<() => void>(() => {});
+  useEffect(() => { pricingRefreshRef.current = () => {
+    setProducts([]); setOfferProducts([]); setTopSellingProducts([]);
+    void loadHome(true);
+  }; });
+  useEffect(() => onPricingChanged?.(() => pricingRefreshRef.current()), []);
+
+  const focusLoader = useRef(loadHome);
+  useEffect(() => { focusLoader.current = loadHome; });
   useFocusEffect(useCallback(() => {
-    void loadHome();
+    void focusLoader.current();
     return () => { homeGenerationRef.current++; };
   }, []));
 
@@ -403,11 +402,8 @@ export default function Index() {
 
       <ScrollView
         ref={scrollViewRef}
-        refreshControl={<RefreshControl refreshing={refreshing} tintColor="#E35B3F" colors={['#E35B3F']}
-          onRefresh={() => {
-            setRefreshing(true);
-            void loadHome(true).finally(() => setRefreshing(false));
-          }} />}
+        refreshControl={<RefreshControl refreshing={refreshing} tintColor="#E35B3F" colors={['#E35B3F']} progressBackgroundColor="#FFFFFF"
+          onRefresh={() => { void refreshHome(); }} />}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={
           styles.scrollContent
@@ -434,7 +430,13 @@ export default function Index() {
             </View>
           </View>
 
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+          <Pressable style={styles.accountButton} accessibilityRole="button" accessibilityLabel="Refresh Home" disabled={refreshing}
+            onPress={() => { void refreshHome(); }}>
+            {refreshing ? <ActivityIndicator color="#E35B3F" accessibilityLabel="Refreshing Home" /> : <Ionicons name="refresh-outline" size={21} color="#171717" />}
+          </Pressable>
           <Pressable
+            accessibilityRole="button" accessibilityLabel="Open account"
             style={
               styles.accountButton
             }
@@ -448,7 +450,9 @@ export default function Index() {
               color="#171717"
             />
           </Pressable>
+          </View>
         </View>
+        {!!refreshError && <Pressable accessibilityRole="button" onPress={() => { void refreshHome(); }}><Text accessibilityRole="alert" style={{ color: '#E35B3F', marginBottom: 10 }}>{refreshError} Tap to retry.</Text></Pressable>}
 
         {/* SLIDESHOW */}
 
@@ -456,6 +460,7 @@ export default function Index() {
           style={
             styles.sliderWrapper
           }
+          testID="home-slideshow"
         >
           <View
             style={styles.slider}
@@ -508,7 +513,7 @@ export default function Index() {
                 </Pressable>}
               </View>
             ) : (
-              <PagedCarousel items={slides} itemKey={slide => slide.id} height={218}
+              <PagedCarousel items={slides} itemKey={slide => slide.id} height={218} resetKey={slideResetKey}
                 onIndexChange={setCurrentSlide}
                 renderItem={slide => <HomeImage uri={slide.image} cacheKey={slide.imageKey} style={styles.slideImage} />} />
             )}
@@ -1013,28 +1018,29 @@ export default function Index() {
           </View>
         )}
 
-        {offerProducts.length >
-        1 ? (
+        {offerProducts.length > 0 ? (
           <View
+            testID="offer-pagination"
             style={
               styles.offerIndicators
             }
           >
-            {offerProducts
-              .slice(0, 6)
-              .map(
+            {offerProducts.map(
                 (
                   offer,
                   index
                 ) => (
                   <View
+                    accessibilityLabel={`Offer ${index + 1} of ${offerProducts.length}`}
+                    accessibilityState={{ selected: index === Math.min(activeOfferIndex, offerProducts.length - 1) }}
+                    aria-selected={index === Math.min(activeOfferIndex, offerProducts.length - 1)}
                     key={
                       offer.id
                     }
                     style={[
                       styles.offerIndicator,
                       index ===
-                      activeOfferIndex
+                      Math.min(activeOfferIndex, offerProducts.length - 1)
                         ? styles.offerIndicatorActive
                         : null,
                     ]}
@@ -2343,6 +2349,7 @@ const styles = StyleSheet.create({
 
   offerIndicators: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 5,

@@ -1,3 +1,4 @@
+import { goBackOrSettings } from '../services/navigation';
 import { syncPush, PushState } from '../services/pushService';
 import {
   View,
@@ -12,7 +13,7 @@ import {
 
 import { Ionicons } from '@expo/vector-icons';
 
-import { router } from 'expo-router';
+
 
 import {
   getNotificationSetting,
@@ -188,11 +189,7 @@ export default function Notifications() {
             style={
               styles.backButton
             }
-            onPress={() =>
-              router.push(
-                '/settings'
-              )
-            }
+            onPress={goBackOrSettings}
           >
 
             <Ionicons

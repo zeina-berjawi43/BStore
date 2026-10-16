@@ -10,7 +10,7 @@ function fixture(file, name, context = {}) {
   const useState = initial => { const i = cursor++; if (!(i in slots)) slots[i] = typeof initial === 'function' ? initial() : initial; return [slots[i], value => { slots[i] = typeof value === 'function' ? value(slots[i]) : value; }]; };
   const exports = {};
   vm.runInNewContext(ts.transpileModule(fn.getText(ast) + '\nexports.fn = ' + name, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.React } }).outputText,
-    { exports, React: { createElement: element }, useState, useCallback: fn => fn, useRef: value => { const i = cursor++; return slots[i] ||= { current: value }; }, ...context });
+    { exports, React: { createElement: element }, useState, useEffect: fn => fn(), useCallback: fn => fn, useRef: value => { const i = cursor++; return slots[i] ||= { current: value }; }, ...context });
   return props => { cursor = 0; return exports.fn(props); };
 }
 function nodes(tree, predicate) {
@@ -199,7 +199,9 @@ test('actual Favorites card omits both reference IDs from text while retaining k
   for (const id of [product._id, product.brand, product.category]) assert.ok(!visible.includes(id), id);
   const card = nodes(tree, node => node.props?.key === product._id)[0]; assert.ok(card); card.props.onPress(); assert.equal(destination.params.id, product._id);
   const button = nodes(tree, node => node.props?.accessibilityLabel === 'Add Almonds to cart')[0]; button.props.onPress({ stopPropagation() {} }); assert.equal(added.id, product._id);
-  const remove = nodes(card, node => node !== card && node.type === 'Pressable' && nodes(node, child => child.type === 'Icon' && child.props.name === 'heart').length)[0]; remove.props.onPress({ stopPropagation() {} }); assert.equal(removed, product);
+  const remove = nodes(card, node => node.props?.accessibilityLabel === 'Remove Almonds from favorites')[0];
+  assert.equal(nodes(remove, node => node.type === 'Icon')[0].props.name, 'close');
+  remove.props.onPress({ stopPropagation() {} }); assert.equal(removed, product);
   shopping.pendingCart.add(product._id); tree = render();
   const pending = nodes(tree, node => node.props?.accessibilityLabel === 'Add Almonds to cart')[0];
   assert.equal(pending.props.disabled, false);
@@ -259,11 +261,22 @@ test('two-stage Cart fills, colors and totals use current Class C rules only, in
     const fills=bars.map(bar=>nodes(bar,node=>node.props?.style?.width)[0].props.style);
     assert.equal(fills[0].backgroundColor,subtotal>=30?'#039320':'#D74343');assert.equal(fills[1].backgroundColor,subtotal>=100?'#039320':'#D9A521');
     const text=nodes(tree,node=>node.type==='Text').map(node=>JSON.stringify(node.props.children)).join('');
-    assert.ok(text.includes('Products subtotal'));assert.ok(!text.includes('enjoy FREE delivery'));
+    assert.ok(!text.includes('Products subtotal'));assert.ok(!text.includes('enjoy FREE delivery'));
+    const compact=nodes(tree,node=>node.props?.testID==='cart-compact-breakdown');
+    const fee=summary(subtotal,rules).deliveryFee;
+    assert.equal(compact.length,fee>0?1:0);
+    if(fee>0)assert.equal(compact[0].props.children.join(''),`$${subtotal.toFixed(2)} subtotal + $${fee.toFixed(2)} delivery = $${summary(subtotal,rules).total.toFixed(2)}`);
     assert.ok(text.includes('$'+summary(subtotal,rules).total.toFixed(2)));
     if(subtotal>=30)assert.ok(text.includes(subtotal>=100?'FREE':'$5.00'));
   }
-  assert.equal(nodes(renderCart(0,rules,true,true),node=>node.props?.accessibilityRole==='progressbar').length,2);
+  const emptyBars=nodes(renderCart(0,rules,true,true),node=>node.props?.accessibilityRole==='progressbar');
+  assert.equal(emptyBars.length,2);
+  assert.deepEqual(emptyBars.map(bar=>bar.props.accessibilityValue.now),[0,0]);
+  const emptyFills=emptyBars.map(bar=>nodes(bar,node=>node.props?.style?.width)[0].props.style);
+  assert.deepEqual(emptyFills.map(fill=>fill.width),['0%','0%']);
+  assert.deepEqual(emptyFills.map(fill=>fill.backgroundColor),['#D74343','#D9A521']);
+  for(const priceClass of ['A','B']) assert.equal(nodes(renderCart(0,{...rules,priceClass},true,true),node=>node.props?.accessibilityRole==='progressbar').length,0);
+  assert.equal(nodes(renderCart(0,rules,false,true),node=>node.props?.accessibilityRole==='progressbar').length,0);
   for(const priceClass of ['A','B']) {
     const tree=renderCart(65,{...rules,priceClass});assert.equal(nodes(tree,node=>node.props?.accessibilityRole==='progressbar').length,0);
     const text=nodes(tree,node=>node.type==='Text').map(node=>JSON.stringify(node.props.children)).join('');assert.ok(!text.includes('Products subtotal'));assert.ok(!text.includes('FREE'));

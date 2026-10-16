@@ -7,6 +7,14 @@ import { request } from './request';
 
 export type PushState = 'ready' | 'needs-permission' | 'denied' | 'disabled' | 'unsupported' | 'signed-out';
 let queue: Promise<unknown> = Promise.resolve();
+let dismissedResponse: string | null = null;
+
+// Called only from a notification response, never from ordinary app activation.
+export async function dismissNotificationShade(responseId: string) {
+  if (Platform.OS !== 'android' || dismissedResponse === responseId) return;
+  dismissedResponse = responseId;
+  try { await Notifications.dismissAllNotificationsAsync(); } catch { /* Routing must still proceed. */ }
+}
 
 export function syncPush(requestPermission = false, enable = false): Promise<PushState> {
   const result = queue.then(() => register(requestPermission, enable));

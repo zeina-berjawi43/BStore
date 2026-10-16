@@ -7,11 +7,12 @@ const ts = require('typescript');
 const source = file => fs.readFileSync(path.join(__dirname, '../src', file), 'utf8');
 const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; };
 const product = { _id: 'p', name: 'Product', image: 'p.jpg', imageFrame: { zoom: 2 }, price: 100, discountedPrice: 80, discount: 20, availability: true };
+const resource = {}; vm.runInNewContext(ts.transpileModule(source('services/resource-cache.ts'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, { exports: resource });
 function catalog(disk = new Map()) {
   const calls = [], exports = {}; let changed;
   vm.runInNewContext(ts.transpileModule(source('services/catalogService.ts'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, {
     exports, require: name => name.includes('async-storage') ? { getItem: async key => disk.get(key) || null, setItem: async (key, value) => disk.set(key, value) }
-      : name === './authService' ? { API_URL: 'https://test' } : name === './tokenStorage' ? { onSessionChanged: fn => { changed = fn; } }
+      : name === './resource-cache' ? resource : name === './authService' ? { API_URL: 'https://test' } : name === './tokenStorage' ? { onSessionChanged: fn => { changed = fn; } }
       : { request: (url, options) => { const gate = deferred(); calls.push({ url, options, ...gate }); return gate.promise; } },
   });
   return { api: exports, calls, disk, changed: () => changed() };

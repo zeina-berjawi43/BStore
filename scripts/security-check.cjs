@@ -57,6 +57,40 @@ function setup(fetchImpl, initial = {}, config = {}) {
 const reply = (status, data) => ({ ok: status >= 200 && status < 300, status, json: async () => data });
 const token = exp => 'header.' + Buffer.from(JSON.stringify({ exp, sid: 'session' })).toString('base64url') + '.signature';
 
+test('Android tap dismisses only presented app notifications, deduplicates login continuation and leaves history/schedules untouched', async () => {
+  let dismissed = 0;
+  const { push } = setup(() => assert.fail('shade dismissal must not call any backend/history endpoint'), {}, {
+    notifications: { dismissAllNotificationsAsync: async () => { dismissed++; } },
+  });
+  await push.dismissNotificationShade('tap'); await push.dismissNotificationShade('tap');
+  assert.equal(dismissed, 1);
+  await push.dismissNotificationShade('another'); assert.equal(dismissed, 2);
+});
+
+test('shade failure never blocks routing; iOS and web do not invoke Android dismissal', async () => {
+  const f = setup(() => {}, {}, { notifications: { dismissAllNotificationsAsync: async () => { throw Error('unavailable'); } } });
+  await assert.doesNotReject(f.push.dismissNotificationShade('tap'));
+  for (const platform of ['web', 'ios']) {
+    const { push } = setup(() => {}, {}, { platform, notifications: { dismissAllNotificationsAsync: () => assert.fail('Android only') } });
+    await push.dismissNotificationShade('tap');
+  }
+});
+
+test('observed profile class changes invalidate full prices without replacing the navigation session', async () => {
+  const { tokens, catalog } = setup(async () => reply(200, { products: [{ _id: 'p', name: 'Product', price: 10, discountedPrice: 8 }] }),
+    { accessToken: 'a', refreshToken: 'r', user: JSON.stringify({ id: 'A', priceClass: 'A' }) });
+  await tokens.readTokens(); const session = tokens.getSessionSnapshot();
+  await catalog.fetchCatalog('a'); assert.equal(catalog.peekCurrentCatalog()[0].price, 10);
+  await tokens.saveSessionUser('a', { id: 'A', priceClass: 'A', name: 'Updated' });
+  assert.equal(catalog.peekCurrentCatalog().length, 1);
+  await tokens.saveSessionUser('a', { id: 'A', priceClass: 'B' });
+  assert.equal(catalog.peekCurrentCatalog().length, 0);
+  assert.equal(tokens.getSessionSnapshot(), session);
+  await catalog.fetchCatalog('a'); await tokens.saveSessionUser('a', { id: 'A', priceClass: 'C' });
+  assert.equal(catalog.peekCurrentCatalog().length, 0);
+  await assert.rejects(tokens.saveSessionUser('old-account', { priceClass: 'A' }), /session changed/);
+});
+
 test('restoration publishes a session once; refresh preserves navigation, logout and login replace it', async () => {
   const { tokens } = setup(() => {}, { accessToken: 'a', refreshToken: 'r' });
   assert.equal(tokens.getSessionSnapshot().ready, false);
@@ -153,7 +187,7 @@ test('a refilled cart does not replay a completed order when local attempt clean
 test('all app routes are classified and a session reset removes history and preloaded private routes', () => {
   const { routes } = setup(() => {});
   const all = [...routes.publicRoutes, ...routes.privateRoutes, ...routes.guestRoutes];
-  const files = fs.readdirSync(path.resolve(__dirname, '../src/app')).filter(f => f.endsWith('.tsx') && f !== '_layout.tsx').map(f => f.slice(0, -4));
+  const files = fs.readdirSync(path.resolve(__dirname, '../src/app')).filter(f => f.endsWith('.tsx') && f !== '_layout.tsx' && f !== '+html.tsx').map(f => f.slice(0, -4));
   assert.deepEqual([...all].sort(), files.sort());
   assert.equal(new Set(all).size, all.length);
   const { StackRouter } = require('expo-router/build/react-navigation/routers/StackRouter');
@@ -195,7 +229,7 @@ for (const file of ['category-products.tsx', 'department-categories.tsx']) {
     const gate = deferred(); let calls = 0;
     const { state } = fixture({ send: async () => { calls++; await gate.promise; throw Error('offline'); } });
     await state.refresh();
-    const add = screenFunction(file, 'addToCart', { shopping: { add: value => state.getSnapshot().pendingCart.has(value._id) ? Promise.resolve() : state.add(value).catch(() => {}) } });
+    const add = screenFunction(file, 'addToCart', { getSessionSnapshot: () => ({ authenticated: true }), showAlert: () => assert.fail('Priced fixture must reach shared shopping state'), shopping: { add: value => state.getSnapshot().pendingCart.has(value._id) ? Promise.resolve() : state.add(value).catch(() => {}) } });
     const first = add(product('one')); await add(product('one')); const second = add(product('two'));
     assert.equal(state.getSnapshot().pendingCart.size, 2); gate.resolve(); await Promise.all([first, second]);
     assert.equal(calls, 2); assert.equal(state.getSnapshot().cartCount, 0); await add(product('one')); assert.equal(calls, 3);
@@ -327,8 +361,11 @@ test('root layout gates restoration, remounts on account changes, protects priva
     'react-native': { Platform: { OS: 'web' }, View: 'View', Text: 'Text', Pressable: 'Pressable', ActivityIndicator: 'ActivityIndicator' },
     'react-native-safe-area-context': { SafeAreaView: 'SafeAreaView' },
     '../components/startup-screen': { StartupScreen: 'StartupScreen' },
+    'expo-linking': { getInitialURL: async () => null },
     'expo-notifications': {}, 'expo-constants': {},
+    'expo-status-bar': { StatusBar: 'StatusBar' },
     'expo-splash-screen': { preventAutoHideAsync: async () => splashCalls.push('hold'), hideAsync: async () => splashCalls.push('hide') },
+    '../services/navigation': { orderNotificationState: () => { throw Error('Unexpected order navigation'); } },
     '../services/tokenStorage': tokens, '../services/sessionRoutes': routes,
     '../services/pushService': { installForegroundHandler: () => {}, syncPush: async () => {} },
   };
@@ -340,12 +377,14 @@ test('root layout gates restoration, remounts on account changes, protects priva
   vm.runInNewContext(code, { exports, setTimeout: (callback, delay) => { timerCallback = callback; timerDelay = delay; return 1; }, clearTimeout: () => {}, require: name => mocks[name] ?? require(name) });
   function render() {
     cursor = 0; effects = [];
-    const child = exports.default().props.children;
+    const children = exports.default().props.children;
+    const child = Array.isArray(children) ? children.find(Boolean) : children;
     effects.forEach(effect => effect());
     return child;
   }
   assert.notEqual(render().type, Stack, 'private screens cannot mount before storage is restored');
   await tokens.readTokens();
+  await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
   const awaitingArtwork = render();
   assert.notEqual(awaitingArtwork.type, Stack, 'session restoration alone cannot bypass the startup artwork');
   assert.deepEqual(splashCalls, ['hold']);

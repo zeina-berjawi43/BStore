@@ -1,3 +1,4 @@
+import { goBackOrSettings } from '../services/navigation';
 import {
   View,
   Text,
@@ -8,7 +9,7 @@ import {
 } from 'react-native';
 
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+
 
 import { BSTORE_SUPPORT_EMAIL as SUPPORT_EMAIL } from '../constants/contact';
 
@@ -22,7 +23,7 @@ export default function Privacy() {
         <View style={styles.header}>
           <Pressable
             style={styles.backButton}
-            onPress={() => router.push('/settings')}
+            onPress={goBackOrSettings}
             accessibilityLabel="Back to settings"
           >
             <Ionicons name="arrow-back" size={22} color="#171717" />

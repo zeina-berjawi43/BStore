@@ -50,3 +50,6 @@ example
 google-services.json
 
 .splash-validation/
+
+# Local navigation verification artifacts
+.navigation-check/

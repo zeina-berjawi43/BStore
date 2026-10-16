@@ -12,7 +12,6 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
-  Image,
   Alert,
 } from 'react-native';
 
@@ -22,13 +21,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import {
   router,
-  useLocalSearchParams,
   useFocusEffect,
 } from 'expo-router';
 
 import {
   useCallback,
+  useEffect,
   useRef,
+
   useState,
 } from 'react';
 
@@ -420,10 +420,12 @@ export default function Checkout() {
   // RELOAD SCREEN
   // ==========================================================
 
+  const focusLoader = useRef(loadData);
+  useEffect(() => { focusLoader.current = loadData; });
   useFocusEffect(
     useCallback(() => {
 
-      loadData();
+      focusLoader.current();
 
     }, [])
   );

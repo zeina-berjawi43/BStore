@@ -11,6 +11,11 @@ let webRemember = false;
 let cachedTokens: Tokens | null = null;
 let queue: Promise<unknown> = Promise.resolve();
 const listeners = new Set<() => void>();
+const pricingListeners = new Set<() => void>();
+export function onPricingChanged(listener: () => void) {
+  pricingListeners.add(listener);
+  return () => { pricingListeners.delete(listener); };
+}
 const snapshotListeners = new Set<() => void>();
 let sessionSnapshot = { ready: false, authenticated: false, revision: 0 };
 export const getSessionSnapshot = () => sessionSnapshot;
@@ -130,7 +135,10 @@ export const saveSessionUser = (expectedAccessToken: string, user: object): Prom
   if (!current.accessToken || current.accessToken !== expectedAccessToken) {
     throw new Error('Your session changed. Please try again.');
   }
+  const previous = await AsyncStorage.getItem('user');
   await AsyncStorage.setItem('user', JSON.stringify(user));
+  const priceClass = (value: object) => (value as { priceClass?: string }).priceClass;
+  if (previous && priceClass(JSON.parse(previous)) !== priceClass(user)) pricingListeners.forEach(listener => listener());
 });
 
 async function clear(): Promise<void> {

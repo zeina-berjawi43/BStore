@@ -27,8 +27,10 @@ export function useHomeSection(section: HomeSection) {
       fresh.current = true;
       setItems(next);
       setError('');
+      return mounted.current && operation === revision.current;
     } catch {
       if (mounted.current && operation === revision.current) setError('Unable to load this section. Please try again.');
+      return false;
     } finally {
       if (mounted.current && operation === revision.current) setLoading(false);
     }

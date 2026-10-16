@@ -21,6 +21,7 @@ const server = http.createServer((req, res) => {
 });
 const mock = () => {
   const jwt = 'header.' + btoa(JSON.stringify({ exp: 4102444800, sid: 'smoke', sub: 'customer' })) + '.signature';
+  sessionStorage.setItem('mystore.auth.v1', JSON.stringify({ accessToken: jwt, refreshToken: 'smoke-refresh' }));
   localStorage.setItem('accessToken', jwt); localStorage.setItem('refreshToken', 'smoke-refresh');
   localStorage.setItem('user', JSON.stringify({ _id: 'customer', name: 'Test Customer', phone: '71000000', role: 'customer', phoneVerified: true, address: 'Fixture address' }));
   localStorage.setItem('isLoggedIn', 'true');
@@ -99,7 +100,7 @@ const mock = () => {
     await evaluate('document.fonts.ready.then(() => true)');
     await evaluate(`window.ui = selector => [...document.querySelectorAll(selector)].find(e => e.getBoundingClientRect().width && !e.closest('[aria-hidden="true"]')); void 0`);
     await evaluate(`window.homeMarker = [...document.querySelectorAll('div')].find(e => e.childElementCount === 0 && e.textContent === 'Top Selling'); void 0`);
-    assert.ok(await evaluate(`document.body.innerText.includes('$8.00') && document.body.innerText.includes('20% OFF')`)); checks.push('Home offer pricing renders');
+    await until(`document.body.innerText.includes('$8.00') && document.body.innerText.includes('20% OFF')`); checks.push('Home offer pricing renders');
     for (const width of [320,360,412]) {
       await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:true}); await wait(150);
       const offerGeometry=await evaluate(`(()=>{const n=window.ui('[data-testid="home-offers"]'),label=[...n.querySelectorAll('div')].find(e=>e.childElementCount===0&&e.textContent==='LIMITED DEAL'&&!e.closest('[aria-hidden="true"]')),info=label.parentElement,card=info.parentElement,white=card.children[0],slot=white.children[0];return {card:card.getBoundingClientRect().width,white:white.getBoundingClientRect().width,info:info.getBoundingClientRect().width,image:slot.getBoundingClientRect().width,overflow:info.scrollWidth>info.clientWidth||info.scrollHeight>info.clientHeight};})()`);
@@ -139,7 +140,7 @@ const mock = () => {
       await until(`location.pathname === '/'`);
       assert.equal(await evaluate('window.homeMarker.isConnected'), true); checks.push(destination + ' back retains Home');
     }
-    await evaluate(`[...document.querySelectorAll('[tabindex="0"]')].find(e => e.getBoundingClientRect().height && !e.closest('[aria-hidden="true"]')).click()`);
+    await evaluate(`window.ui('[aria-label="Open account"]').click()`);
     await until(`location.pathname === '/account'`); await wait(300);
     assert.equal(await evaluate(`document.body.innerText.includes('App settings and preferences')`), false);
     await evaluate(`[...document.querySelectorAll('[tabindex="0"]')].find(e => e.getBoundingClientRect().height && !e.closest('[aria-hidden="true"]')).click()`);
@@ -198,6 +199,8 @@ const mock = () => {
     checks.push('Search removal is immediate and server failure restores the selected heart');
     await evaluate(`window.failFavorite = false; window.ui('[aria-label="Open cart, 2 items"]').click()`);
     await until(`location.pathname === '/cart' && !!window.ui('[aria-label="Test Almonds quantity"]')`);
+    const cartCard=await evaluate(`(()=>{const x=window.ui('[aria-label="Remove Test Almonds from cart"]'),r=x.getBoundingClientRect(),c=x.parentElement.getBoundingClientRect();return {height:c.height,width:c.width,hit:r.width,corner:Math.abs(r.right-c.right)<2&&Math.abs(r.top-c.top)<2};})()`);
+    assert.ok(cartCard.hit>=44&&cartCard.corner);await screenshot('phase3-cart');
     await evaluate(`window.ui('[aria-label="Increase Test Almonds quantity"]').click(); window.ui('[aria-label="Increase Test Almonds quantity"]').click()`);
     await until(`window.ui('[aria-label="Test Almonds quantity"]').value === '3'`);
     assert.equal(await evaluate(`window.actionRequests.filter(([p])=>p==='/cart/update').length`), 1);
@@ -236,6 +239,11 @@ const mock = () => {
     await evaluate(`window.ui('[aria-label="Go back"]').click()`);
     await until(`location.pathname==='/'`); await clickText('Favorites');
     await until(`location.pathname==='/favorites' && document.body.innerText.includes('2 favorites')`);
+    const favoriteCard=await evaluate(`(()=>{const x=window.ui('[aria-label="Remove Test Almonds from favorites"]'),r=x.getBoundingClientRect(),c=x.parentElement.getBoundingClientRect();return {height:c.height,width:c.width,hit:r.width,corner:Math.abs(r.right-c.right)<2&&Math.abs(r.top-c.top)<2};})()`);
+    assert.ok(favoriteCard.hit>=44&&favoriteCard.corner);assert.equal(favoriteCard.width,cartCard.width);
+    assert.equal(favoriteCard.height,cartCard.height);
+    await screenshot('phase3-favorites');
+    checks.push('Cart/Favorites share responsive card width and accessible 44px corner X controls');
     assert.equal(await evaluate(`!!window.ui('[aria-label="Open cart, 0 items"]')`), true);
     assert.equal(await evaluate(`/507f191e810c19729de860ea|507f1f77bcf86cd799439012/.test(document.body.innerText)`),false);
     await evaluate(`window.ui('[aria-label="Add Test Almonds to cart"]').click();window.ui('[aria-label="Add Test Almonds to cart"]').click()`);
@@ -271,14 +279,26 @@ const mock = () => {
       await until(`location.pathname==='/cart'&&document.body.innerText.includes('$${total.toFixed(2)}')`);
       if(quantity===2)assert.ok(await evaluate(`document.body.innerText.includes('more to reach the minimum order.')&&!document.body.innerText.includes('enjoy FREE delivery')`));
       else {
-        assert.ok(await evaluate(`document.body.innerText.includes(${JSON.stringify(message)})&&document.body.innerText.includes('Products subtotal')&&document.body.innerText.includes('Delivery')&&document.body.innerText.includes(${JSON.stringify(fee?'$5.00':'FREE')})&&document.querySelectorAll('[role="progressbar"]').length===2`));
-        await clickText('Checkout');await until(`location.pathname==='/checkout'&&document.body.innerText.includes(${JSON.stringify(message.replace('to get FREE delivery','to enjoy FREE delivery'))})`);
+        assert.ok(await evaluate(`document.body.innerText.includes(${JSON.stringify(message)})&&!document.body.innerText.includes('Products subtotal')&&document.querySelectorAll('[role="progressbar"]').length===2`));
+        const compact=await evaluate(`document.querySelector('[data-testid="cart-compact-breakdown"]')?.textContent||''`);
+        assert.equal(compact,fee?`$${(total-fee).toFixed(2)} subtotal + $${fee.toFixed(2)} delivery = $${total.toFixed(2)}`:'');
+        await clickText('Checkout');await until(`location.pathname==='/checkout'&&document.body.innerText.includes(${JSON.stringify(message)})`);
         assert.ok(await evaluate(`document.body.innerText.includes('$${total.toFixed(2)}')&&document.body.innerText.includes(${JSON.stringify(fee?'Delivery: $5.00':'Delivery: FREE')})`));
         await evaluate('history.back()');await until(`location.pathname==='/cart'`);
       }
       await evaluate('history.back()');await until(`location.pathname==='/favorites'`);
     }
     checks.push('Class C Cart/Checkout show blocked minimum, paid delivery, exact/above FREE thresholds and matching totals from changed server rules');
+    for(const priceClass of ['A','B']) for(const quantity of [2,4]) {
+      await evaluate(`window.deliveryFixture(${quantity},{priceClass:${JSON.stringify(priceClass)},minimumCheckoutAmount:30})`);
+      await evaluate(`window.ui('[aria-label^="Open cart,"]').click()`);
+      await until(`location.pathname==='/cart'&&document.body.innerText.includes('$${(quantity*8).toFixed(2)}')`);
+      assert.equal(await evaluate(`document.querySelectorAll('[role="progressbar"]').length`),0);
+      assert.equal(await evaluate(`!!document.querySelector('[data-testid="cart-compact-breakdown"]')`),false);
+      assert.equal(await evaluate(`[...document.querySelectorAll('[tabindex]')].find(e=>e.textContent.includes('Checkout')).getAttribute('aria-disabled')==='true'`),quantity===2);
+      await evaluate('history.back()');await until(`location.pathname==='/favorites'`);
+    }
+    checks.push('Class A/B keep exact totals, minimum eligibility and no Class C delivery breakdown/progress');
     await send('Page.navigate',{url:'http://127.0.0.1:4175/account'});await until(`document.body.innerText.includes('Logout')`);
     await clickText('Logout');await until(`!!document.querySelector('[role="dialog"]')`);
     assert.equal(await evaluate(`location.pathname==='/account'&&document.body.innerText.includes('Logout')`),true);await clickDialog('Cancel');

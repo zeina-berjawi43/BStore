@@ -1,3 +1,4 @@
+import { startShopping } from '../services/navigation';
 import { useActionDialog } from '../components/action-dialog';
 import { request } from '../services/request';
 import {
@@ -18,6 +19,8 @@ import {
 
 import {
   useCallback,
+  useEffect,
+  useRef,
   useState,
 } from 'react';
 
@@ -261,11 +264,13 @@ export default function Orders() {
      LOAD WHEN SCREEN FOCUSES
   ======================================================= */
 
+  const focusLoader = useRef(loadOrders);
+  useEffect(() => { focusLoader.current = loadOrders; });
   useFocusEffect(
     useCallback(
       () => {
 
-        loadOrders();
+        focusLoader.current();
 
       },
       []
@@ -482,7 +487,7 @@ export default function Orders() {
                 styles.shopButton
               }
               onPress={() =>
-                router.replace('/')
+                startShopping()
               }
             >
 

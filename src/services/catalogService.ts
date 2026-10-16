@@ -2,7 +2,8 @@ import { ImageFrame } from './image-frame';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from './authService';
 import { request } from './request';
-import { onSessionChanged } from './tokenStorage';
+import { reconcileItems } from './resource-cache';
+import { onSessionChanged, onPricingChanged } from './tokenStorage';
 
 export type CatalogProduct = {
   _id: string;
@@ -31,7 +32,17 @@ const pending = new Map<string | null, Promise<CatalogProduct[]>>();
 const sectionSnapshots = new Map<ProductSection, { token: string | null; products: CatalogProduct[]; time: number }>();
 const sectionPending = new Map<string, Promise<CatalogProduct[]>>();
 let generation = 0;
-onSessionChanged(() => { generation++; snapshot = null; pending.clear(); sectionSnapshots.clear(); sectionPending.clear(); });
+function invalidatePrices() { generation++; snapshot = null; pending.clear(); sectionSnapshots.clear(); sectionPending.clear(); }
+onSessionChanged(invalidatePrices);
+onPricingChanged?.(invalidatePrices);
+
+export function peekCurrentCatalog(): CatalogProduct[] {
+  return snapshot && Date.now() - snapshot.time < 300_000 ? snapshot.products : [];
+}
+export function peekPricedSection(section: ProductSection, token: string | null): CatalogProduct[] {
+  const saved = section === 'catalog' ? snapshot : sectionSnapshots.get(section);
+  return saved?.token === token && Date.now() - saved.time < 300_000 ? saved.products : [];
+}
 
 function normalize(data: unknown): CatalogProduct[] {
   if (!Array.isArray(data)) throw new Error('Unable to read the product list.');
@@ -69,10 +80,11 @@ export async function fetchCatalog(token: string | null, force = false): Promise
   const operation = (async () => {
     const response = await request(`${API_URL}/products`, {
       headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-    });
+    }, 8000);
     const data = await response.json();
     if (!response.ok) throw new Error(data?.message || 'Could not load products. Please try again.');
-    const products = normalize(Array.isArray(data) ? data : data.products);
+    const next = normalize(Array.isArray(data) ? data : data.products);
+    const products = reconcileItems(snapshot?.token === token ? snapshot.products : undefined, token ? next : publicOnly(next).map((item, i) => ({ ...item, availability: next[i].availability })));
     if (revision === generation) {
       snapshot = { token, products, time: Date.now() };
       // An unexpected empty refresh must not destroy the last usable cold-start metadata.
@@ -80,6 +92,7 @@ export async function fetchCatalog(token: string | null, force = false): Promise
     // Rendering never waits for disk I/O.
       void AsyncStorage.setItem(CACHE_KEY, JSON.stringify(publicProducts)).catch(() => {});
     }
+    if (revision !== generation) throw new Error('Catalog session changed. Please retry.');
     return products;
   })().finally(() => { if (pending.get(token) === operation) pending.delete(token); });
   pending.set(token, operation);
@@ -110,16 +123,18 @@ export async function fetchProductSection(section: ProductSection, token: string
   if (existing) return existing;
   const revision = generation;
   const operation = (async () => {
-    const response = await request(`${API_URL}/products/${section}`, { headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) } });
+    const response = await request(`${API_URL}/products/${section}`, { headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) } }, 8000);
     const data = await response.json();
     if (!response.ok) throw new Error('Could not load products. Please try again.');
-    const products = normalize(section === 'top-selling' && Array.isArray(data.products) ? data.products.map((item: any) => item?.product) : data.products);
+    const next = normalize(section === 'top-selling' && Array.isArray(data.products) ? data.products.map((item: any) => item?.product) : data.products);
+    const products = reconcileItems(saved?.token === token ? saved.products : undefined, token ? next : publicOnly(next).map((item, i) => ({ ...item, availability: next[i].availability })));
     if (section === 'top-selling' && !products.length) throw new Error('Top selling products are temporarily unavailable. Please refresh.');
     if (revision === generation) {
       sectionSnapshots.set(section, { token, products, time: Date.now() });
       sectionProducts.set(section, publicOnly(products));
       void AsyncStorage.setItem(`${CACHE_KEY}:${section}`, JSON.stringify(publicOnly(products))).catch(() => {});
     }
+    if (revision !== generation) throw new Error('Catalog session changed. Please retry.');
     return products;
   })().finally(() => { if (sectionPending.get(key) === operation) sectionPending.delete(key); });
   sectionPending.set(key, operation);

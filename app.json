@@ -8,6 +8,7 @@
     "icon": "./assets/images/splash-logo.png",
     "scheme": "bstore",
     "userInterfaceStyle": "automatic",
+    "androidStatusBar": { "barStyle": "dark-content" },
     "android": {
       "predictiveBackGestureEnabled": false,
       "package": "com.zeina43.mystore",

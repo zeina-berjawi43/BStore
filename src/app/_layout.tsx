@@ -1,3 +1,5 @@
+import * as Linking from 'expo-linking';
+import { StatusBar } from 'expo-status-bar';
 import { Stack, router, useNavigationContainerRef, useRootNavigationState, usePathname } from 'expo-router';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { AppState, Platform, Pressable, Text, View } from 'react-native';
@@ -6,9 +8,12 @@ import Constants from 'expo-constants';
 import * as SplashScreen from 'expo-splash-screen';
 import { StartupScreen } from '../components/startup-screen';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { installForegroundHandler, notificationDestination, syncPush } from '../services/pushService';
+import { dismissNotificationShade, installForegroundHandler, notificationDestination, syncPush } from '../services/pushService';
 import { getSessionSnapshot, onSessionChanged, readTokens, subscribeSession } from '../services/tokenStorage';
+import { orderNotificationState } from '../services/navigation';
 import { cleanSessionNavigationState, guestRoutes, privateRoutes, publicRoutes } from '../services/sessionRoutes';
+
+export const unstable_settings = { initialRouteName: 'index' };
 
 installForegroundHandler();
 // Hold the centered logo briefly, then reveal the ready React loading screen.
@@ -18,6 +23,23 @@ const splashStartedAt = Date.now();
 
 export default function RootLayout() {
   const pathname = usePathname();
+  const initialOrder = useRef<string | null>(null);
+  const webOrderEntry = useRef<'home' | 'orders' | null>(null);
+  const [initialLinkReady, setInitialLinkReady] = useState(false);
+  useEffect(() => {
+    let active = true;
+    void Linking.getInitialURL().then(url => {
+      if (!active || !url) return;
+      const link = Linking.parse(url);
+      const orderId = link.queryParams?.orderId;
+      // Custom-scheme links such as bstore://order-details use the hostname.
+      const route = link.path || link.hostname;
+      if (route === 'order-details' && typeof orderId === 'string' && /^[a-f0-9]{24}$/i.test(orderId)) {
+        initialOrder.current = orderId;
+      }
+    }).catch(() => {}).finally(() => { if (active) setInitialLinkReady(true); });
+    return () => { active = false; };
+  }, []);
   const fullWindow = pathname === '/' || pathname === '/loading';
   const session = useSyncExternalStore(subscribeSession, getSessionSnapshot, getSessionSnapshot);
   const [restoreError, setRestoreError] = useState(false);
@@ -44,7 +66,33 @@ export default function RootLayout() {
       navigationRef.resetRoot(cleanSessionNavigationState());
     }
   }, [session.ready, session.revision, navigation?.key, navigationRef]);
+  useEffect(() => {
+    if (!session.ready || !initialLinkReady || !startupPainted || !navigationRef.isReady() || !navigation?.key || !initialOrder.current) return;
+    if (!session.authenticated) {
+      if (pathname === '/' || pathname === '/order-details') router.replace('/login');
+      return;
+    }
+    const orderId = initialOrder.current;
+    // Browser Back reads browser history, so create real entries one route at a time.
+    if (Platform.OS === 'web') {
+      if (!webOrderEntry.current) {
+        webOrderEntry.current = 'home';
+        router.replace('/');
+      } else if (webOrderEntry.current === 'home' && pathname === '/') {
+        webOrderEntry.current = 'orders';
+        router.push('/orders');
+      } else if (webOrderEntry.current === 'orders' && pathname === '/orders') {
+        initialOrder.current = null;
+        webOrderEntry.current = null;
+        router.push({ pathname: '/order-details', params: { orderId } });
+      }
+      return;
+    }
+    initialOrder.current = null;
+    navigationRef.resetRoot(orderNotificationState(orderId));
+  }, [session.ready, session.authenticated, session.revision, initialLinkReady, startupPainted, navigation?.key, navigationRef, pathname]);
   const handled = useRef<string | null>(null);
+  const pendingNotification = useRef<Notifications.NotificationResponse | null>(null);
   const restore = () => {
     setRestoreError(false);
     void readTokens().catch(() => setRestoreError(true));
@@ -57,24 +105,40 @@ export default function RootLayout() {
     return onSessionChanged(sync);
   }, [session.ready]);
   useEffect(() => {
-    if (!session.ready || Platform.OS === 'web' || Constants.appOwnership === 'expo' || !navigation?.key) return;
+    if (!session.ready || !initialLinkReady || !startupPainted || !navigationRef.isReady() || Platform.OS === 'web' || Constants.appOwnership === 'expo' || !navigation?.key) return;
     let active = true;
     let processing = false;
     const handle = async (response: Notifications.NotificationResponse) => {
       const id = response.notification.request.identifier;
       if (handled.current === id || processing) return;
       processing = true;
+      // This API affects only this app's presented notifications, not history or schedules.
+      void dismissNotificationShade(id);
       const revision = getSessionSnapshot().revision;
       try {
-        const destination = await notificationDestination(response.notification.request.content.data || {});
+        const data = response.notification.request.content.data || {};
+        if (!getSessionSnapshot().authenticated) {
+          pendingNotification.current = response;
+          router.replace('/login');
+          return;
+        }
+        const destination = await notificationDestination(data);
         if (!active || revision !== getSessionSnapshot().revision) return;
+        if (!getSessionSnapshot().authenticated) {
+          pendingNotification.current = response;
+          router.replace('/login');
+          return;
+        }
         await Notifications.clearLastNotificationResponseAsync();
         if (!active || revision !== getSessionSnapshot().revision) return;
         handled.current = id;
-        if (destination) router.push(destination);
+        pendingNotification.current = null;
+        if (destination?.pathname === '/order-details') {
+          navigationRef.resetRoot(orderNotificationState(destination.params.orderId));
+        } else if (destination) router.dismissTo('/');
       } finally { processing = false; }
     };
-    const last = Notifications.getLastNotificationResponse();
+    const last = pendingNotification.current || Notifications.getLastNotificationResponse();
     if (last) void handle(last).catch(() => {});
     const tap = Notifications.addNotificationResponseReceivedListener(response => { void handle(response).catch(() => {}); });
     const rotation = Notifications.addPushTokenListener(() => { void syncPush().catch(() => {}); });
@@ -86,10 +150,11 @@ export default function RootLayout() {
       }
     });
     return () => { active = false; tap.remove(); rotation.remove(); foreground.remove(); };
-  }, [navigation?.key, session.ready, session.revision]);
+  }, [navigation?.key, navigationRef, session.ready, session.revision, initialLinkReady, startupPainted]);
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: fullWindow || !session.ready || !startupPainted ? '#FFFFFF' : '#F7F3EC' }} edges={Platform.OS === 'android' && session.ready && startupPainted && !fullWindow ? ['top', 'bottom', 'left', 'right'] : []}>
-      {!session.ready || !startupPainted ? (
+    <SafeAreaView style={{ flex: 1, ...(Platform.OS === 'web' ? { width: '100%', maxWidth: ['/login','/register','/verify-otp','/reset-password'].includes(pathname) ? 560 : ['/cart','/favorites','/checkout'].includes(pathname) ? 880 : 1120, alignSelf: 'center' as const } : {}), backgroundColor: fullWindow || !session.ready || !initialLinkReady || !startupPainted ? '#FFFFFF' : '#F7F3EC' }} edges={Platform.OS === 'android' && session.ready && startupPainted && !fullWindow ? ['top', 'bottom', 'left', 'right'] : []}>
+      {Platform.OS === 'android' && <StatusBar style="dark" />}
+      {!session.ready || !initialLinkReady || !startupPainted ? (
         <StartupScreen onReady={startupReady}>
           {restoreError && <View style={{ position: 'absolute', bottom: '20%', padding: 24 }}>
             <Pressable onPress={restore}><Text>Unable to restore your session. Tap to retry.</Text></Pressable>

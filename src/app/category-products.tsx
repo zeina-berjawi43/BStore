@@ -1,5 +1,5 @@
 import { getSessionSnapshot } from '../services/tokenStorage';
-import { fetchCatalog, readPublicCatalog } from '../services/catalogService';
+
 import { useShopping } from '../hooks/use-shopping';
 
 import { CartButton } from '../components/cart-button';
@@ -9,24 +9,26 @@ import { getFinalPrice } from '../services/product-price';
 import { ProductImage } from '../components/product-image';
 import { ImageFrame } from '../services/image-frame';
 
-import { request } from '../services/request';
+import { useCatalogScreen } from '../hooks/use-catalog-screen';
 import {
   View,
-  Alert,
   Text,
   StyleSheet,
   Pressable,
   ScrollView,
+  FlatList,
+  ActivityIndicator,
+  Platform,
+  useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import {
   router,
-  useFocusEffect,
   useLocalSearchParams,
 } from 'expo-router';
-import { memo, useCallback, useRef, useState } from 'react';
-import { getValidAccessToken } from '../services/authService';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
+
 /* =========================================================
    API
 ========================================================= */
@@ -42,7 +44,7 @@ type Product = {
   price?: number;
   discount?: number;
   discountedPrice?: number;
-  image: string;
+  image?: string;
   imageFrame?: ImageFrame | null;
   category?: {
     _id?: string;
@@ -53,14 +55,6 @@ type Product = {
     name?: string;
   } | string;
   availability?: boolean;
-};
-type SubCategory = {
-  _id: string;
-  name: string;
-  department?: {
-    _id?: string;
-    name?: string;
-  } | string | null;
 };
 
 /* =========================================================
@@ -147,268 +141,13 @@ export default function CategoryProducts() {
 }
 
 function CategoryProductsScreen({ category }: { category: string }) {
+  const { width } = useWindowDimensions();
+  const columns = Platform.OS === 'web' ? (width >= 1024 ? 4 : width >= 768 ? 3 : 2) : 2;
   const shopping = useShopping();
-
-
-  /* =======================================================
-     STATES
-  ======================================================= */
-  const [
-    products,
-    setProducts,
-  ] = useState<Product[]>([]);
-  const [
-    subCategories,
-    setSubCategories,
-  ] = useState<SubCategory[]>([]);
-  const [
-    selectedSubCategory,
-    setSelectedSubCategory,
-  ] = useState<string>('ALL');
-  const [
-    loadingSubCategories,
-    setLoadingSubCategories,
-  ] = useState(false);
-  const [
-    loadingProducts,
-    setLoadingProducts,
-  ] = useState(true);
-  const [productsError, setProductsError] = useState('');
-  const productLoad = useRef(0);
-  const favorites = shopping.favorites.map(p => String(p._id || p.id));
-  const [
-    isLoggedIn,
-    setIsLoggedIn,
-  ] = useState(false);
-
+  const { subCategories, selectedSubCategory, setSelectedSubCategory, loadingProducts,
+    loadingSubCategories, productsError, filteredProducts, isLoggedIn, retry } = useCatalogScreen(undefined, category);
+  const favorites = useMemo(() => new Set(shopping.favorites.map(p => String(p._id || p.id))), [shopping.favorites]);
   const { showAlert, feedback } = shopping;
-  /* =======================================================
-     CHECK LOGIN
-  ======================================================= */
-  const checkLogin = async () => {
-    try {
-      const accessToken =
-        await getValidAccessToken();
-      const loginStatus =
-        await AsyncStorage.getItem(
-          'isLoggedIn'
-        );
-      const savedUser =
-        await AsyncStorage.getItem(
-          'user'
-        );
-      const loggedIn =
-        !!accessToken &&
-        (
-          loginStatus === 'true' ||
-          !!savedUser
-        );
-      setIsLoggedIn(
-        loggedIn
-      );
-      return accessToken;
-    } catch (error) {
-      if (__DEV__) { console.log(
-        'CHECK LOGIN ERROR:',
-        error instanceof Error ? error.name : 'Error'
-      ); }
-      throw error;
-    }
-  };
-  /* =======================================================
-     LOAD PRODUCTS
-  ======================================================= */
-  const loadProducts = async () => {
-    if (!products.length) setLoadingProducts(true);
-    const operation = ++productLoad.current;
-    let fresh = false;
-    setProductsError('');
-    void readPublicCatalog().then(cached => {
-      if (productLoad.current === operation && !fresh && cached.length) setProducts(current => current.length ? current : cached as Product[]);
-    });
-    try {
-      const token = await getValidAccessToken();
-      const data = await fetchCatalog(token);
-      if (productLoad.current !== operation) return;
-      fresh = true;
-      setProducts(data as Product[]);
-    } catch {
-      if (productLoad.current === operation) setProductsError('Products are unavailable. Please try again.');
-    } finally {
-      if (productLoad.current === operation) setLoadingProducts(false);
-    }
-  };
-  /* =======================================================
-     LOAD SUBCATEGORIES
-     Backend Category = visible Sub Category
-  ======================================================= */
-  const loadSubCategories = async () => {
-    if (category.toUpperCase() === 'ALL') {
-      setSubCategories([]);
-      setSelectedSubCategory('ALL');
-      return;
-    }
-
-    try {
-      setLoadingSubCategories(true);
-
-      const response = await request(
-        `${API_URL}/categories`,
-        {
-          method: 'GET',
-          headers: {
-            Accept: 'application/json',
-          },
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        if (__DEV__) {
-          console.log(
-            'GET CATEGORIES ERROR:',
-            data
-          );
-        }
-
-        setSubCategories([]);
-        setSelectedSubCategory('ALL');
-        return;
-      }
-
-      const receivedSubCategories =
-        Array.isArray(data)
-          ? data
-          : Array.isArray(data?.categories)
-            ? data.categories
-            : [];
-
-      const categorySubCategories =
-        receivedSubCategories
-          .filter(
-            (subCategory: SubCategory) => {
-              const parentName =
-                typeof subCategory.department === 'object'
-                  ? subCategory.department?.name
-                  : undefined;
-
-              return (
-                parentName?.toLowerCase().trim() ===
-                category.toLowerCase().trim()
-              );
-            }
-          )
-          .sort(
-            (a: SubCategory, b: SubCategory) =>
-              a.name.localeCompare(b.name)
-          );
-
-      setSubCategories(
-        categorySubCategories
-      );
-      setSelectedSubCategory('ALL');
-    } catch (error) {
-      if (__DEV__) {
-        console.log(
-          'LOAD SUBCATEGORIES ERROR:',
-          error instanceof Error ? error.name : 'Error'
-        );
-      }
-
-      setSubCategories([]);
-      setSelectedSubCategory('ALL');
-    } finally {
-      setLoadingSubCategories(false);
-    }
-  };
-
-  /* =======================================================
-     LOAD CART
-  ======================================================= */
-
-  const loadCart = async () => { await shopping.refresh(); };
-  /* =======================================================
-     LOAD FAVORITES
-  ======================================================= */
-  const loadFavorites = async () => { await shopping.refresh(); };
-  /* =======================================================
-     LOAD EVERYTHING
-  ======================================================= */
-  const loadData = async () => {
-    const loginPromise =
-      checkLogin().catch(() => Alert.alert('Connection Error', 'Could not verify your session. Please try again.'));
-    const productsPromise =
-      loadProducts();
-    const subCategoriesPromise =
-      loadSubCategories();
-    const cartPromise =
-      loadCart();
-    const favoritesPromise =
-      loadFavorites();
-    await Promise.all([
-      loginPromise,
-      productsPromise,
-      subCategoriesPromise,
-      cartPromise,
-      favoritesPromise,
-    ]);
-  };
-  /* =======================================================
-     PAGE FOCUS
-  ======================================================= */
-  useFocusEffect(
-    useCallback(() => {
-      void loadData().catch(() => showAlert('Could not load cart and favorites. Please reopen this page to retry.', 'Connection Error'));
-    }, [])
-  );
-  /* =======================================================
-     FILTER + SORT PRODUCTS
-
-     Backend:
-       Department = visible Category
-       Category   = visible Sub Category
-  ======================================================= */
-  const filteredProducts =
-    (
-      category.toUpperCase() === 'ALL'
-        ? products
-        : selectedSubCategory === 'ALL'
-          ? products.filter(
-              product => {
-                const productCategoryId =
-                  typeof product.category === 'object'
-                    ? product.category?._id
-                    : product.category;
-
-                return subCategories.some(
-                  subCategory =>
-                    subCategory._id ===
-                    productCategoryId
-                );
-              }
-            )
-          : products.filter(
-              product => {
-                const productCategoryId =
-                  typeof product.category === 'object'
-                    ? product.category?._id
-                    : product.category;
-
-                return (
-                  productCategoryId ===
-                  selectedSubCategory
-                );
-              }
-            )
-    )
-      .slice()
-      .sort(
-        (a, b) =>
-          getFinalPrice(b) -
-          getFinalPrice(a)
-      );
-
   /* =======================================================
      ADD TO CART
   ======================================================= */
@@ -442,6 +181,11 @@ function CategoryProductsScreen({ category }: { category: string }) {
   /* =======================================================
      RENDER
   ======================================================= */
+  const actions = useRef({ openProduct, addToCart, toggle: shopping.toggle });
+  useEffect(() => { actions.current = { openProduct, addToCart, toggle: shopping.toggle }; });
+  const onOpen = useCallback((product: Product) => actions.current.openProduct(product), []);
+  const onAdd = useCallback((product: Product) => { void actions.current.addToCart(product); }, []);
+  const onFavorite = useCallback((product: Product) => { void actions.current.toggle(product); }, []);
   return (
     <View
       style={
@@ -457,14 +201,19 @@ function CategoryProductsScreen({ category }: { category: string }) {
           ONE PAGE-LEVEL ALERT ONLY
       ================================================= */}
 
-      <ScrollView
-        showsVerticalScrollIndicator={
-          false
-        }
-        contentContainerStyle={
-          styles.scrollContent
-        }
-      >
+      <FlatList
+        key={columns}
+        data={filteredProducts as Product[]}
+        keyExtractor={product => product._id}
+        numColumns={columns}
+        initialNumToRender={12}
+        maxToRenderPerBatch={8}
+        windowSize={5}
+        removeClippedSubviews={false}
+        columnWrapperStyle={styles.productsGrid}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        ListHeaderComponent={<View>
         {/* =================================================
             HEADER
         ================================================= */}
@@ -598,18 +347,18 @@ function CategoryProductsScreen({ category }: { category: string }) {
         {/* =================================================
             LOADING PRODUCTS
         ================================================= */}
-        {loadingProducts &&
-        products.length === 0 ? (
+
+          {loadingSubCategories && subCategories.length === 0 && <ActivityIndicator color="#E35B3F" accessibilityLabel="Loading categories" />}
+          {!!productsError && <Pressable onPress={retry} accessibilityRole="button"><Text style={styles.emptyText}>{productsError} Tap to retry.</Text></Pressable>}
+        </View>}
+        ListEmptyComponent={(loadingProducts || loadingSubCategories) &&
+        filteredProducts.length === 0 ? (
           <View
             style={
               styles.loadingContainer
             }
           >
-            <View
-              style={
-                styles.loadingSpinner
-              }
-            />
+            <ActivityIndicator size="large" color="#E35B3F" />
             <Text
               style={
                 styles.loadingText
@@ -618,8 +367,7 @@ function CategoryProductsScreen({ category }: { category: string }) {
               Loading products...
             </Text>
           </View>
-        ) : filteredProducts.length ===
-          0 ? (
+        ) : (
           <View
             style={
               styles.emptyContainer
@@ -652,19 +400,23 @@ function CategoryProductsScreen({ category }: { category: string }) {
                 ? 'There are no products in this category yet.'
                 : 'There are no products in this subcategory yet.'}
             </Text>
-          </View>
-        ) : (
-          <View
-            style={
-              styles.productsGrid
-            }
-          >
-            {filteredProducts.map(
-              product => {
-                const favorite =
-                  favorites.includes(
-                    product._id
-                  );
+          </View>)}
+        renderItem={({ item: product }) => <CatalogCard columns={columns} product={product} favorite={favorites.has(product._id)}
+          pending={shopping.pendingCart.has(product._id)} isLoggedIn={isLoggedIn}
+          onOpen={onOpen} onAdd={onAdd} onFavorite={onFavorite} />}
+        ListFooterComponent={<View style={styles.bottomSpace} />}
+      />
+    </View>
+  );
+}
+/* =========================================================
+   STYLES
+========================================================= */
+
+const CatalogCard = memo(function CatalogCard({ columns, product, favorite, pending, isLoggedIn, onOpen, onAdd, onFavorite }: {
+  columns: number; product: Product; favorite: boolean; pending: boolean; isLoggedIn: boolean;
+  onOpen: (product: Product) => void; onAdd: (product: Product) => void; onFavorite: (product: Product) => void;
+}) {
                 const imageUrl =
                   getImageUrl(
                     product.image
@@ -693,13 +445,9 @@ function CategoryProductsScreen({ category }: { category: string }) {
                     key={
                       product._id
                     }
-                    style={
-                      styles.productCard
-                    }
+                    style={[styles.productCard, { width: `${100 / columns - 1.8}%` }]}
                     onPress={() =>
-                      openProduct(
-                        product
-                      )
+                      onOpen(product)
                     }
                   >
                     {/* IMAGE */}
@@ -758,7 +506,7 @@ function CategoryProductsScreen({ category }: { category: string }) {
                       </View>
                     )}
                     {/* FAVORITE */}
-                    <FavoriteButton onToggle={() => void shopping.toggle(product)}
+                    <FavoriteButton onToggle={() => void onFavorite(product)}
                       initialFavorite={
                         favorite
                       }
@@ -874,27 +622,13 @@ function CategoryProductsScreen({ category }: { category: string }) {
                         )}
                       </View>
                       <AddToCartButton name={product.name}
-                        pending={shopping.pendingCart.has(product._id)} unavailable={isOutOfStock}
-                        onPress={() => void addToCart(product)} />
+                        pending={pending} unavailable={isOutOfStock}
+                        onPress={() => void onAdd(product)} />
                     </View>
                   </Pressable>
                 );
-              }
-            )}
-          </View>
-        )}
-        <View
-          style={
-            styles.bottomSpace
-          }
-        />
-      </ScrollView>
-    </View>
-  );
-}
-/* =========================================================
-   STYLES
-========================================================= */
+});
+
 const styles =
   StyleSheet.create({
   container: {

@@ -1,4 +1,4 @@
-import { getSessionSnapshot } from '../services/tokenStorage';
+import { getSessionSnapshot, onPricingChanged } from '../services/tokenStorage';
 import { useShopping } from '../hooks/use-shopping';
 
 import { CartButton } from '../components/cart-button';
@@ -6,12 +6,12 @@ import { CartButton } from '../components/cart-button';
 import { AddToCartButton } from '../components/add-to-cart-button';
 import { getFinalPrice } from '../services/product-price';
 import { ProductImage } from '../components/product-image';
-import { useCallback, useDeferredValue, useMemo, useRef, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { API_URL, getValidAccessToken } from '../services/authService';
-import { CatalogProduct, fetchCatalog, peekPublicCatalog, readPublicCatalog } from '../services/catalogService';
+import { CatalogProduct, fetchCatalog, peekCurrentCatalog, readPublicCatalog } from '../services/catalogService';
 
 
 const label = (value?: CatalogProduct['category']) => typeof value === 'string' ? value : value?.name || '';
@@ -26,7 +26,7 @@ export default function Search() {
   const shopping = useShopping();
   const [searchText, setSearchText] = useState('');
   const query = useDeferredValue(searchText.trim().toLowerCase());
-  const [products, setProducts] = useState<CatalogProduct[]>(peekPublicCatalog);
+  const [products, setProducts] = useState<CatalogProduct[]>(peekCurrentCatalog);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -36,6 +36,7 @@ export default function Search() {
   const { feedback } = shopping;
   const epoch = useRef(0);
 
+  const refreshShopping = shopping.refresh;
   const load = useCallback(async (generation: number, force = false) => {
     setError('');
     setLoading(true);
@@ -50,7 +51,9 @@ export default function Search() {
     try {
       const token = await getValidAccessToken();
       if (epoch.current !== generation) return;
-      void shopping.refresh(force).catch(() => {});
+      void refreshShopping(force).catch(() => {});
+      const cached = peekCurrentCatalog();
+      if (cached.length) setProducts(cached);
       const data = await fetchCatalog(token, force);
       if (epoch.current !== generation) return;
       liveProductsLoaded = true;
@@ -60,7 +63,12 @@ export default function Search() {
     } finally {
       if (epoch.current === generation) { setLoading(false); setRefreshing(false); }
     }
-  }, []);
+  }, [refreshShopping]);
+
+  useEffect(() => onPricingChanged?.(() => {
+    setProducts([]);
+    void load(++epoch.current, true);
+  }), [load]);
 
   useFocusEffect(useCallback(() => {
     const generation = ++epoch.current;

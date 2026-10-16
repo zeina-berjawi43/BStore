@@ -22,6 +22,8 @@ import {
 
 import {
   useCallback,
+  useEffect,
+  useRef,
   useState,
 } from 'react';
 
@@ -478,11 +480,13 @@ export default function OrderDetails() {
   // REFRESH ON FOCUS
   // =======================================================
 
+  const focusLoader = useRef({ id: orderId, load: loadOrder });
+  useEffect(() => { focusLoader.current = { id: orderId, load: loadOrder }; });
   useFocusEffect(
     useCallback(
       () => {
 
-        loadOrder();
+        if (focusLoader.current.id === orderId) void focusLoader.current.load();
 
       },
       [orderId]

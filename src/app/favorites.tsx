@@ -1,3 +1,4 @@
+import { shoppingCardLayout } from '../components/shopping-card-layout';
 import { useActionDialog } from '../components/action-dialog';
 import { useShopping } from '../hooks/use-shopping';
 import { confirmShoppingClear } from '../services/confirm-shopping-clear';
@@ -6,7 +7,7 @@ import { CartButton } from '../components/cart-button';
 
 import { getFinalPrice } from '../services/product-price';
 
-import { goBackOrHome } from '../services/navigation';
+import { goBackOrHome, startShopping } from '../services/navigation';
 import { ProductImage } from '../components/product-image';
 import { ImageFrame } from '../services/image-frame';
 
@@ -124,7 +125,7 @@ export default function Favorites() {
   const favorites = shopping.favorites.map(p => ({ ...p, id: String(p._id || p.id), category: favoriteReferenceLabel(p.category), brand: favoriteReferenceLabel(p.brand) })) as FavoriteProduct[];
 
   const [
-    isLoggedIn,
+    ,
     setIsLoggedIn,
   ] = useState(false);
 
@@ -295,6 +296,7 @@ export default function Favorites() {
     }, [
       checkLogin,
       loadFavorites,
+      showAlert,
     ])
   );
 
@@ -482,7 +484,7 @@ export default function Favorites() {
               styles.shopButton
             }
             onPress={
-              goBackHome
+              startShopping
             }
           >
 
@@ -575,6 +577,8 @@ export default function Favorites() {
                   }
                 >
 
+<Pressable accessibilityRole="button" accessibilityLabel={`Remove ${product.name} from favorites`} style={styles.removeButton}
+  disabled={itemRemoving || itemAddingToCart} onPress={event => { event.stopPropagation(); if (!itemRemoving) void removeFavorite(product.id); }}><Ionicons name="close" size={21} color="#E35B3F" /></Pressable>
                   {/* =================================================
                       IMAGE
                   ================================================= */}
@@ -848,42 +852,7 @@ export default function Favorites() {
                       </Pressable>
 
 
-                      {/* REMOVE */}
 
-                      <Pressable
-                        style={
-                          styles.removeButton
-                        }
-
-                        onPress={(event) => {
-
-                          event.stopPropagation();
-
-                          if (
-                            !itemRemoving
-                          ) {
-
-                            removeFavorite(
-                              product.id
-                            );
-
-                          }
-
-                        }}
-
-                        disabled={
-                          itemRemoving ||
-                          itemAddingToCart
-                        }
-                      >
-
-                        <Ionicons
-                          name="heart"
-                          size={18}
-                          color="#E35B3F"
-                        />
-
-                      </Pressable>
 
                     </View>
 
@@ -1295,9 +1264,6 @@ const styles =
       borderRadius:
         21,
 
-      padding:
-        12,
-
       flexDirection:
         'row',
 
@@ -1306,9 +1272,6 @@ const styles =
 
       borderColor:
         '#E7DED1',
-
-      marginBottom:
-        13,
 
       position:
         'relative',
@@ -1329,7 +1292,7 @@ const styles =
 
       elevation:
         2,
-
+      ...shoppingCardLayout.card,
     },
 
 
@@ -1338,12 +1301,6 @@ const styles =
     // =======================================================
 
     productImage: {
-
-      width:
-        108,
-
-      height:
-        116,
 
       borderRadius:
         17,
@@ -1365,7 +1322,7 @@ const styles =
 
       overflow:
         'hidden',
-
+      ...shoppingCardLayout.image,
     },
 
     productImageActual: { backgroundColor: '#FFFFFF',
@@ -1441,7 +1398,7 @@ const styles =
 
       minWidth:
         0,
-
+      ...shoppingCardLayout.info,
     },
 
     name: {
@@ -1630,35 +1587,6 @@ const styles =
 
     },
 
-    removeButton: {
-
-      width:
-        40,
-
-      height:
-        38,
-
-      borderRadius:
-        11,
-
-      marginLeft:
-        7,
-
-      backgroundColor:
-        '#FFF7F3',
-
-      borderWidth:
-        1,
-
-      borderColor:
-        '#F0CFC4',
-
-      alignItems:
-        'center',
-
-      justifyContent:
-        'center',
-
-    },
+    removeButton: { ...shoppingCardLayout.remove },
 
   });

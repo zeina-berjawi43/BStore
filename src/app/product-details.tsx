@@ -23,6 +23,7 @@ import {
 
 import {
   useCallback,
+  useEffect,
   useRef,
   useState,
 } from 'react';
@@ -351,7 +352,7 @@ export default function ProductDetails() {
   const updatingFavorite = shopping.pendingFavorites.has(String(product?._id));
 
 
-  const { showAlert, feedback } = shopping;
+  const { feedback } = shopping;
 
   /* =======================================================
      CHECK LOGIN
@@ -459,12 +460,12 @@ export default function ProductDetails() {
      PAGE FOCUS
   ======================================================= */
 
+  const focusLoader = useRef({ id: productId, load: () => { void loadProduct(); void loadFavoriteStatus(); } });
+  useEffect(() => { focusLoader.current = { id: productId, load: () => { void loadProduct(); void loadFavoriteStatus(); } }; });
   useFocusEffect(
     useCallback(() => {
 
-      loadProduct();
-
-      loadFavoriteStatus();
+      if (focusLoader.current.id === productId) focusLoader.current.load();
 
     }, [productId])
   );

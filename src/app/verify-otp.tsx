@@ -114,7 +114,7 @@ export default function VerifyOTP() {
       setPassword('');
 
       // Registration verification logs the user in.
-      router.replace('/');
+      // RootLayout resets session history and resumes any pending order.
     } catch (err: any) {
       setError(
         err?.message ||

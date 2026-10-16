@@ -8,6 +8,7 @@ type Props<T> = {
   renderItem: (item: T) => ReactNode;
   onIndexChange: (index: number) => void;
   height: number;
+  resetKey?: number;
 };
 
 // Native paging with stable images and duplicate endpoints for seamless looping.
@@ -16,7 +17,7 @@ export function PagedCarousel<T>(props: Props<T>) {
   return <View style={{ width: '100%', height: props.height }}
     onLayout={event => setWidth(event.nativeEvent.layout.width)}>
     {width > 0 && props.items.length > 0 && <Pages {...props} width={width}
-      key={`${width}:${props.items.map(props.itemKey).join('|')}`} />}
+      key={`${width}:${props.resetKey ?? 0}:${props.items.map(props.itemKey).join('|')}`} />}
   </View>;
 }
 

@@ -23,6 +23,8 @@ import {
 
 import {
   useCallback,
+  useEffect,
+  useRef,
   useState,
 } from 'react';
 
@@ -205,10 +207,12 @@ export default function EditAccount() {
   // FOCUS
   // =========================================================
 
+  const focusLoader = useRef(loadUser);
+  useEffect(() => { focusLoader.current = loadUser; });
   useFocusEffect(
     useCallback(() => {
 
-      loadUser();
+      focusLoader.current();
 
     }, [])
   );

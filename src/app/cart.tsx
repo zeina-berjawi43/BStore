@@ -1,10 +1,10 @@
+import { shoppingCardLayout } from '../components/shopping-card-layout';
 import { useActionDialog } from '../components/action-dialog';
 import { useShopping } from '../hooks/use-shopping';
 import { confirmShoppingClear } from '../services/confirm-shopping-clear';
 import { shoppingState } from '../services/shopping-state';
 
-import { useEffect } from 'react';
-import { goBackOrHome } from '../services/navigation';
+import { goBackOrHome, startShopping } from '../services/navigation';
 import { ProductImage } from '../components/product-image';
 import { ImageFrame } from '../services/image-frame';
 
@@ -32,6 +32,7 @@ import {
 
 import {
   useCallback,
+  useEffect,
   useRef,
   useState,
 } from 'react';
@@ -237,7 +238,7 @@ export default function Cart() {
     if (quantity !== current) await mutateCart(productId, quantity);
   };
   const acceptQuantity = useRef(handleManualQuantitySubmit);
-  useEffect(() => { acceptQuantity.current = handleManualQuantitySubmit; }, [handleManualQuantitySubmit]);
+  useEffect(() => { acceptQuantity.current = handleManualQuantitySubmit; });
   useEffect(() => {
     const listener = Keyboard.addListener('keyboardDidHide', () => { const id = editingQuantity.current; if (id) void acceptQuantity.current(id); });
     return () => listener.remove();
@@ -425,6 +426,8 @@ export default function Cart() {
             Your cart is empty
           </Text>
 
+          {progress}
+
 
           <Text
             style={
@@ -441,7 +444,7 @@ export default function Cart() {
             }
 
             onPress={() =>
-              router.dismissTo('/')
+              startShopping()
             }
           >
 
@@ -552,6 +555,29 @@ export default function Cart() {
                     }
                   >
 
+<Pressable accessibilityRole="button" accessibilityLabel={`Remove ${product.name} from cart`} style={styles.removeButton}
+  disabled={itemUpdating} onPress={() => removeProduct(productId)}><Ionicons name="close" size={21} color="#E35B3F" /></Pressable>
+{discount > 0 &&
+                      originalPrice >
+                        cartPrice && (
+
+                        <View
+                          style={
+                            styles.discountBadge
+                          }
+                        >
+
+                          <Text
+                            style={
+                              styles.discountText
+                            }
+                          >
+                            {discount}% OFF
+                          </Text>
+
+                        </View>
+
+                      )}
                     {/* ========================================
                         IMAGE
                     ======================================== */}
@@ -681,27 +707,7 @@ export default function Cart() {
 
                       {/* DISCOUNT */}
 
-                      {discount > 0 &&
-                      originalPrice >
-                        cartPrice && (
 
-                        <View
-                          style={
-                            styles.discountBadge
-                          }
-                        >
-
-                          <Text
-                            style={
-                              styles.discountText
-                            }
-                          >
-                            {discount}% OFF
-                          </Text>
-
-                        </View>
-
-                      )}
 
 
                       {/* QUANTITY */}
@@ -823,40 +829,7 @@ export default function Cart() {
                       </View>
 
 
-                      {/* REMOVE */}
 
-                      <Pressable
-                        accessibilityLabel={`Remove ${product.name} from cart`}
-                        style={
-                          styles.removeButton
-                        }
-
-                        onPress={() =>
-                          removeProduct(
-                            productId
-                          )
-                        }
-
-                        disabled={
-                          itemUpdating
-                        }
-                      >
-
-                        <Ionicons
-                          name="trash-outline"
-                          size={14}
-                          color="#E35B3F"
-                        />
-
-                        <Text
-                          style={
-                            styles.removeText
-                          }
-                        >
-                          Remove
-                        </Text>
-
-                      </Pressable>
 
                     </View>
 
@@ -895,10 +868,6 @@ export default function Cart() {
                 }
               >
 
-                {showClassC && <View style={styles.breakdown}>
-                  <View style={styles.breakdownRow}><Text style={styles.breakdownLabel}>Products subtotal</Text><Text style={styles.breakdownAmount}>{formatPrice(delivery.subtotal)}</Text></View>
-                  {delivery.allowed && <View style={styles.breakdownRow}><Text style={styles.breakdownLabel}>Delivery</Text><Text style={styles.breakdownAmount}>{delivery.deliveryFee === 0 ? 'FREE' : formatPrice(delivery.deliveryFee)}</Text></View>}
-                </View>}
                 {/* TOTAL ROW */}
 
                 <View
@@ -917,16 +886,7 @@ export default function Cart() {
                       Total
                     </Text>
 
-                    <Text
-                      style={
-                        styles.totalItems
-                      }
-                    >
-                      {cart.length}{' '}
-                      {cart.length === 1
-                        ? 'product'
-                        : 'products'}
-                    </Text>
+
 
                   </View>
 
@@ -945,6 +905,10 @@ export default function Cart() {
 
                 </View>
 
+
+                {delivery.deliveryFee > 0 && <Text testID="cart-compact-breakdown" style={styles.compactBreakdown}>
+                  {formatPrice(delivery.subtotal)} subtotal + {formatPrice(delivery.deliveryFee)} delivery = {formatPrice(delivery.total)}
+                </Text>}
 
                 {/* MINIMUM ORDER */}
                 {progress}
@@ -1099,16 +1063,13 @@ const styles =
   // CONTAINER
   // ==========================================================
 
-  progressBox: { width: '100%', marginTop: 12 },
+  progressBox: { width: '100%', marginTop: 8 },
   progressLabels: { flexDirection: 'row', justifyContent: 'space-between', gap: 4 },
   progressLabel: { fontSize: 10, color: '#817B71', fontWeight: '600', flexShrink: 1 },
   progressLine: { flexDirection: 'row', gap: 3, marginTop: 6 },
   progressTrack: { flex: 1, height: 7, borderRadius: 4, backgroundColor: '#EDE7DC', overflow: 'hidden' },
   progressMessage: { fontSize: 12, fontWeight: '700', color: '#24221E', marginTop: 7 },
-  breakdown: { paddingBottom: 10, marginBottom: 10, borderBottomWidth: 1, borderBottomColor: '#E7DED1', gap: 7 },
-  breakdownRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
-  breakdownLabel: { fontSize: 13, fontWeight: '600', color: '#24221E' },
-  breakdownAmount: { fontSize: 14, fontWeight: '800', color: '#24221E' },
+  compactBreakdown: { fontSize: 11, color: '#817B71', marginTop: 3 },
   container: {
     flex: 1,
     backgroundColor: '#F7F3EC',
@@ -1271,11 +1232,9 @@ const styles =
   productCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 21,
-    padding: 12,
     flexDirection: 'row',
     borderWidth: 1,
     borderColor: '#E7DED1',
-    marginBottom: 13,
     position: 'relative',
 
     shadowColor: '#171717',
@@ -1286,6 +1245,7 @@ const styles =
     shadowOpacity: 0.07,
     shadowRadius: 9,
     elevation: 2,
+    ...shoppingCardLayout.card,
   },
 
 
@@ -1294,13 +1254,12 @@ const styles =
   // ==========================================================
 
   image: {
-    width: 108,
-    height: 108,
     borderRadius: 17,
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
+    ...shoppingCardLayout.image,
   },
 
 
@@ -1319,6 +1278,7 @@ const styles =
     marginLeft: 13,
     justifyContent: 'center',
     minWidth: 0,
+    ...shoppingCardLayout.info,
   },
 
 
@@ -1375,6 +1335,9 @@ const styles =
 
 
   discountBadge: {
+    position: 'absolute',
+    left: 10,
+    bottom: 10,
     alignSelf: 'flex-start',
     marginTop: 5,
     paddingHorizontal: 7,
@@ -1440,20 +1403,7 @@ const styles =
   // REMOVE
   // ==========================================================
 
-  removeButton: {
-    marginTop: 8,
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
-
-  removeText: {
-    marginLeft: 4,
-    color: '#E35B3F',
-    fontSize: 12,
-    fontWeight: '700',
-  },
+  removeButton: { ...shoppingCardLayout.remove },
 
 
   // ==========================================================
@@ -1463,8 +1413,8 @@ const styles =
   totalContainer: {
     marginHorizontal: -18,
     paddingHorizontal: 18,
-    paddingTop: 10,
-    paddingBottom: 12,
+    paddingTop: 6,
+    paddingBottom: 8,
     backgroundColor: '#F7F3EC',
   },
 
@@ -1472,7 +1422,7 @@ const styles =
   totalCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 21,
-    padding: 16,
+    padding: 12,
     borderWidth: 1,
     borderColor: '#E7DED1',
 
@@ -1505,14 +1455,6 @@ const styles =
     fontWeight: '900',
     color: '#171717',
     letterSpacing: -0.3,
-  },
-
-
-  totalItems: {
-    marginTop: 2,
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#9A9186',
   },
 
 
@@ -1576,8 +1518,8 @@ const styles =
   // ==========================================================
 
   readyBox: {
-    marginTop: 12,
-    paddingVertical: 8,
+    marginTop: 6,
+    paddingVertical: 4,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1597,8 +1539,8 @@ const styles =
   // ==========================================================
 
   checkoutButton: {
-    marginTop: 14,
-    minHeight: 52,
+    marginTop: 10,
+    minHeight: 48,
     backgroundColor: '#E35B3F',
     borderRadius: 16,
     flexDirection: 'row',

@@ -93,6 +93,9 @@ export function useOfferCarousel(count: number, width: number, onIndexChange: (i
     onScrollEndDrag: () => { state.current.dragging = false; scheduleFinish(); },
     onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       state.current.x = event.nativeEvent.contentOffset.x;
+      const page = Math.max(0, Math.min(count + 1, Math.round(state.current.x / width)));
+      const next = count > 1 ? (page - 1 + count) % count : 0;
+      setIndex(next); onChange.current(next);
       if (!state.current.dragging) scheduleFinish();
     },
     onMomentumScrollEnd: finish,

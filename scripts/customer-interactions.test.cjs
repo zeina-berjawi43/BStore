@@ -56,14 +56,15 @@ test('shared pending hook synchronously blocks A twice and keeps B independent t
 // shopping-state.test.cjs; these checks keep every actual screen wired to it.
 for (const file of ['index.tsx', 'favorites.tsx', 'category-products.tsx', 'department-categories.tsx', 'product-details.tsx']) {
   test(file + ': Add to Cart delegates the current product to shared state', async () => {
-    const calls = [], product = { _id: 'A', id: 'A', name: 'A' };
-    const add = handler(file, 'addToCart', { product, shopping: { add: value => { calls.push(value); return Promise.resolve(); } } });
+    const calls = [], product = { _id: 'A', id: 'A', name: 'A', price: 10 };
+    const add = handler(file, 'addToCart', { product, getSessionSnapshot: () => ({ authenticated: true }), productFresh: { current: true },
+      showAlert: () => assert.fail('A priced product should not be blocked'), shopping: { showAlert: () => assert.fail('A fresh product should not be blocked'), add: value => { calls.push(value); return Promise.resolve(); } } });
     await add(product); assert.equal(calls.length, 1); assert.equal(calls[0], product);
   });
 }
 test('Search delegates cart and favorite actions without navigating', async () => {
-  const calls = [], product = { _id: 'A', name: 'A' };
-  const change = handler('search.tsx', 'changeProduct', { shopping: { add: value => calls.push(['cart', value]), toggle: value => calls.push(['favorite', value]) } });
+  const calls = [], product = { _id: 'A', name: 'A', price: 10 };
+  const change = handler('search.tsx', 'changeProduct', { getSessionSnapshot: () => ({ authenticated: true }), shopping: { add: value => calls.push(['cart', value]), toggle: value => calls.push(['favorite', value]) } });
   await change(product, 'cart'); await change(product, 'favorite'); assert.deepEqual(calls, [['cart', product], ['favorite', product]]);
 });
 test('Favorites removes the actual current product through shared favorite state', async () => {
@@ -165,6 +166,7 @@ test('shared native carousel wraps once, resets autoplay, pauses on touch/backgr
   const swipe = x => {
     carousel.handlers.onTouchStart(); carousel.handlers.onScrollBeginDrag();
     assert.equal(countAuto(), 0); scroll(x);
+    assert.equal(current,(Math.round(x/320)-1+3)%3,'active dot tracks the drag before momentum settles');
     carousel.handlers.onTouchEnd(); carousel.handlers.onScrollEndDrag();
     carousel.handlers.onMomentumScrollEnd(); carousel.handlers.onMomentumScrollEnd();
     carousel = render();
@@ -244,4 +246,32 @@ test('framed image uses the same normalized square crop in wide, tall and square
   }
   assert.match(source('components/product-image.tsx'), /Math.min\(box.width, box.height\)/);
   assert.match(source('app/product-details.tsx'), /presentation="original"/);
+});
+
+// These extracted handlers must retain the guards as well as the happy path.
+for (const file of ['index.tsx', 'category-products.tsx']) {
+  test(file + ': missing authenticated prices block additions; loaded zero prices allow retry', async () => {
+    const calls = [], notices = [], product = { _id: 'A', id: 'A', name: 'A' };
+    const add = handler(file, 'addToCart', { getSessionSnapshot: () => ({ authenticated: true }),
+      showAlert: text => notices.push(text), shopping: { add: value => calls.push(value) } });
+    await add(product); assert.equal(calls.length, 0); assert.match(notices[0], /current product prices/);
+    product.price = 0; await add(product); assert.deepEqual(calls, [product]); assert.equal(notices.length, 1);
+  });
+}
+test('Product Details blocks cached information until fresh; retry delegates the product and absent product stays safe', async () => {
+  const calls = [], notices = [], productFresh = { current: false }, product = { _id: 'A', price: 10 };
+  const shopping = { add: value => calls.push(value), showAlert: text => notices.push(text) };
+  const add = handler('product-details.tsx', 'addToCart', { product, productFresh, productError: 'Refresh failed', shopping });
+  await add(); assert.equal(calls.length, 0); assert.deepEqual(notices, ['Refresh failed']);
+  productFresh.current = true; await add(); assert.deepEqual(calls, [product]);
+  await handler('product-details.tsx', 'addToCart', { product: null, productFresh, shopping })(); assert.equal(calls.length, 1);
+});
+test('Search guards unpriced cart actions while favorites remain usable, then accepts a loaded zero price', async () => {
+  const calls = [], notices = [], product = { _id: 'A', name: 'A' };
+  const change = handler('search.tsx', 'changeProduct', { getSessionSnapshot: () => ({ authenticated: true }),
+    shopping: { add: value => calls.push(['cart', value]), toggle: value => calls.push(['favorite', value]), showAlert: text => notices.push(text) } });
+  await change(product, 'cart'); assert.equal(calls.length, 0); assert.match(notices[0], /current product prices/);
+  await change(product, 'favorite'); assert.deepEqual(calls, [['favorite', product]]);
+  product.price = 0; await change(product, 'cart'); assert.deepEqual(calls, [['favorite', product], ['cart', product]]);
+  assert.equal(notices.length, 1);
 });
