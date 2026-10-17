@@ -217,7 +217,7 @@ test('shared feedback replaces rapid messages, announces them, auto-dismisses, c
   });
   let hook = env.render(useProductFeedback);
   assert.equal(hook.feedback, null);
-  hook.showAlert('First'); hook.showAlert('Second', 'Added to Favorites');
+  hook.showAlert('First'); const confirmation = hook.showAlert('Second', 'Added to Favorites');
   assert.equal(timers.size, 1); assert.equal(announcements.length, 2);
   hook = env.render(useProductFeedback);
   assert.equal(hook.feedback.props.pointerEvents, 'box-none');
@@ -226,7 +226,11 @@ test('shared feedback replaces rapid messages, announces them, auto-dismisses, c
   assert.ok(!JSON.stringify(hook.feedback).includes('cart-outline'));
   assert.ok(JSON.stringify(hook.feedback).includes('Second'));
   assert.ok(!JSON.stringify(hook.feedback).includes('First'));
+  hook.updateAlert(confirmation, 'Confirmed', 'Added to Cart');
+  assert.ok(JSON.stringify(env.render(useProductFeedback).feedback).includes('Confirmed'));
   const [id, callback] = [...timers][0]; timers.delete(id); callback();
+  assert.equal(env.render(useProductFeedback).feedback, null);
+  hook.updateAlert(confirmation, 'Late success', 'Added to Cart');
   assert.equal(env.render(useProductFeedback).feedback, null);
   hook.showAlert('Dismiss'); hook = env.render(useProductFeedback);
   const close = hook.feedback.props.children.props.children.find(child => child.type === 'Pressable'); close.props.onPress();

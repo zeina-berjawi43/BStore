@@ -16,6 +16,7 @@ const empty = (): Data => ({ cart: [], favorites: [], minimum: Infinity });
 // failed operation, preserving newer user intent and unrelated products.
 export function createShoppingState(deps: { send: (path: string, method?: string, body?: object) => Promise<any>; authenticated: () => boolean }) {
   let confirmed = empty(), operations: Operation[] = [], generation = 0, running = false;
+  const intents = new Map<string, number>();
   let loaded = false, loading: Promise<void> | null = null, mutationRevision = 0;
   let cartLoading: Promise<void> | null = null;
   let cartError: Error | null = null;
@@ -46,6 +47,7 @@ export function createShoppingState(deps: { send: (path: string, method?: string
     listeners.forEach(fn => fn());
   };
   const reset = () => {
+    intents.clear();
     generation++; confirmed = empty(); loaded = false; loading = null; cartLoading = null; cartError = null;
     const previous = operations; operations = []; running = false; publish();
     previous.forEach(op => op.reject(Error('Your session changed.')));
@@ -84,7 +86,9 @@ export function createShoppingState(deps: { send: (path: string, method?: string
     while (operations.length && version === generation) {
       const op = operations[0];
       try {
-        await refresh();
+        void refresh().catch(() => {});
+        await (cartLoading || Promise.resolve());
+        if (!loaded) throw cartError || Error('Could not load your cart.');
         if (version !== generation) break;
         // A timed-out write may already exist on the server. Resolve that ambiguity
         // before choosing add versus update for a newer absolute quantity intent.
@@ -138,6 +142,7 @@ export function createShoppingState(deps: { send: (path: string, method?: string
   };
   const enqueue = (input: Omit<Operation, 'promise' | 'resolve' | 'reject'>) => {
     if (!deps.authenticated()) return Promise.reject(Error('Please log in to save your change.'));
+    if (['quantity', 'add', 'remove'].includes(input.kind)) intents.set(input.id, (intents.get(input.id) || 0) + 1);
     if (input.kind === 'quantity') {
       const tail = operations.at(-1);
       const previous = tail?.kind === 'quantity' && tail.id === input.id && !tail.started ? tail : undefined;
@@ -149,7 +154,7 @@ export function createShoppingState(deps: { send: (path: string, method?: string
     const promise = new Promise<void>((yes, no) => { resolve = yes; reject = no; });
     operations.push({ ...input, promise, resolve, reject }); mutationRevision++; publish(); void drain(); return promise;
   };
-  return { getSnapshot: () => snapshot, subscribe: (fn: () => void) => { listeners.add(fn); return () => { listeners.delete(fn); }; }, reset, refresh, synchronizeCart,
+  return { intentVersion: (id: string) => intents.get(id) || 0, getSnapshot: () => snapshot, subscribe: (fn: () => void) => { listeners.add(fn); return () => { listeners.delete(fn); }; }, reset, refresh, synchronizeCart,
     adjust: (product: ShoppingProduct, delta: number) => {
       const id = productId(product), current = snapshot.cart.find(item => item.product._id === id)?.quantity || 0;
       if (!id || ![-1, 1].includes(delta) || (delta > 0 && product.availability === false)) return Promise.resolve();

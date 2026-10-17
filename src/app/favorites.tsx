@@ -562,7 +562,7 @@ export default function Favorites() {
 
               return (
 
-                <Pressable
+                <Pressable testID="favorite-product-card"
                   key={
                     product.id
                   }
@@ -718,6 +718,7 @@ export default function Favorites() {
                         PRICE
                     ================================================= */}
 
+                    <View style={styles.priceArea}>
                     {product.price !==
                     undefined ? (
 
@@ -732,8 +733,7 @@ export default function Favorites() {
                           <Text
                             style={
                               styles.oldPrice
-                            }
-                          >
+                            } numberOfLines={1} adjustsFontSizeToFit>
                             {
                               formatPrice(
                                 originalPrice
@@ -745,8 +745,7 @@ export default function Favorites() {
                           <Text
                             style={
                               styles.price
-                            }
-                          >
+                            } numberOfLines={1} adjustsFontSizeToFit>
                             {
                               formatPrice(
                                 finalPrice
@@ -761,8 +760,7 @@ export default function Favorites() {
                         <Text
                           style={
                             styles.price
-                          }
-                        >
+                          } numberOfLines={1} adjustsFontSizeToFit>
                           {
                             formatPrice(
                               originalPrice
@@ -785,6 +783,7 @@ export default function Favorites() {
                     )}
 
 
+                    </View>
                     {/* =================================================
                         ACTIONS
                     ================================================= */}
@@ -811,9 +810,7 @@ export default function Favorites() {
 
                           event.stopPropagation();
 
-                          if (
-                            !itemAddingToCart
-                          ) {
+                          if (product.availability !== false) {
 
                             addToCart(
                               product
@@ -1293,7 +1290,7 @@ const styles =
 
       elevation:
         2,
-      ...shoppingCardLayout.card,
+      ...shoppingCardLayout.card, height: 190,
     },
 
 
@@ -1399,10 +1396,11 @@ const styles =
 
       minWidth:
         0,
-      ...shoppingCardLayout.info,
+      ...shoppingCardLayout.info, paddingRight: 0,
     },
 
     name: {
+      height: 20, lineHeight: 20, paddingRight: 24,
 
       fontSize:
         16,
@@ -1416,6 +1414,7 @@ const styles =
     },
 
     brand: {
+      height: 14, lineHeight: 14,
 
       marginTop:
         4,
@@ -1432,6 +1431,7 @@ const styles =
     },
 
     category: {
+      height: 14, lineHeight: 14,
 
       marginTop:
         3,
@@ -1448,6 +1448,7 @@ const styles =
     },
 
     outOfStock: {
+      height: 14, lineHeight: 14,
 
       marginTop:
         5,
@@ -1468,7 +1469,9 @@ const styles =
     // PRICE
     // =======================================================
 
+    priceArea: { height: 50, justifyContent: 'center' },
     discountPriceContainer: {
+      height: 42, justifyContent: 'center',
 
       marginTop:
         8,
@@ -1495,6 +1498,7 @@ const styles =
     },
 
     price: {
+      minHeight: 22,
 
       fontSize:
         17,
@@ -1529,6 +1533,7 @@ const styles =
     // =======================================================
 
     actions: {
+      width: '100%', marginTop: 'auto',
 
       flexDirection:
         'row',
@@ -1536,20 +1541,17 @@ const styles =
       alignItems:
         'center',
 
-      marginTop:
-        10,
-
     },
 
     addToCartButton: {
 
-      flex: 1,
+      width: '100%', minWidth: 0,
 
       backgroundColor:
         '#171717',
 
       minHeight:
-        38,
+        44,
 
       borderRadius:
         11,

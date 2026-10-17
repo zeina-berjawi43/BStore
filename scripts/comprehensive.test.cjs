@@ -13,30 +13,6 @@ function handler(file, name, context) {
   return exports.fn;
 }
 const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; };
-function notificationFixture(enabled) {
-  const write = deferred(), device = deferred(), alerts = [];
-  let value = enabled, busy = false, writes = 0, deviceCalls = 0;
-  const toggle = handler('notifications.tsx', 'toggleNotifications', {
-    notificationsEnabled: enabled, busy: false, loadFailed: false, savingRef: { current: false }, Platform: { OS: 'android' },
-    setBusy: next => { busy = next; }, setNotificationsEnabled: next => { value = next; }, setDeviceState() {},
-    updateNotificationSetting: next => { writes++; assert.equal(next, !enabled); return write.promise; },
-    syncPush: () => { deviceCalls++; return device.promise; }, Alert: { alert: (...args) => alerts.push(args) },
-  });
-  return { toggle, write, device, alerts, value: () => value, busy: () => busy, writes: () => writes, deviceCalls: () => deviceCalls };
-}
-test('notification switch responds immediately, suppresses concurrent writes and rolls back a rejected save', async () => {
-  const f = notificationFixture(true);
-  const operation = f.toggle(); await f.toggle();
-  assert.equal(f.value(), false); assert.equal(f.writes(), 1); assert.equal(f.deviceCalls(), 0);
-  f.write.reject(Error('Connection failed')); await operation;
-  assert.equal(f.value(), true); assert.equal(f.busy(), false); assert.match(f.alerts[0][1], /Connection failed/);
-});
-test('notification preference confirmation does not wait for slow permission or device registration', async () => {
-  const f = notificationFixture(false), operation = f.toggle();
-  assert.equal(f.value(), true); f.write.resolve(true); await operation;
-  assert.equal(f.busy(), false); assert.equal(f.deviceCalls(), 1); assert.equal(f.alerts.length, 0);
-  f.device.resolve('ready');
-});
 test('Account shows the scoped profile immediately and ignores revalidation after account switching', async () => {
   const fetch = deferred(), cached = { _id: 'customer-A', name: 'Maya' };
   let revision = 1, shown;

@@ -1,3 +1,4 @@
+import { notificationPreference } from '../services/notification-preference';
 import { goBackOrSettings } from '../services/navigation';
 import { syncPush, PushState } from '../services/pushService';
 import {
@@ -16,12 +17,8 @@ import { Ionicons } from '@expo/vector-icons';
 
 
 
-import {
-  getNotificationSetting,
-  updateNotificationSetting,
-} from '../services/authService';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
 
 // =========================================================
@@ -30,123 +27,27 @@ import { useEffect, useRef, useState } from 'react';
 
 export default function Notifications() {
   const [deviceState, setDeviceState] = useState<PushState | 'error'>('disabled');
+  const preference = useSyncExternalStore(notificationPreference.subscribe, notificationPreference.getSnapshot, notificationPreference.getSnapshot);
+  const notificationsEnabled = preference.value;
+  const busy = preference.loading || preference.saving;
+  const loadFailed = !preference.loaded && !!preference.error;
   const savingRef = useRef(false);
-  const [busy, setBusy] = useState(true);
-  const [loadFailed, setLoadFailed] = useState(false);
-
-  const [
-    notificationsEnabled,
-    setNotificationsEnabled,
-  ] = useState(true);
-
-
-  // =========================================================
-  // LOAD NOTIFICATION SETTING
-  // =========================================================
-
-  const loadNotificationSetting =
-    async () => {
-      setBusy(true);
-      setLoadFailed(false);
-      try {
-
-        const enabled =
-          await getNotificationSetting();
-
-        setNotificationsEnabled(enabled);
-        void syncPush(false, false, enabled).then(setDeviceState).catch(() => setDeviceState('error'));
-
-      } catch (error) {
-        setLoadFailed(true);
-        Alert.alert('Connection Error', 'Could not load notification settings. Please reopen this page to retry.');
-
-        if (__DEV__) { console.log(
-          'ERROR LOADING NOTIFICATION SETTING:',
-          error instanceof Error ? error.name : 'Error'
-        ); }
-
-      } finally {
-        setBusy(false);
-      }
-
-    };
-
-
+  const observedSave = useRef(preference.savedVersion);
+  const loadNotificationSetting = notificationPreference.load;
+  const toggleNotifications = notificationPreference.toggle;
   useEffect(() => {
-
-    const initialLoad = setTimeout(() => void loadNotificationSetting(), 0);
-    const listener = AppState.addEventListener('change', state => {
-      if (state === 'active' && !savingRef.current) void loadNotificationSetting();
-    });
-    return () => { clearTimeout(initialLoad); listener.remove(); };
+    void notificationPreference.load();
+    const listener = AppState.addEventListener('change', state => { if (state === 'active') void notificationPreference.load(); });
+    return () => listener.remove();
   }, []);
-
-
-  // =========================================================
-  // TOGGLE NOTIFICATIONS
-  // =========================================================
-
-  const toggleNotifications =
-    async () => {
-      if (Platform.OS === 'web' || busy || loadFailed || savingRef.current) return;
-      savingRef.current = true;
-      setBusy(true);
-
-      const newValue =
-        !notificationsEnabled;
-
-
-      // Update UI immediately
-
-      setNotificationsEnabled(
-        newValue
-      );
-
-
-      try {
-        const savedValue =
-          await updateNotificationSetting(
-            newValue
-          );
-
-
-        if (!savedValue) setDeviceState('disabled');
-        void syncPush(savedValue, savedValue, savedValue).then(setDeviceState).catch(() => { setDeviceState('error'); Alert.alert('Device setup failed', 'Your preference was saved. Retry device registration below.'); });
-
-        // Use backend value
-
-        setNotificationsEnabled(
-          savedValue
-        );
-
-
-        if (__DEV__) { console.log(
-          'NOTIFICATION SETTING UPDATED:',
-          savedValue
-        ); }
-
-      } catch (error) {
-
-        if (__DEV__) { console.log(
-          'ERROR UPDATING NOTIFICATION SETTING:',
-          error instanceof Error ? error.name : 'Error'
-        ); }
-
-
-        // Revert UI if backend update failed
-
-        setNotificationsEnabled(
-          !newValue
-        );
-        Alert.alert('Update Failed', error instanceof Error ? error.message : 'Could not save notification settings. Please try again.');
-
-      } finally {
-        savingRef.current = false;
-        setBusy(false);
-      }
-
-    };
-
+  useEffect(() => {
+    if (!preference.loaded || preference.saving) return;
+    let active = true;
+    const ask = observedSave.current !== preference.savedVersion && preference.confirmed;
+    observedSave.current = preference.savedVersion;
+    void syncPush(ask, ask, preference.confirmed).then(state => { if (active) setDeviceState(state); }).catch(() => { if (active) setDeviceState('error'); });
+    return () => { active = false; };
+  }, [preference.confirmed, preference.loaded, preference.savedVersion, preference.saving]);
 
   // =========================================================
   // UI
@@ -215,7 +116,7 @@ export default function Notifications() {
                 styles.subtitle
               }
             >
-              {Platform.OS === 'web' ? 'Push delivery is available in the Android app' : 'Manage your notifications'}
+              {Platform.OS === 'web' ? 'Account preference for notifications in the Android app' : 'Manage your notifications'}
             </Text>
 
           </View>
@@ -295,7 +196,7 @@ export default function Notifications() {
                 styles.rowSubtitle
               }
             >
-              {notificationsEnabled
+              {Platform.OS === 'web' ? (notificationsEnabled ? 'Enabled for your Android devices' : 'Account notifications are turned off') : notificationsEnabled
                 ? (deviceState === 'ready' ? 'This device is registered' : 'Device setup needs attention')
                 : 'Notifications are turned off'}
             </Text>
@@ -304,9 +205,9 @@ export default function Notifications() {
 
 
           <Pressable
-            disabled={Platform.OS === 'web' || busy || loadFailed}
             accessibilityRole="switch"
-            accessibilityState={{ checked: notificationsEnabled, disabled: Platform.OS === 'web' || busy || loadFailed }}
+            aria-checked={notificationsEnabled}
+            accessibilityState={{ checked: notificationsEnabled, disabled: false }}
             accessibilityLabel="Notifications"
             style={[
               styles.switch,
@@ -373,7 +274,7 @@ export default function Notifications() {
                 styles.statusTitle
               }
             >
-              {notificationsEnabled
+              {Platform.OS === 'web' ? 'Account notification preference' : notificationsEnabled
                 ? (deviceState === 'ready' ? 'Notifications are enabled' : 'Notifications need setup')
                 : 'Notifications are disabled'}
             </Text>
@@ -384,7 +285,7 @@ export default function Notifications() {
                 styles.statusSubtitle
               }
             >
-              {notificationsEnabled
+              {Platform.OS === 'web' ? 'This setting controls Android notifications. This browser does not receive push notifications.' : notificationsEnabled
                 ? (deviceState === 'ready' ? 'Receive offers and order updates from BStore.' : 'Check phone permissions and retry device registration below.')
                 : 'You can turn them back on anytime.'}
             </Text>
@@ -394,15 +295,16 @@ export default function Notifications() {
         </View>
 
         {Platform.OS !== 'web' && <Pressable disabled={busy} onPress={() => {
+          if (savingRef.current) return;
           if (deviceState === 'denied') { void Linking.openSettings(); return; }
           savingRef.current = true;
-          setBusy(true);
           void syncPush(true).then(setDeviceState).catch(error => {
             setDeviceState('error'); Alert.alert('Notifications', error.message);
-          }).finally(() => { savingRef.current = false; setBusy(false); });
+          }).finally(() => { savingRef.current = false; });
         }} style={{ padding: 20 }}>
           <Text>{deviceState === 'denied' ? 'Open phone settings' : 'Retry device registration'}</Text>
         </Pressable>}
+        {!!preference.error && <Text accessibilityRole="alert" style={{ color: '#B53522', paddingHorizontal: 20 }}>{preference.error}</Text>}
         {loadFailed && <Pressable onPress={() => { void loadNotificationSetting(); }} style={{ padding: 20 }}>
           <Text>Retry loading settings</Text>
         </Pressable>}

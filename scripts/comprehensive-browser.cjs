@@ -24,7 +24,8 @@ const mock = () => {
   sessionStorage.setItem('mystore.auth.v1',JSON.stringify({accessToken:jwt,refreshToken:'smoke-refresh'})); localStorage.setItem('accessToken', jwt); localStorage.setItem('refreshToken', 'smoke-refresh');
   localStorage.setItem('user', JSON.stringify({ _id: 'customer', name: 'Test Customer', phone: '71000000', role: 'customer', phoneVerified: true, address: 'Fixture address' }));
   localStorage.setItem('isLoggedIn', 'true');
-  window.catalogReads=0; window.categoryReads=0; const products=Array.from({length:600},(_,i)=>({_id:'P'+i,name:'Product '+i,price:10,discount:20,discountedPrice:8,availability:true,category:{_id:i%2?'hair':'shampoo',name:i%2?'Hair Care':'Shampoo'},brand:{name:'Fixture'}}));
+  window.catalogReads=0; window.categoryReads=0; const products=Array.from({length:location.search.includes('mixed=true')?4:600},(_,i)=>({_id:'P'+i,name:'Product '+i,price:10,discount:20,discountedPrice:8,availability:true,category:{_id:i%2?'hair':'shampoo',name:i%2?'Hair Care':'Shampoo'},brand:{name:'Fixture'}}));
+  if (location.search.includes('mixed=true')) products.forEach((p,i) => { if (i % 2 === 0) { p.discount = 0; p.discountedPrice = 10; } if (i === 0) { p.price = 123456789.99; p.discountedPrice = p.price; } if (i === 3) p.availability = false; if (i === 1) p.name = 'A very long product name that wraps across several words'; });
   products.forEach(p => { p.image = 'http://127.0.0.1:4175/fixture.svg'; p.imageFrame = { zoom: 1.2, x: 0.4, y: 0 }; });
   const realNow=Date.now;window.catalogClockOffset=0;Date.now=()=>realNow()+window.catalogClockOffset;
   window.changeCatalog=()=>{products[0]={...products[0],name:'Updated Shampoo'};};
@@ -32,7 +33,7 @@ const mock = () => {
   window.offerOffline=location.search.includes('offerOffline=true');
   window.emptyOffers=location.search.includes('emptyOffers=true');
   if(location.search.includes('slow=true'))window.catalogDelay=1200;
-  const favorites = new Set(['P0']); const cart = new Map(); window.actionRequests = [];
+  const favorites = new Set(location.search.includes('mixed=true') ? ['P0','P1','P3'] : ['P0']); const cart = new Map(); window.actionRequests = [];
   window.deliveryFixture = (quantity, rules) => { cart.clear(); cart.set('A', quantity); window.deliveryRules = rules; };
   if(location.search.includes('guest=true')) {sessionStorage.removeItem('mystore.auth.v1');localStorage.removeItem('accessToken');localStorage.removeItem('refreshToken');localStorage.removeItem('isLoggedIn');localStorage.removeItem('user');}
   const originalFetch = window.fetch;
@@ -50,9 +51,9 @@ const mock = () => {
     if (route === '/auth/login') data={accessToken:jwt,refreshToken:'new-fixture-refresh',user:{_id:'customer',name:'Test Customer',phone:'71000000',role:'customer',phoneVerified:true,address:'Fixture address'}};
     else if (route === '/products') { window.catalogReads++; data = { products }; }
     else if (route === '/products/top-selling') data = { products: products.map(product => ({ product, totalSold: 10 })) };
-    else if (route === '/products/offers') { if(window.offerOffline)throw Error('Fixture offers offline');data = { products: window.emptyOffers?[]:products.filter(p => p.discount) }; }
+    else if (route === '/products/offers') { if(window.offerOffline)throw Error('Fixture offers offline');data = { products: window.emptyOffers?[]:products.filter(p => p.discount && p.availability !== false) }; }
     else if (route.startsWith('/products/')) data = { product: products.find(p => route.endsWith(p._id)) };
-    else if (route === '/favorites') data = { favorites: [...favorites].map(id => ({ product: { ...products.find(p => p._id === id), brand: '507f191e810c19729de860ea', category: '507f1f77bcf86cd799439012' } })) };
+    else if (route === '/favorites') data = { favorites: [...favorites].map(id => ({ product: { ...products.find(p => p._id === id), brand: location.search.includes('mixed=true') ? { name: 'Fixture' } : '507f191e810c19729de860ea', category: location.search.includes('mixed=true') ? { name: 'Grocery' } : '507f1f77bcf86cd799439012' } })) };
     else if (route === '/favorites/add' || route === '/favorites/remove') {
       window.actionRequests.push([route, body.productId]); await new Promise(resolve => setTimeout(resolve, 1500));
       if (window.failFavorite) return new Response(JSON.stringify({ message: 'Simulated failure' }), { status: 500, headers: { 'Content-Type': 'application/json' } });

@@ -3,6 +3,33 @@ const { fixture, product, deferred, flush, createShoppingState } = require('./sh
 const item = (id, quantity = 1) => ({ product: product(id), quantity, price: 999 });
 const ids = values => Array.from(values, p => p._id || p.id);
 
+test('rapid 0→1→2→1→0→1 preserves first re-add and final server quantity without losing taps', async () => {
+  const gate = deferred(); let server = 0, writes = 0;
+  const state = createShoppingState({ authenticated: () => true, send: async (url, method, body) => {
+    if (!method) return url === '/favorites' ? { favorites: [] } : { cart: { items: server ? [item('A', server)] : [] }, minimumOrderValue: 50 };
+    writes++; if (writes === 1) await gate.promise;
+    server = url.endsWith('/remove') ? 0 : body.quantity;
+    return { cart: { items: server ? [item('A', server)] : [] } };
+  } });
+  await state.refresh(); const operations = [];
+  operations.push(state.adjust(product('A'), 1)); await flush();
+  for (const delta of [1, -1, -1, 1]) operations.push(state.adjust(product('A'), delta));
+  assert.equal(state.getSnapshot().cart[0].quantity, 1);
+  gate.resolve(); await Promise.all(operations); assert.equal(server, 1); assert.equal(state.getSnapshot().cartCount, 1); assert.equal(writes, 2);
+});
+
+test('cart writes and confirmation do not wait for unrelated Favorites loading', async () => {
+  const favorites = deferred(); let writes = 0;
+  const state = createShoppingState({ authenticated: () => true, send: async (url, method) => {
+    if (url === '/favorites') return favorites.promise;
+    if (!method) return { cart: { items: [] } };
+    writes++; return {};
+  } });
+  const read = state.refresh(); const operation = state.adjust(product('A'), 1); await operation;
+  assert.equal(writes, 1); assert.equal(state.getSnapshot().cartCount, 1);
+  favorites.resolve({ favorites: [] }); await read;
+});
+
 test('uncertain committed write is read back without retry; checkout stays blocked until reconciliation finishes', async () => {
   let server = [], reads = 0, writes = 0; const write = deferred(), read = deferred();
   const state = createShoppingState({ authenticated: () => true, send: async (url, method) => {
@@ -21,25 +48,25 @@ test('uncertain committed write is read back without retry; checkout stays block
 });
 
 function shoppingHook(state, session = { authenticated: true, revision: 1 }) {
-  const exports = {}, messages = [], cleanups = [], navigations = [];
+  const exports = {}, messages = [], pendingMessages = [], cleanups = [], navigations = [];
   const source = fs.readFileSync(path.join(__dirname, '../src/hooks/use-shopping.ts'), 'utf8');
   const dependencies = {
     react: { useRef: value => ({ current: value }), useSyncExternalStore: (_subscribe, snapshot) => snapshot(), useEffect: effect => cleanups.push(effect()) },
     'expo-router': { router: { push: route => navigations.push(route) } },
     '../services/tokenStorage': { getSessionSnapshot: () => session }, '../services/shopping-state': { shoppingState: state },
-    '../components/product-feedback': { useProductFeedback: () => ({ showAlert: (...args) => messages.push(args), feedback: null }) },
+    '../components/product-feedback': { useProductFeedback: () => ({ showAlert: (...args) => { if (args[1] === 'Updating cart') pendingMessages.push(args); else messages.push(args); return pendingMessages.length; }, updateAlert: (_token, ...args) => messages.push(args), feedback: null }) },
   };
   vm.runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText,
     { exports, Error, require: name => dependencies[name] });
-  return { hook: exports.useShopping(), messages, navigations, unmount: () => cleanups.forEach(fn => fn?.()) };
+  return { hook: exports.useShopping(), messages, pendingMessages, navigations, unmount: () => cleanups.forEach(fn => fn?.()) };
 }
 
 test('actual shared hook waits for confirmation and restores state with one error on failure', async () => {
   const gate = deferred(), { state } = fixture({ send: () => gate.promise }); await state.refresh();
   const { hook, messages } = shoppingHook(state);
-  const first = hook.add(product('A')); await hook.add(product('A'));
-  assert.equal(state.getSnapshot().cartCount, 1); assert.equal(messages.length, 0);
-  await flush(); gate.reject(Error('offline')); await first;
+  const first = hook.add(product('A')), second = hook.add(product('A'));
+  assert.equal(state.getSnapshot().cartCount, 2); assert.equal(messages.length, 0);
+  await flush(); gate.reject(Error('offline')); await Promise.all([first, second]);
   assert.equal(state.getSnapshot().cartCount, 0); assert.equal(messages.length, 1); assert.equal(messages[0][1], 'Could not save');
 });
 test('actual shared hook never reports old-session/unmounted request completion', async () => {
@@ -50,9 +77,20 @@ test('actual shared hook never reports old-session/unmounted request completion'
 
 test('actual shared hook reports one success only after a confirmed addition', async () => {
   const gate = deferred(), { state } = fixture({ send: () => gate.promise }); await state.refresh();
-  const { hook, messages } = shoppingHook(state); const first = hook.add(product('A')); await flush();
+  const { hook, messages, pendingMessages } = shoppingHook(state); const first = hook.add(product('A')); await flush();
+  assert.equal(pendingMessages.length, 1); assert.equal(pendingMessages[0][1], 'Updating cart');
   assert.equal(messages.length, 0); gate.resolve({}); await first;
   assert.equal(messages.length, 1); assert.equal(messages[0][1], 'Added to Cart');
+});
+
+test('remove-to-zero and immediate re-add confirm only the current action, without stale success toasts', async () => {
+  const gate = deferred(), { state } = fixture({ send: () => gate.promise }); await state.refresh();
+  const { hook, messages } = shoppingHook(state);
+  const first = hook.add(product('A')); await flush();
+  const remove = hook.adjust(product('A'), -1), readd = hook.add(product('A'));
+  assert.equal(state.getSnapshot().cartCount, 1); assert.equal(messages.length, 0);
+  gate.resolve({}); await Promise.all([first, remove, readd]);
+  assert.equal(state.getSnapshot().cartCount, 1); assert.equal(messages.length, 1); assert.equal(messages[0][1], 'Added to Cart');
 });
 test('coalesced quantity failure generates one shared error toast', async () => {
   const gate = deferred(), { state } = fixture({ cart: [item('A')], send: () => gate.promise }); await state.refresh();

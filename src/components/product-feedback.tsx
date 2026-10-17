@@ -23,15 +23,26 @@ export function useProductFeedback() {
       Animated.spring(translateY, { toValue: 0, friction: 7, tension: 70, useNativeDriver: true }),
     ]).start();
     timer.current = setTimeout(() => {
+      if (revision.current !== current) return;
+      timer.current = null;
       Animated.parallel([
         Animated.timing(opacity, { toValue: 0, duration: 250, useNativeDriver: true }),
         Animated.timing(translateY, { toValue: -25, duration: 250, useNativeDriver: true }),
       ]).start(({ finished }) => { if (finished && revision.current === current) setNotice(null); });
     }, 2200);
+    return current;
   }, [opacity, translateY]);
+  // Confirmation updates an existing notice; it never resurrects a dismissed
+  // or expired action after a slow network response.
+  const updateAlert = useCallback((current: number, message: string, title: string) => {
+    if (revision.current !== current || timer.current === null) return;
+    setNotice({ message, title });
+    AccessibilityInfo.announceForAccessibility(`${title}. ${message}`);
+  }, []);
   const dismiss = useCallback(() => {
     revision.current++;
     if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
     opacity.stopAnimation(); translateY.stopAnimation(); setNotice(null);
   }, [opacity, translateY]);
   useEffect(() => () => {
@@ -41,11 +52,11 @@ export function useProductFeedback() {
   }, [opacity, translateY]);
   const feedback = notice ? <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, { zIndex: 9999 }]}><Animated.View pointerEvents="box-none" accessibilityLiveRegion="polite"
     style={[styles.alert, { top: insets.top + 8, opacity, transform: [{ translateY }] }]}>
-    <View pointerEvents="none" style={styles.icon}><Ionicons name="checkmark" size={20} color="#FFFFFF" /></View>
+    <View pointerEvents="none" style={styles.icon}><Ionicons name={notice.title === 'Updating cart' ? 'time-outline' : 'checkmark'} size={20} color="#FFFFFF" /></View>
     <View pointerEvents="none" style={styles.content}><Text style={styles.title}>{notice.title}</Text><Text style={styles.message} numberOfLines={2}>{notice.message}</Text></View>
     <Pressable onPress={dismiss} accessibilityRole="button" accessibilityLabel="Dismiss message" hitSlop={4} style={styles.close}><Ionicons name="close" size={20} color="#777168" /></Pressable>
   </Animated.View></View> : null;
-  return { showAlert, feedback, dismiss };
+  return { showAlert, updateAlert, feedback, dismiss };
 }
 const styles = StyleSheet.create({
   alert: { position: 'absolute', left: 18, right: 18, zIndex: 9999, minHeight: 67, backgroundColor: '#FFFFFF', borderRadius: 18, paddingVertical: 11, paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#E9E1D6', shadowColor: '#171717', shadowOffset: { width: 0, height: 7 }, shadowOpacity: 0.13, shadowRadius: 15, elevation: 10 },

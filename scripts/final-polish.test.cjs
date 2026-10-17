@@ -73,15 +73,15 @@ test('one lightweight shine pauses on background/reduced motion, restarts on for
   slots.forEach(slot => slot?.cleanup?.()); assert.equal(removed, 2);
 });
 
-test('shared plus stays plus and normal immediately while pending; pressed orange, duplicate handler suppressed, stock guard preserved', () => {
+test('shared plus stays plus and normal immediately while pending; pressed orange, pending taps retained, stock guard preserved', () => {
   const render = fixture('components/add-to-cart-button.tsx', 'AddToCartButton', { Pressable: 'Pressable', Ionicons: 'Icon', styles: { button: { backgroundColor: '#171717' }, active: { backgroundColor: '#E35B3F' }, disabled: { backgroundColor: '#B8B2A9' }, compact: {} } });
   let calls = 0; const props = { name: 'A', pending: true, unavailable: false, onPress: () => calls++ };
   const button = render(props);
   assert.equal(button.props.disabled, false); assert.equal(button.props.children[0].props.name, 'add');
   assert.equal(button.props.style({ pressed: false }).filter(Boolean).at(-1).backgroundColor, '#171717');
   assert.equal(button.props.style({ pressed: true }).filter(Boolean).at(-1).backgroundColor, '#E35B3F');
-  button.props.onPress({ stopPropagation() {} }); assert.equal(calls, 0);
-  render({ ...props, pending: false }).props.onPress({ stopPropagation() {} }); assert.equal(calls, 1);
+  button.props.onPress({ stopPropagation() {} }); assert.equal(calls, 1);
+  render({ ...props, pending: false }).props.onPress({ stopPropagation() {} }); assert.equal(calls, 2);
   assert.equal(render({ ...props, unavailable: true }).props.disabled, true);
 });
 

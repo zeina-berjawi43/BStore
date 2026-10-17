@@ -1,3 +1,4 @@
+import { productCardLayout } from '../components/product-card-layout';
 import { ProductCount } from '../components/product-count';
 import { getSessionSnapshot, onPricingChanged } from '../services/tokenStorage';
 import { useShopping } from '../hooks/use-shopping';
@@ -138,7 +139,7 @@ export default function Search() {
           const finalPrice = getFinalPrice(item);
           const onSale = hasPrice && finalPrice < price;
           return (
-            <View style={styles.card}>
+            <View testID="search-product-card" style={styles.card}>
               <Pressable onPress={() => router.push({ pathname: '/product-details', params: { id: item._id } })}
                 accessibilityRole="button" accessibilityLabel={`View ${item.name}`}>
                 <View style={styles.imageBox}>
@@ -193,14 +194,14 @@ const styles = StyleSheet.create({
   discount: { position: 'absolute', top: 10, left: 8, paddingHorizontal: 6, paddingVertical: 4, borderRadius: 6, backgroundColor: '#E35B3F' },
   discountText: { fontSize: 11, fontWeight: '800', color: '#FFFFFF' },
   info: { padding: 11, gap: 5 },
-  name: { fontSize: 14, fontWeight: '800', color: '#171717', minHeight: 36 },
+  name: { ...productCardLayout.title, fontSize: 14, fontWeight: '800', color: '#171717', minHeight: 36 },
   secondary: { fontSize: 12, color: '#777168', lineHeight: 18 },
   prices: { alignItems: 'flex-start', gap: 2 },
   price: { flexShrink: 1, fontSize: 16, fontWeight: '900', color: '#171717' },
   salePrice: { color: '#E35B3F' },
   oldPrice: { flexShrink: 1, fontSize: 11, color: '#777168', textDecorationLine: 'line-through' },
-  priceGroup: { flex: 1, minWidth: 60 },
-  addButtonContainer: { flexWrap: 'wrap', margin: 10, marginTop: 'auto', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  priceGroup: { ...productCardLayout.price, minWidth: 0 },
+  addButtonContainer: { ...productCardLayout.bottom, width: 'auto', margin: 10, marginTop: 'auto' },
   errorBox: { marginHorizontal: 18, marginTop: 10 },
   error: { color: '#A52B22', fontSize: 13 },
   empty: { alignItems: 'center', paddingVertical: 55, paddingHorizontal: 15, gap: 12 },

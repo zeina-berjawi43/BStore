@@ -1,3 +1,4 @@
+import { productCardLayout } from '../components/product-card-layout';
 import { QuantitySelector } from '../components/quantity-selector';
 import { openProtected } from '../services/login-intent';
 import { useWebPullRefresh } from '../hooks/use-web-pull-refresh';
@@ -937,7 +938,7 @@ export default function Index() {
                   </Text>
                 )}
 
-                <QuantitySelector product={activeOffer} onAdjust={delta => void shopping.adjust(activeOffer, delta)}><Pressable
+                <QuantitySelector variant="offer" product={activeOffer} onAdjust={delta => void shopping.adjust(activeOffer, delta)}><Pressable
                   style={
                     [styles.offerAddButton, shopping.pendingCart.has(activeOffer.id) && { backgroundColor: '#E35B3F' }]
                   }
@@ -1347,7 +1348,7 @@ function TopSellingProductRow({
         },
       ]}
     >
-      <Pressable
+      <Pressable testID="home-product-card"
         style={
           styles.topSellingCard
         }
@@ -1927,6 +1928,7 @@ const styles = StyleSheet.create({
   },
 
   topSellingName: {
+    height: 28,
     fontSize: 10.5,
     lineHeight: 14,
     fontWeight: '800',
@@ -1936,14 +1938,10 @@ const styles = StyleSheet.create({
   },
 
   topSellingBottom: {
-    flexWrap: 'wrap', rowGap: 6,
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    ...productCardLayout.bottom,
   },
 
-  topSellingPrices: { flex: 1, minWidth: 60, alignItems: 'flex-start', gap: 2, marginRight: 5 },
+  topSellingPrices: { ...productCardLayout.price, minWidth: 0, alignItems: 'flex-start', gap: 2, marginRight: 5 },
   topSellingOldPrice: { flexShrink: 1, fontSize: 9, color: '#817B71', textDecorationLine: 'line-through' },
   topSellingPrice: {
     flexShrink: 1,
@@ -1958,7 +1956,7 @@ const styles = StyleSheet.create({
   },
 
   topSellingLoginPrice: {
-    flex: 1,
+    ...productCardLayout.price,
     fontSize: 7.5,
     color: '#938C82',
     fontWeight: '600',
@@ -2102,7 +2100,7 @@ const styles = StyleSheet.create({
   },
 
   recentItem: {
-    width: 92,
+    width: 92, height: 142,
     alignItems: 'center',
   },
 
@@ -2162,7 +2160,7 @@ const styles = StyleSheet.create({
   },
 
   recentName: {
-    marginTop: 8,
+    height: 14, lineHeight: 14, marginTop: 8,
     fontSize: 10.5,
     fontWeight: '800',
     color: '#37342F',
@@ -2171,7 +2169,7 @@ const styles = StyleSheet.create({
   },
 
   recentPrice: {
-    marginTop: 3,
+    height: 28, lineHeight: 14, marginTop: 3,
     fontSize: 10,
     fontWeight: '900',
     color: '#E35B3F',
@@ -2307,7 +2305,7 @@ const styles = StyleSheet.create({
   },
 
   offerAddButton: {
-    alignSelf: 'flex-start',
+    width: '100%', minHeight: 44, height: 44, justifyContent: 'center',
     backgroundColor: '#E35B3F',
     borderRadius: 9,
     paddingHorizontal: 11,

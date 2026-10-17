@@ -4,7 +4,7 @@ import { QuantitySelector } from './quantity-selector';
 import type { ShoppingProduct } from '../services/shopping-state';
 
 // Existing Category/Department product-card (+) design.
-export function AddToCartButton({ name, pending, unavailable, onPress, compact = false, product, onAdjust }: {
+export function AddToCartButton({ name, unavailable, onPress, compact = false, product, onAdjust }: {
   name: string; pending: boolean; unavailable: boolean; onPress: () => void;
   compact?: boolean;
   product?: ShoppingProduct; onAdjust?: (delta: number) => void;
@@ -13,7 +13,7 @@ export function AddToCartButton({ name, pending, unavailable, onPress, compact =
     disabled={unavailable} hitSlop={5}
     accessibilityRole="button" accessibilityLabel={unavailable ? `${name} is out of stock` : `Add ${name} to cart`}
     accessibilityState={{ disabled: unavailable }}
-    onPress={event => { event.stopPropagation(); if (!pending) onPress(); }}>
+    onPress={event => { event.stopPropagation(); onPress(); }}>
     <Ionicons name="add" size={compact ? 14 : 20} color="#FFFFFF" />
   </Pressable>;
   return product && onAdjust ? <QuantitySelector compact product={product} onAdjust={onAdjust}>{button}</QuantitySelector> : button;
