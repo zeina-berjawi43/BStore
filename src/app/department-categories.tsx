@@ -1007,7 +1007,7 @@ const styles =
     fontWeight: '600',
   },
   outOfStockText: {
-    height: 18, lineHeight: 18,
+    height: 14, lineHeight: 14,
     marginTop: 1,
     fontSize: 11.5,
     fontWeight: '800',
@@ -1024,6 +1024,7 @@ const styles =
     justifyContent: 'center',
   },
   oldPrice: {
+    lineHeight: 12,
     fontSize: 11,
     color: '#9A9186',
     textDecorationLine: 'line-through',
@@ -1031,6 +1032,7 @@ const styles =
     marginBottom: 2,
   },
   productPrice: {
+    lineHeight: 20,
     fontSize: 17,
     flexShrink: 0,
     fontWeight: '900',

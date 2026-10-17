@@ -1438,12 +1438,12 @@ function TopSellingProductRow({
             product.price !==
               undefined ? (
               <View style={styles.topSellingPrices}>
-                <Text style={[styles.topSellingPrice, !isAvailable && styles.unavailableTopSellingPrice]} >
-                  ${finalPrice.toFixed(2)}
-                </Text>
                 {onSale && <Text style={styles.topSellingOldPrice} >
                   ${Number(product.price).toFixed(2)}
                 </Text>}
+                <Text style={[styles.topSellingPrice, !isAvailable && styles.unavailableTopSellingPrice]} >
+                  ${finalPrice.toFixed(2)}
+                </Text>
               </View>
             ) : (
               <Text
@@ -1887,7 +1887,7 @@ const styles = StyleSheet.create({
   },
 
   topSellingCard: {
-    width: '100%',
+    width: '100%', flex: 1,
     backgroundColor: '#FFFFFF',
     borderRadius: 15,
     padding: 7,
@@ -1942,8 +1942,9 @@ const styles = StyleSheet.create({
   },
 
   topSellingPrices: { ...productCardLayout.price, minWidth: 0, alignItems: 'flex-start', gap: 0, marginRight: 0 },
-  topSellingOldPrice: { flexShrink: 0, fontSize: 11, color: '#817B71', textDecorationLine: 'line-through' },
+  topSellingOldPrice: { lineHeight: 12, flexShrink: 0, fontSize: 11, color: '#817B71', textDecorationLine: 'line-through' },
   topSellingPrice: {
+    lineHeight: 20,
     flexShrink: 0,
     fontSize: 17,
     fontWeight: '900',

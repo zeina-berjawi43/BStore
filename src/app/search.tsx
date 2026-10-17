@@ -161,8 +161,8 @@ export default function Search() {
               <View style={styles.addButtonContainer}>
                 <View style={styles.priceGroup}>
                   {hasPrice ? <View style={styles.prices}>
-                    <Text style={[styles.price, onSale && styles.salePrice]} >${finalPrice.toFixed(2)}</Text>
                     {onSale && <Text style={styles.oldPrice} >${price.toFixed(2)}</Text>}
+                    <Text style={[styles.price, onSale && styles.salePrice]} >${finalPrice.toFixed(2)}</Text>
                   </View> : <Text style={styles.secondary}>Open for price details</Text>}
                 </View>
                 <AddToCartButton product={item} onAdjust={delta => void shopping.adjust(item, delta)} name={item.name} pending={cartBusy} unavailable={!available}
@@ -194,12 +194,12 @@ const styles = StyleSheet.create({
   discount: { position: 'absolute', top: 10, left: 8, paddingHorizontal: 6, paddingVertical: 4, borderRadius: 6, backgroundColor: '#E35B3F' },
   discountText: { fontSize: 11, fontWeight: '800', color: '#FFFFFF' },
   info: { padding: 7, gap: 2 },
-  name: { ...productCardLayout.title, fontSize: 14, fontWeight: '800', color: '#171717', minHeight: 32 },
+  name: { ...productCardLayout.title, fontSize: 14, fontWeight: '800', color: '#171717', minHeight: 36 },
   secondary: { fontSize: 12, color: '#777168', lineHeight: 18 },
   prices: { alignItems: 'flex-start', gap: 2 },
-  price: { flexShrink: 0, fontSize: 16, fontWeight: '900', color: '#171717' },
+  price: { lineHeight: 20, flexShrink: 0, fontSize: 16, fontWeight: '900', color: '#171717' },
   salePrice: { color: '#E35B3F' },
-  oldPrice: { flexShrink: 1, fontSize: 11, color: '#777168', textDecorationLine: 'line-through' },
+  oldPrice: { lineHeight: 12, flexShrink: 1, fontSize: 11, color: '#777168', textDecorationLine: 'line-through' },
   priceGroup: { ...productCardLayout.price, minWidth: 0 },
   addButtonContainer: { ...productCardLayout.bottom, width: 'auto', margin: 7, marginTop: 0 },
   errorBox: { marginHorizontal: 18, marginTop: 10 },
