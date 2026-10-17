@@ -820,7 +820,7 @@ export default function Index() {
                 styles.offerLabel
               }
             >
-              See All
+              SEE ALL
             </Text>
           </Pressable>
         </View>
@@ -1924,24 +1924,23 @@ const styles = StyleSheet.create({
   },
 
   topSellingInfo: {
+    ...productCardLayout.content, marginTop: 4,
     width: '100%',
   },
 
   topSellingName: {
-    height: 28,
+    height: 14,
     fontSize: 10.5,
     lineHeight: 14,
     fontWeight: '800',
     color: '#24221E',
-    marginTop: 4,
-    marginBottom: 2,
   },
 
   topSellingBottom: {
-    ...productCardLayout.bottom,
+    ...productCardLayout.bottom, alignItems: 'flex-start',
   },
 
-  topSellingPrices: { ...productCardLayout.price, minWidth: 0, alignItems: 'flex-start', gap: 0, marginRight: 0 },
+  topSellingPrices: { ...productCardLayout.flowPrice, alignItems: 'flex-start', gap: 0, marginRight: 0 },
   topSellingOldPrice: { lineHeight: 12, flexShrink: 0, fontSize: 11, color: '#817B71', textDecorationLine: 'line-through' },
   topSellingPrice: {
     lineHeight: 20,
@@ -1957,7 +1956,7 @@ const styles = StyleSheet.create({
   },
 
   topSellingLoginPrice: {
-    ...productCardLayout.price,
+    ...productCardLayout.flowPrice,
     fontSize: 7.5,
     color: '#938C82',
     fontWeight: '600',
