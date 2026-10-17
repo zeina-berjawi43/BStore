@@ -10,7 +10,7 @@ function fixture(file, name, context = {}) {
   const useState = initial => { const i = cursor++; if (!(i in slots)) slots[i] = typeof initial === 'function' ? initial() : initial; return [slots[i], value => { slots[i] = typeof value === 'function' ? value(slots[i]) : value; }]; };
   const exports = {};
   vm.runInNewContext(ts.transpileModule(fn.getText(ast) + '\nexports.fn = ' + name, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.React } }).outputText,
-    { exports, React: { createElement: element }, useState, useEffect: fn => fn(), useCallback: fn => fn, useRef: value => { const i = cursor++; return slots[i] ||= { current: value }; }, ...context });
+    { exports, QuantitySelector: "QuantitySelector", React: { createElement: element }, useState, useEffect: fn => fn(), useCallback: fn => fn, useRef: value => { const i = cursor++; return slots[i] ||= { current: value }; }, ...context });
   return props => { cursor = 0; return exports.fn(props); };
 }
 function nodes(tree, predicate) {
@@ -125,18 +125,11 @@ test('Recently Added retains price and navigation without a cart action; detail 
   assert.doesNotMatch(details, /addingToCart/);
 });
 
-test('Offers scrolling measures the section wrapper in ScrollView coordinates after section grouping', () => {
-  const text = source('app/index.tsx'), ast = ts.createSourceFile('index.tsx', text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX); let layout;
-  function walk(node) {
-    if (ts.isJsxOpeningElement(node) && node.attributes.properties.some(prop => prop.name?.getText(ast) === 'testID' && prop.initializer?.text === 'home-offers')) {
-      layout = node.attributes.properties.find(prop => prop.name?.getText(ast) === 'onLayout')?.initializer?.expression?.getText(ast);
-    }
-    ts.forEachChild(node, walk);
-  }
-  walk(ast); assert.ok(layout);
-  const exports = {}, offersSectionY = { current: 0 };
-  vm.runInNewContext(ts.transpileModule('exports.layout=' + layout, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, { exports, offersSectionY });
-  exports.layout({ nativeEvent: { layout: { y: 1200 } } }); assert.equal(offersSectionY.current, 1200);
+test('Offers See All opens the dedicated route without imperative Home scrolling', () => {
+  const text = source('app/index.tsx');
+  assert.match(text, /router\.push\('\/offers'\)/);
+  assert.match(text, /See All/);
+  assert.doesNotMatch(text, /offersSectionY|scrollToOffers/);
 });
 
 test('symbol-free confirmations preserve Cancel, Back and once-only destructive actions; success Back acknowledges once', () => {
@@ -270,11 +263,10 @@ test('two-stage Cart fills, colors and totals use current Class C rules only, in
     if(subtotal>=30)assert.ok(text.includes(subtotal>=100?'FREE':'$5.00'));
   }
   const emptyBars=nodes(renderCart(0,rules,true,true),node=>node.props?.accessibilityRole==='progressbar');
-  assert.equal(emptyBars.length,2);
-  assert.deepEqual(emptyBars.map(bar=>bar.props.accessibilityValue.now),[0,0]);
-  const emptyFills=emptyBars.map(bar=>nodes(bar,node=>node.props?.style?.width)[0].props.style);
-  assert.deepEqual(emptyFills.map(fill=>fill.width),['0%','0%']);
-  assert.deepEqual(emptyFills.map(fill=>fill.backgroundColor),['#D74343','#D9A521']);
+  assert.equal(emptyBars.length,0);
+  const emptyText=nodes(renderCart(0,rules,true,true),node=>node.type==='Text').map(node=>JSON.stringify(node.props.children)).join('');
+  assert.ok(emptyText.includes('Continue Shopping'));
+  assert.ok(!emptyText.includes('FREE delivery'));
   for(const priceClass of ['A','B']) assert.equal(nodes(renderCart(0,{...rules,priceClass},true,true),node=>node.props?.accessibilityRole==='progressbar').length,0);
   assert.equal(nodes(renderCart(0,rules,false,true),node=>node.props?.accessibilityRole==='progressbar').length,0);
   for(const priceClass of ['A','B']) {

@@ -2,6 +2,7 @@ import { useShopping } from '../hooks/use-shopping';
 
 import { CartButton } from '../components/cart-button';
 
+import { goBackOrHome } from '../services/navigation';
 import { getFinalPrice } from '../services/product-price';
 import { AddToCartButton } from '../components/add-to-cart-button';
 import { ProductImage } from '../components/product-image';
@@ -179,10 +180,11 @@ function DepartmentCategoriesScreen({ departmentId, departmentName }: { departme
   /* =======================================================
      RENDER
   ======================================================= */
-  const actions = useRef({ openProduct, addToCart, toggle: shopping.toggle });
-  useEffect(() => { actions.current = { openProduct, addToCart, toggle: shopping.toggle }; });
+  const actions = useRef({ openProduct, addToCart, toggle: shopping.toggle, adjust: shopping.adjust });
+  useEffect(() => { actions.current = { openProduct, addToCart, toggle: shopping.toggle, adjust: shopping.adjust }; });
   const onOpen = useCallback((product: Product) => actions.current.openProduct(product), []);
   const onAdd = useCallback((product: Product) => { void actions.current.addToCart(product); }, []);
+  const onAdjust = useCallback((product: Product, delta: number) => { void actions.current.adjust(product, delta); }, []);
   const onFavorite = useCallback((product: Product) => { void actions.current.toggle(product); }, []);
   return (
     <View
@@ -199,26 +201,14 @@ function DepartmentCategoriesScreen({ departmentId, departmentName }: { departme
           ONE PAGE-LEVEL ALERT ONLY
       ================================================= */}
 
-      <FlatList
-        key={columns}
-        data={filteredProducts as Product[]}
-        keyExtractor={product => product._id}
-        numColumns={columns}
-        initialNumToRender={12}
-        maxToRenderPerBatch={8}
-        windowSize={5}
-        removeClippedSubviews={false}
-        columnWrapperStyle={styles.productsGrid}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        ListHeaderComponent={<View>
+      <View testID="catalog-header" style={{ paddingHorizontal: 18, paddingTop: 18, flexShrink: 0 }}>
         {/* =================================================
             HEADER
         ================================================= */}
         <View style={styles.header}>
           <Pressable
             style={styles.backButton}
-            onPress={() => router.back()}
+            onPress={goBackOrHome}
           >
             <Ionicons
               name="arrow-back"
@@ -239,8 +229,7 @@ function DepartmentCategoriesScreen({ departmentId, departmentName }: { departme
         {/* =================================================
             SUBCATEGORIES - TEXT TABS
         ================================================= */}
-        {(loadingSubCategories ||
-          subCategories.length > 0) ? (
+        {(
           <View style={styles.subCategoriesSection}>
             <ScrollView
               horizontal
@@ -297,7 +286,7 @@ function DepartmentCategoriesScreen({ departmentId, departmentName }: { departme
               })}
             </ScrollView>
           </View>
-        ) : null}
+        )}
         {/* =================================================
             RESULTS
         ================================================= */}
@@ -334,9 +323,21 @@ function DepartmentCategoriesScreen({ departmentId, departmentName }: { departme
             LOADING PRODUCTS
         ================================================= */}
 
-          {loadingSubCategories && subCategories.length === 0 && <ActivityIndicator color="#E35B3F" accessibilityLabel="Loading categories" />}
+
           {!!productsError && <Pressable onPress={retry} accessibilityRole="button"><Text style={styles.emptyText}>{productsError} Tap to retry.</Text></Pressable>}
-        </View>}
+        </View>
+      <FlatList testID="catalog-list" style={{ flex: 1 }}
+        key={columns}
+        data={filteredProducts as Product[]}
+        keyExtractor={product => product._id}
+        numColumns={columns}
+        initialNumToRender={12}
+        maxToRenderPerBatch={8}
+        windowSize={5}
+        removeClippedSubviews={false}
+        columnWrapperStyle={styles.productsGrid}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
         ListEmptyComponent={(loadingProducts || loadingSubCategories) &&
         filteredProducts.length === 0 ? (
           <View
@@ -389,7 +390,7 @@ function DepartmentCategoriesScreen({ departmentId, departmentName }: { departme
           </View>)}
         renderItem={({ item: product }) => <CatalogCard columns={columns} product={product} favorite={favorites.has(product._id)}
           pending={shopping.pendingCart.has(product._id)} isLoggedIn={isLoggedIn}
-          onOpen={onOpen} onAdd={onAdd} onFavorite={onFavorite} />}
+          onOpen={onOpen} onAdd={onAdd} onAdjust={onAdjust} onFavorite={onFavorite} />}
         ListFooterComponent={<View style={styles.bottomSpace} />}
       />
     </View>
@@ -399,9 +400,9 @@ function DepartmentCategoriesScreen({ departmentId, departmentName }: { departme
    STYLES
 ========================================================= */
 
-const CatalogCard = memo(function CatalogCard({ columns, product, favorite, pending, isLoggedIn, onOpen, onAdd, onFavorite }: {
+const CatalogCard = memo(function CatalogCard({ columns, product, favorite, pending, isLoggedIn, onOpen, onAdd, onAdjust, onFavorite }: {
   columns: number; product: Product; favorite: boolean; pending: boolean; isLoggedIn: boolean;
-  onOpen: (product: Product) => void; onAdd: (product: Product) => void; onFavorite: (product: Product) => void;
+  onOpen: (product: Product) => void; onAdd: (product: Product) => void; onAdjust: (product: Product, delta: number) => void; onFavorite: (product: Product) => void;
 }) {
                 const imageUrl =
                   getImageUrl(
@@ -607,7 +608,7 @@ const CatalogCard = memo(function CatalogCard({ columns, product, favorite, pend
                           </Text>
                         )}
                       </View>
-                      <AddToCartButton name={product.name}
+                      <AddToCartButton product={product} onAdjust={delta => onAdjust(product, delta)} name={product.name}
                         pending={pending} unavailable={isOutOfStock}
                         onPress={() => void onAdd(product)} />
                     </View>
@@ -624,7 +625,7 @@ const styles =
   },
   scrollContent: {
     paddingHorizontal: 18,
-    paddingTop: 18,
+    paddingTop: 0,
     paddingBottom: 30,
   },
   homeAlert: {
@@ -856,6 +857,7 @@ const styles =
   },
 
   resultsHeader: {
+    minHeight: 32,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -1011,12 +1013,14 @@ const styles =
     color: '#C94C4C',
   },
   productBottom: {
+    flexWrap: 'wrap', rowGap: 6,
     marginTop: 10,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   priceContainer: {
+    minWidth: 60,
     flex: 1,
     paddingRight: 5,
   },

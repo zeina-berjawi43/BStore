@@ -426,9 +426,6 @@ export default function Cart() {
             Your cart is empty
           </Text>
 
-          {progress}
-
-
           <Text
             style={
               styles.emptySubtitle

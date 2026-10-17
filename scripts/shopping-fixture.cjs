@@ -23,7 +23,7 @@ function fixture({ cart = [], favorites = [], send, authenticated = () => true }
     if (Array.isArray(result.cart?.items)) cart = result.cart.items;
     else if (url === '/cart/add') {
       const found = cart.find(row => row.product._id === body.productId);
-      cart = found ? cart.map(row => row === found ? { ...row, quantity: row.quantity + 1 } : row) : [...cart, { product: product(body.productId), quantity: 1, price: 10 }];
+      cart = found ? cart.map(row => row === found ? { ...row, quantity: row.quantity + body.quantity } : row) : [...cart, { product: product(body.productId), quantity: body.quantity, price: 10 }];
     } else if (url === '/cart/update') cart = cart.map(row => row.product._id === body.productId ? { ...row, quantity: body.quantity } : row);
     else if (url === '/cart/remove') cart = cart.filter(row => row.product._id !== body.productId);
     else if (url === '/cart/clear') cart = [];

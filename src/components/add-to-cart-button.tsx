@@ -1,18 +1,22 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet } from 'react-native';
+import { QuantitySelector } from './quantity-selector';
+import type { ShoppingProduct } from '../services/shopping-state';
 
 // Existing Category/Department product-card (+) design.
-export function AddToCartButton({ name, pending, unavailable, onPress, compact = false }: {
+export function AddToCartButton({ name, pending, unavailable, onPress, compact = false, product, onAdjust }: {
   name: string; pending: boolean; unavailable: boolean; onPress: () => void;
   compact?: boolean;
+  product?: ShoppingProduct; onAdjust?: (delta: number) => void;
 }) {
-  return <Pressable style={({ pressed }) => [styles.button, compact && styles.compact, pressed && styles.active, unavailable && styles.disabled]}
+  const button = <Pressable style={({ pressed }) => [styles.button, compact && styles.compact, pressed && styles.active, unavailable && styles.disabled]}
     disabled={unavailable} hitSlop={5}
     accessibilityRole="button" accessibilityLabel={unavailable ? `${name} is out of stock` : `Add ${name} to cart`}
     accessibilityState={{ disabled: unavailable }}
     onPress={event => { event.stopPropagation(); if (!pending) onPress(); }}>
     <Ionicons name="add" size={compact ? 14 : 20} color="#FFFFFF" />
   </Pressable>;
+  return product && onAdjust ? <QuantitySelector product={product} onAdjust={onAdjust}>{button}</QuantitySelector> : button;
 }
 const styles = StyleSheet.create({
   button: { width: 34, height: 34, borderRadius: 12, backgroundColor: '#171717', alignItems: 'center', justifyContent: 'center' },

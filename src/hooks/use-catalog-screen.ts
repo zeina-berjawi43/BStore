@@ -3,7 +3,7 @@ import { AppState, Platform } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { API_URL, getValidAccessToken } from '../services/authService';
 import { getSessionSnapshot, subscribeSession, onSessionChanged, onPricingChanged } from '../services/tokenStorage';
-import { fetchCatalog, peekCurrentCatalog, type CatalogProduct } from '../services/catalogService';
+import { fetchCatalog, fetchProductSection, peekCurrentCatalog, type CatalogProduct } from '../services/catalogService';
 import { request } from '../services/request';
 import { createResourceCache, reconcileItems } from '../services/resource-cache';
 import { getFinalPrice } from '../services/product-price';
@@ -21,10 +21,10 @@ export function selectCatalog(products: CatalogProduct[], subCategories: Categor
   }).sort((a, b) => getFinalPrice(b) - getFinalPrice(a));
 }
 
-export function useCatalogScreen(departmentId?: string, legacyName?: string) {
+export function useCatalogScreen(departmentId?: string, legacyName?: string, offersOnly = false) {
   const session = useSyncExternalStore(subscribeSession, getSessionSnapshot, getSessionSnapshot);
   const path = departmentId ? `/departments/${encodeURIComponent(departmentId)}/categories` : '/categories';
-  const [products, setProducts] = useState<CatalogProduct[]>(peekCurrentCatalog);
+  const [products, setProducts] = useState<CatalogProduct[]>(() => offersOnly ? [] : peekCurrentCatalog());
   const [categoryState, setCategoryState] = useState(() => ({ path, items: categories.peek<Category[]>(path) || [] }));
   const subCategories = useMemo(() => categoryState.path === path ? categoryState.items : categories.peek<Category[]>(path) || [], [categoryState, path]);
   const [selectedSubCategory, setSelectedSubCategory] = useState('ALL');
@@ -39,6 +39,7 @@ export function useCatalogScreen(departmentId?: string, legacyName?: string) {
     const refresh = async (force = false) => {
       if (!active) return;
       const epoch = ++operation.current;
+      setError(''); setLoadingProducts(true); setLoadingSubCategories(true);
       const revision = getSessionSnapshot().revision;
       const valid = () => active && operation.current === epoch && revision === getSessionSnapshot().revision;
       const failures: string[] = [];
@@ -46,9 +47,9 @@ export function useCatalogScreen(departmentId?: string, legacyName?: string) {
         try {
           const token = await getValidAccessToken();
           if (!valid()) return;
-          const cached = peekCurrentCatalog();
+          const cached = offersOnly ? [] : peekCurrentCatalog();
           if (cached.length) { setProducts(cached); setLoadingProducts(false); }
-          const next = await fetchCatalog(token, force);
+          const next = offersOnly ? await fetchProductSection('offers', token, force) : await fetchCatalog(token, force);
           if (valid()) setProducts(next);
         } catch { failures.push('Products could not be refreshed.'); }
         finally { if (valid()) setLoadingProducts(false); }
@@ -76,11 +77,11 @@ export function useCatalogScreen(departmentId?: string, legacyName?: string) {
     const foreground = AppState.addEventListener('change', state => { if (state === 'active') void refresh(); });
     const tick = setInterval(() => { if (AppState.currentState === 'active' && (Platform.OS !== 'web' || document.visibilityState === 'visible')) void refresh(); }, 60_000);
     return () => { active = false; operation.current++; foreground.remove(); clearInterval(tick); };
-  }, [path]));
+  }, [path, offersOnly]));
   const visibleCategories = useMemo(() => legacyName && legacyName.toUpperCase() !== 'ALL'
     ? subCategories.filter(item => typeof item.department === 'object' && item.department?.name?.toLowerCase().trim() === legacyName.toLowerCase().trim())
     : subCategories, [subCategories, legacyName]);
-  const filteredProducts = useMemo(() => selectCatalog(products, visibleCategories, selectedSubCategory, !departmentId && legacyName?.toUpperCase() === 'ALL'), [products, visibleCategories, selectedSubCategory, departmentId, legacyName]);
+  const filteredProducts = useMemo(() => selectCatalog(products, visibleCategories, selectedSubCategory, offersOnly || (!departmentId && legacyName?.toUpperCase() === 'ALL')), [products, visibleCategories, selectedSubCategory, departmentId, legacyName, offersOnly]);
   return { products, subCategories: visibleCategories, selectedSubCategory, setSelectedSubCategory, loadingProducts, loadingSubCategories,
     productsError, filteredProducts, isLoggedIn: session.authenticated, retry: () => { void refreshRef.current(true); } };
 }

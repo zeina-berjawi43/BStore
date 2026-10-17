@@ -1,3 +1,6 @@
+import { QuantitySelector } from '../components/quantity-selector';
+import { openProtected } from '../services/login-intent';
+import { useWebPullRefresh } from '../hooks/use-web-pull-refresh';
 import { getSessionSnapshot, onPricingChanged } from '../services/tokenStorage';
 import { useShopping } from '../hooks/use-shopping';
 
@@ -12,7 +15,7 @@ import { ProductImage } from '../components/product-image';
 import { ImageFrame } from '../services/image-frame';
 
 
-import { View, Text, StyleSheet, Pressable, ScrollView, Animated, RefreshControl, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, Animated, RefreshControl, ActivityIndicator, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { HomeImage } from '../components/home-image';
 import { useHomeSection } from '../hooks/use-home-section';
@@ -149,7 +152,6 @@ export default function Index() {
   const [currentSlide, setCurrentSlide] = useState(0);
 
   const scrollViewRef = useRef<ScrollView>(null);
-  const offersSectionY = useRef(0);
   const accessTokenRef = useRef<string | null>(null);
   const homeLoadedRef = useRef(false);
   const homeGenerationRef = useRef(0);
@@ -160,15 +162,7 @@ export default function Index() {
 
 
 
-  const scrollToOffers = () => {
-    scrollViewRef.current?.scrollTo({
-      y: Math.max(
-        offersSectionY.current - 20,
-        0
-      ),
-      animated: true,
-    });
-  };
+
 
   const convertProduct = (product: any): Product => {
     const productId = String(
@@ -208,7 +202,7 @@ export default function Index() {
     try {
       const data = await fetchCatalog(token, force);
       if (accessTokenRef.current !== token) return;
-      if (!data.length) throw new Error('Products are temporarily unavailable. Please refresh.');
+
       catalogueLoadedRef.current = true;
       setProducts(data.map(convertProduct));
       return true;
@@ -227,7 +221,7 @@ export default function Index() {
       const data = await fetchProductSection('offers', token, force);
       if (token !== accessTokenRef.current) return;
       offersLoadedRef.current = true;
-      setOfferProducts(data.filter(product => Number(product.discount) > 0).map(product => ({ ...convertProduct(product), discount: Number(product.discount) || 0 })));
+      setOfferProducts(data.map(product => ({ ...convertProduct(product), discount: Number(product.discount) || 0 })));
       return true;
     } catch {
       if (token === accessTokenRef.current) setOffersError('Offers are unavailable. Please refresh.');
@@ -335,6 +329,8 @@ export default function Index() {
     return operation;
   };
 
+  const pullDistance = useWebPullRefresh(scrollViewRef, !initialLoading, refreshHome);
+
   const pricingRefreshRef = useRef<() => void>(() => {});
   useEffect(() => { pricingRefreshRef.current = () => {
     setProducts([]); setOfferProducts([]); setTopSellingProducts([]);
@@ -377,13 +373,7 @@ export default function Index() {
 
 
 
-  const openAccount = () => {
-    if (!isLoggedIn) {
-      router.push('/login');
-    } else {
-      router.push('/account');
-    }
-  };
+  const openAccount = () => openProtected('/account');
 
   const displayedTopSelling =
     showAllTopSelling
@@ -397,10 +387,14 @@ export default function Index() {
   if (initialLoading && !(slidesHydrated && departmentsHydrated) && !products.length && !topSellingProducts.length && !offerProducts.length) return <StartupLoading />;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
+    <SafeAreaView style={styles.container} edges={Platform.OS === 'android' ? ['left', 'right'] : ['top', 'bottom', 'left', 'right']}>
       {feedback}
 
+      {Platform.OS === 'web' && (refreshing || pullDistance > 0) && <View pointerEvents="none" style={{ position: 'absolute', top: 6, alignSelf: 'center', zIndex: 20, backgroundColor: '#FFFFFF', padding: 8, borderRadius: 18 }}>
+        {refreshing ? <ActivityIndicator accessibilityLabel="Refreshing Home" color="#E35B3F" /> : <Text>{pullDistance >= 70 ? 'Release to refresh' : 'Pull to refresh'}</Text>}
+      </View>}
       <ScrollView
+        testID="home-scroll"
         ref={scrollViewRef}
         refreshControl={<RefreshControl refreshing={refreshing} tintColor="#E35B3F" colors={['#E35B3F']} progressBackgroundColor="#FFFFFF"
           onRefresh={() => { void refreshHome(); }} />}
@@ -431,10 +425,7 @@ export default function Index() {
           </View>
 
           <View style={{ flexDirection: 'row', gap: 8 }}>
-          <Pressable style={styles.accountButton} accessibilityRole="button" accessibilityLabel="Refresh Home" disabled={refreshing}
-            onPress={() => { void refreshHome(); }}>
-            {refreshing ? <ActivityIndicator color="#E35B3F" accessibilityLabel="Refreshing Home" /> : <Ionicons name="refresh-outline" size={21} color="#171717" />}
-          </Pressable>
+
           <Pressable
             accessibilityRole="button" accessibilityLabel="Open account"
             style={
@@ -556,7 +547,7 @@ export default function Index() {
             <View style={styles.sectionAccent} />
             <Text style={styles.sectionTitle}>Shop by Categories</Text>
           </View>
-          <Text style={styles.sectionSmallLabel}>EXPLORE</Text>
+
         </View>
 
         {departmentsLoading && departments.length === 0 ? (
@@ -689,7 +680,7 @@ export default function Index() {
                       product
                     )
                   }
-                  onAddToCart={() => void addToCart(product, getFinalPrice(product))}
+                  onAdjust={delta => void shopping.adjust(product, delta)} onAddToCart={() => void addToCart(product, getFinalPrice(product))}
                   pending={shopping.pendingCart.has(product.id)}
                 />
               )
@@ -734,13 +725,7 @@ export default function Index() {
             </Text>
           </View>
 
-          <Text
-            style={
-              styles.sectionSmallLabel
-            }
-          >
-            NEW
-          </Text>
+
         </View>
 
         <ScrollView
@@ -796,7 +781,7 @@ export default function Index() {
 
         </View>
         <View testID="home-offers" style={styles.homeSection}
-          onLayout={event => { offersSectionY.current = event.nativeEvent.layout.y; }}>
+          >
         {/* OFFERS */}
 
         <View
@@ -826,7 +811,7 @@ export default function Index() {
 
           <Pressable
             onPress={
-              scrollToOffers
+              () => router.push('/offers')
             }
           >
             <Text
@@ -834,7 +819,7 @@ export default function Index() {
                 styles.offerLabel
               }
             >
-              SPECIAL DEALS
+              See All
             </Text>
           </Pressable>
         </View>
@@ -952,7 +937,7 @@ export default function Index() {
                   </Text>
                 )}
 
-                <Pressable
+                <QuantitySelector product={activeOffer} onAdjust={delta => void shopping.adjust(activeOffer, delta)}><Pressable
                   style={
                     [styles.offerAddButton, shopping.pendingCart.has(activeOffer.id) && { backgroundColor: '#E35B3F' }]
                   }
@@ -990,7 +975,7 @@ export default function Index() {
                     size={16}
                     color="#FFFFFF"
                   />
-                </Pressable>
+                </Pressable></QuantitySelector>
               </View>
             </Pressable>
               )} />
@@ -1122,9 +1107,7 @@ export default function Index() {
             styles.navItem
           }
           onPress={() =>
-            router.push(
-              '/favorites'
-            )
+            openProtected('/favorites')
           }
         >
           <View
@@ -1172,15 +1155,7 @@ export default function Index() {
             styles.navItem
           }
           onPress={() => {
-            if (!isLoggedIn) {
-              router.push(
-                '/login'
-              );
-            } else {
-              router.push(
-                '/cart'
-              );
-            }
+            openProtected('/cart');
           }}
         >
           <View
@@ -1303,14 +1278,14 @@ function TopSellingProductRow({
   isFavorite,
   onPress,
   onFavorite,
-  onAddToCart,
+  onAddToCart, onAdjust,
 }: {
   product: TopSellingProduct;
   isLoggedIn: boolean;
   isFavorite: boolean;
   onPress: () => void;
   onFavorite: () => void;
-  onAddToCart: () => void;
+  onAddToCart: () => void; onAdjust: (delta: number) => void;
   pending?: boolean;
 }) {
   const finalPrice = getFinalPrice(product);
@@ -1480,7 +1455,7 @@ function TopSellingProductRow({
               </Text>
             )}
 
-            <AddToCartButton compact name={product.name} pending={pending} unavailable={!isAvailable} onPress={onAddToCart} />
+            <AddToCartButton product={product} onAdjust={onAdjust} compact name={product.name} pending={pending} unavailable={!isAvailable} onPress={onAddToCart} />
           </View>
         </View>
       </Pressable>
@@ -1961,13 +1936,14 @@ const styles = StyleSheet.create({
   },
 
   topSellingBottom: {
+    flexWrap: 'wrap', rowGap: 6,
     width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
 
-  topSellingPrices: { flex: 1, minWidth: 0, alignItems: 'flex-start', gap: 2, marginRight: 5 },
+  topSellingPrices: { flex: 1, minWidth: 60, alignItems: 'flex-start', gap: 2, marginRight: 5 },
   topSellingOldPrice: { flexShrink: 1, fontSize: 9, color: '#817B71', textDecorationLine: 'line-through' },
   topSellingPrice: {
     flexShrink: 1,

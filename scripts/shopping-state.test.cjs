@@ -34,18 +34,25 @@ function shoppingHook(state, session = { authenticated: true, revision: 1 }) {
   return { hook: exports.useShopping(), messages, navigations, unmount: () => cleanups.forEach(fn => fn?.()) };
 }
 
-test('actual shared hook publishes immediate success feedback once and restores state with one error on failure', async () => {
+test('actual shared hook waits for confirmation and restores state with one error on failure', async () => {
   const gate = deferred(), { state } = fixture({ send: () => gate.promise }); await state.refresh();
   const { hook, messages } = shoppingHook(state);
   const first = hook.add(product('A')); await hook.add(product('A'));
-  assert.equal(state.getSnapshot().cartCount, 1); assert.equal(messages.length, 1); assert.equal(messages[0][1], 'Added to Cart');
+  assert.equal(state.getSnapshot().cartCount, 1); assert.equal(messages.length, 0);
   await flush(); gate.reject(Error('offline')); await first;
-  assert.equal(state.getSnapshot().cartCount, 0); assert.equal(messages.length, 2); assert.equal(messages[1][1], 'Could not save');
+  assert.equal(state.getSnapshot().cartCount, 0); assert.equal(messages.length, 1); assert.equal(messages[0][1], 'Could not save');
 });
 test('actual shared hook never reports old-session/unmounted request completion', async () => {
   const gate = deferred(), { state } = fixture({ send: () => gate.promise }); await state.refresh();
   const { hook, messages, unmount } = shoppingHook(state); const first = hook.toggle(product('A')); await flush();
-  unmount(); gate.reject(Error('offline')); await first; assert.equal(messages.length, 1); assert.equal(state.getSnapshot().favorites.length, 0);
+  unmount(); gate.reject(Error('offline')); await first; assert.equal(messages.length, 0); assert.equal(state.getSnapshot().favorites.length, 0);
+});
+
+test('actual shared hook reports one success only after a confirmed addition', async () => {
+  const gate = deferred(), { state } = fixture({ send: () => gate.promise }); await state.refresh();
+  const { hook, messages } = shoppingHook(state); const first = hook.add(product('A')); await flush();
+  assert.equal(messages.length, 0); gate.resolve({}); await first;
+  assert.equal(messages.length, 1); assert.equal(messages[0][1], 'Added to Cart');
 });
 test('coalesced quantity failure generates one shared error toast', async () => {
   const gate = deferred(), { state } = fixture({ cart: [item('A')], send: () => gate.promise }); await state.refresh();

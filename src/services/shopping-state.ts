@@ -29,7 +29,11 @@ export function createShoppingState(deps: { send: (path: string, method?: string
       : data.favorites.filter(p => productId(p) !== op.id) };
     const item = data.cart.find(value => value.product._id === op.id);
     if (op.kind === 'remove') return { ...data, cart: data.cart.filter(value => value.product._id !== op.id) };
-    if (op.kind === 'quantity') return { ...data, cart: data.cart.map(value => value.product._id === op.id ? { ...value, quantity: op.quantity! } : value) };
+    if (op.kind === 'quantity') {
+      if (op.quantity === 0) return { ...data, cart: data.cart.filter(value => value.product._id !== op.id) };
+      return { ...data, cart: item ? data.cart.map(value => value === item ? { ...value, quantity: op.quantity! } : value)
+        : op.product ? [...data.cart, { product: { ...op.product, _id: op.id }, quantity: op.quantity!, price: getFinalPrice(op.product) ?? 0 }] : data.cart };
+    }
     return { ...data, cart: item ? data.cart.map(value => value === item ? { ...value, quantity: value.quantity + 1 } : value)
       : [...data.cart, { product: { ...op.product!, _id: op.id }, quantity: 1, price: getFinalPrice(op.product!) ?? 0 }] };
   };
@@ -76,18 +80,31 @@ export function createShoppingState(deps: { send: (path: string, method?: string
   };
   const drain = async () => {
     if (running) return;
-    running = true; const version = generation; let reconcile = false;
+    running = true; const version = generation; let reconcile = false, needsCartRead = false;
     while (operations.length && version === generation) {
       const op = operations[0];
       try {
         await refresh();
         if (version !== generation) break;
+        // A timed-out write may already exist on the server. Resolve that ambiguity
+        // before choosing add versus update for a newer absolute quantity intent.
+        if (needsCartRead && op.kind === 'quantity' && op.product) {
+          const cart = await deps.send('/cart');
+          if (version !== generation) break;
+          if (!Array.isArray(cart.cart?.items)) throw Error('Could not verify your cart. Please try again.');
+          confirmed = { ...confirmed, cart: currentCartPrices(cart.cart.items), minimum: cart.minimumOrderValue ?? confirmed.minimum,
+            deliveryRules: cart.pricing?.deliveryRules ?? confirmed.deliveryRules };
+          needsCartRead = false; cartError = null; publish();
+        }
         op.started = true;
+        const inline = op.kind === 'quantity' && op.product;
+        const cartAction = inline ? op.quantity === 0 ? 'remove' : confirmed.cart.some(item => item.product._id === op.id) ? 'update' : 'add' : op.kind === 'quantity' ? 'update' : op.kind;
         const path = op.kind === 'favorite' ? `/favorites/${op.selected ? 'add' : 'remove'}`
           : op.kind === 'clearFavorites' ? '/favorites/clear' : op.kind === 'clearCart' ? '/cart/clear'
-          : `/cart/${op.kind === 'quantity' ? 'update' : op.kind}`;
-        const method = op.kind === 'add' || (op.kind === 'favorite' && op.selected) ? 'POST' : op.kind === 'quantity' ? 'PUT' : 'DELETE';
-        const data = await deps.send(path, method, op.id ? { productId: op.id, ...(op.kind === 'add' ? { quantity: 1 } : op.kind === 'quantity' ? { quantity: op.quantity } : {}) } : undefined);
+          : `/cart/${cartAction}`;
+        const method = cartAction === 'add' || (op.kind === 'favorite' && op.selected) ? 'POST' : cartAction === 'update' ? 'PUT' : 'DELETE';
+        const absent = inline && op.quantity === 0 && !confirmed.cart.some(item => item.product._id === op.id);
+        const data = absent ? {} : await deps.send(path, method, op.id ? { productId: op.id, ...(op.kind === 'add' ? { quantity: 1 } : op.kind === 'quantity' && op.quantity! > 0 ? { quantity: op.quantity } : {}) } : undefined);
         if (version !== generation) break;
         const next = apply(confirmed, op);
         confirmed = Array.isArray(data.cart?.items) ? { ...next, cart: currentCartPrices(data.cart.items), minimum: data.minimumOrderValue ?? next.minimum, deliveryRules: data.pricing?.deliveryRules ?? next.deliveryRules } : next;
@@ -95,6 +112,7 @@ export function createShoppingState(deps: { send: (path: string, method?: string
       } catch (error) {
         if (version !== generation) break;
         reconcile = true;
+        if (!['favorite', 'clearFavorites'].includes(op.kind)) needsCartRead = true;
         if (!['favorite', 'clearFavorites'].includes(op.kind)) cartError = error instanceof Error ? error : Error('Could not save your cart.');
         operations.shift(); mutationRevision++; publish(); op.reject(error instanceof Error ? error : Error('Could not save your change.'));
       }
@@ -123,7 +141,7 @@ export function createShoppingState(deps: { send: (path: string, method?: string
     if (input.kind === 'quantity') {
       const tail = operations.at(-1);
       const previous = tail?.kind === 'quantity' && tail.id === input.id && !tail.started ? tail : undefined;
-      if (previous) { previous.quantity = input.quantity; publish(); return previous.promise; }
+      if (previous) { previous.quantity = input.quantity; previous.product ||= input.product; publish(); return previous.promise; }
     }
     const duplicate = operations.find(op => op.kind === input.kind && op.id === input.id);
     if (duplicate && input.kind !== 'quantity') return duplicate.promise;
@@ -132,6 +150,13 @@ export function createShoppingState(deps: { send: (path: string, method?: string
     operations.push({ ...input, promise, resolve, reject }); mutationRevision++; publish(); void drain(); return promise;
   };
   return { getSnapshot: () => snapshot, subscribe: (fn: () => void) => { listeners.add(fn); return () => { listeners.delete(fn); }; }, reset, refresh, synchronizeCart,
+    adjust: (product: ShoppingProduct, delta: number) => {
+      const id = productId(product), current = snapshot.cart.find(item => item.product._id === id)?.quantity || 0;
+      if (!id || ![-1, 1].includes(delta) || (delta > 0 && product.availability === false)) return Promise.resolve();
+      const quantity = Math.max(0, current + delta);
+      if (!Number.isSafeInteger(quantity) || quantity === current) return Promise.resolve();
+      return enqueue({ kind: 'quantity', id, product, quantity });
+    },
     add: (product: ShoppingProduct) => enqueue({ kind: 'add', id: productId(product), product }),
     favorite: (product: ShoppingProduct, selected: boolean) => enqueue({ kind: 'favorite', id: productId(product), product, selected }),
     quantity: (id: string, quantity: number) => Number.isSafeInteger(quantity) && quantity >= 1 ? enqueue({ kind: 'quantity', id, quantity }) : Promise.reject(Error('Enter a whole number of at least 1.')),

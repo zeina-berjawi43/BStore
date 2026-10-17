@@ -365,6 +365,7 @@ test('root layout gates restoration, remounts on account changes, protects priva
     'expo-notifications': {}, 'expo-constants': {},
     'expo-status-bar': { StatusBar: 'StatusBar' },
     'expo-splash-screen': { preventAutoHideAsync: async () => splashCalls.push('hold'), hideAsync: async () => splashCalls.push('hide') },
+    '../services/login-intent': { rememberLoginDestination: () => {}, takeLoginDestination: () => null },
     '../services/navigation': { orderNotificationState: () => { throw Error('Unexpected order navigation'); } },
     '../services/tokenStorage': tokens, '../services/sessionRoutes': routes,
     '../services/pushService': { installForegroundHandler: () => {}, syncPush: async () => {} },

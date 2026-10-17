@@ -102,8 +102,13 @@ const mock = () => {
     await send('Page.navigate', { url: 'http://127.0.0.1:4175/' });
     await until(`document.body && document.body.innerText.includes('Test Almonds')`);
 
-    const refresh = async () => { await evaluate(`document.querySelector('[aria-label="Refresh Home"]').click()`); };
-    const waitRefresh = () => until(`document.querySelector('[aria-label="Refresh Home"]').getAttribute('aria-disabled')!=='true'`);
+    const refresh = async () => {
+      await evaluate(`document.querySelector('[data-testid="home-scroll"]').scrollTop=0`);
+      await send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:180,y:40}]});
+      for(const y of [60,90,120,150])await send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:180,y}]});
+      await send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+    };
+    const waitRefresh = () => until(`!document.querySelector('[aria-label="Refreshing Home"]')`);
     await until(`document.querySelectorAll('[data-testid="offer-pagination"] [aria-label^="Offer "]').length===8`);
     for(const width of [320,412,1024]) {
       await send('Emulation.setDeviceMetricsOverride',{width,height:800,deviceScaleFactor:1,mobile:width<500});await wait(250);
@@ -124,12 +129,17 @@ const mock = () => {
     await refresh();await waitRefresh();
     assert.ok(await evaluate(`!window.oldPager.isConnected&&Math.abs(window.slideshowPager().scrollLeft-window.slideshowPager().clientWidth)<2`));
     assert.equal(await evaluate(`window.fixtureRequests.filter(p=>p==='/slideshows').length`),1);
-    checks.push('Refresh animates, deduplicates concurrent taps and resets the slideshow to banner one on success');
+    checks.push('Refresh animates, deduplicates concurrent pulls and resets the slideshow to banner one on success');
     await evaluate(`window.oldPager=window.slideshowPager();window.oldPager.scrollLeft=window.oldPager.clientWidth*2;window.failSlide=true;true;`);await wait(300);
     await refresh();await waitRefresh();
     assert.ok(await evaluate(`window.oldPager.isConnected&&Math.abs(window.oldPager.scrollLeft-window.oldPager.clientWidth*2)<2`));
     assert.ok(await evaluate(`document.body.innerText.includes('Some Home content could not be refreshed.')&&document.body.innerText.includes('Test Almonds')`));
     checks.push('Failed refresh retains the slideshow position and cached content, with failure feedback');
+    const attempts=await evaluate(`window.fixtureRequests.filter(p=>p==='/slideshows').length`);
+    await evaluate(`window.failSlide=false;[...document.querySelectorAll('[role="alert"]')].find(e=>e.textContent.includes('Tap to retry.')).click()`);
+    await until(`!document.body.innerText.includes('Tap to retry.')&&!document.querySelector('[aria-label="Refreshing Home"]')`);
+    assert.equal(await evaluate(`window.fixtureRequests.filter(p=>p==='/slideshows').length`),attempts+1);
+    checks.push('Retry repeats the failed real section request and clears error only after success');
     assert.equal(errors.length,0,JSON.stringify(errors));
     fs.writeFileSync(path.join(evidence,'phase3-browser-results.json'),JSON.stringify({checks,errors},null,2));
     console.log(JSON.stringify({checks,errors},null,2));

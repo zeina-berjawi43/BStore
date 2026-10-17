@@ -41,9 +41,9 @@ test('parallel sections deduplicate requests and isolate authenticated snapshots
   changed(); const guest = api.fetchProductSection('offers', null); assert.equal(calls[2].options.headers.Authorization, undefined);
   calls[2].resolve(reply([{ _id: 'p', name: 'Product' }])); assert.equal((await guest)[0].price, undefined);
 });
-test('unexpected empty top sellers and malformed catalogs reject; successful empty offers are confirmed', async () => {
+test('valid empty top sellers and offers succeed; malformed catalogs still reject', async () => {
   const { api, calls } = catalog();
-  const top = api.fetchProductSection('top-selling', null); calls[0].resolve(reply([])); await assert.rejects(top, /temporarily unavailable/);
+  const top = api.fetchProductSection('top-selling', null); calls[0].resolve(reply([])); assert.equal((await top).length, 0);
   const offers = api.fetchProductSection('offers', null); calls[1].resolve(reply([])); assert.equal((await offers).length, 0);
   const malformed = api.fetchCatalog(null); calls[2].resolve(reply([null])); await assert.rejects(malformed, /product list/);
 });

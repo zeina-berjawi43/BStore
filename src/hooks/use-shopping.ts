@@ -16,12 +16,12 @@ export function useShopping() {
     const promise = operation();
     if (observed.current.has(promise)) { await promise.catch(() => {}); return; }
     observed.current.add(promise);
-    if (message) showAlert(message, title);
-    try { await promise; } catch (error) {
+    try { await promise; if (message && mounted.current && revision === getSessionSnapshot().revision) showAlert(message, title); } catch (error) {
       if (mounted.current && revision === getSessionSnapshot().revision) showAlert(error instanceof Error ? error.message : 'Please try again.', 'Could not save');
     }
   };
   return { ...state, feedback, showAlert, refresh: shoppingState.refresh,
+    adjust: (product: ShoppingProduct, delta: number) => act(() => shoppingState.adjust(product, delta)),
     add: (product: ShoppingProduct) => {
       const id = String(product._id || product.id);
       if (product.availability === false || shoppingState.getSnapshot().pendingCart.has(id)) return Promise.resolve();

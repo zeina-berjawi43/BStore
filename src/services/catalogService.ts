@@ -128,7 +128,6 @@ export async function fetchProductSection(section: ProductSection, token: string
     if (!response.ok) throw new Error('Could not load products. Please try again.');
     const next = normalize(section === 'top-selling' && Array.isArray(data.products) ? data.products.map((item: any) => item?.product) : data.products);
     const products = reconcileItems(saved?.token === token ? saved.products : undefined, token ? next : publicOnly(next).map((item, i) => ({ ...item, availability: next[i].availability })));
-    if (section === 'top-selling' && !products.length) throw new Error('Top selling products are temporarily unavailable. Please refresh.');
     if (revision === generation) {
       sectionSnapshots.set(section, { token, products, time: Date.now() });
       sectionProducts.set(section, publicOnly(products));

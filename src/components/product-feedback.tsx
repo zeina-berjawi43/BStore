@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-// One floating success message, above bottom navigation and clear of screen headers.
+// A dismissible notice whose noninteractive content lets touches reach the screen.
 export function useProductFeedback() {
   const insets = useSafeAreaInsets();
   const [notice, setNotice] = useState<{ message: string; title: string } | null>(null);
@@ -39,14 +39,12 @@ export function useProductFeedback() {
     if (timer.current) clearTimeout(timer.current);
     opacity.stopAnimation(); translateY.stopAnimation();
   }, [opacity, translateY]);
-  const favorite = notice?.title.includes('Favorites');
-  const feedback = notice ? <Animated.View accessibilityLiveRegion="polite"
-    style={[styles.alert, { bottom: insets.bottom + 90, opacity, transform: [{ translateY }] }]}>
-    <View style={styles.icon}><Ionicons name="checkmark" size={20} color="#FFFFFF" /></View>
-    <View style={styles.content}><Text style={styles.title}>{notice.title}</Text><Text style={styles.message} numberOfLines={2}>{notice.message}</Text></View>
-    <Ionicons name={favorite ? 'heart-outline' : 'cart-outline'} size={21} color="#E35B3F" />
+  const feedback = notice ? <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, { zIndex: 9999 }]}><Animated.View pointerEvents="box-none" accessibilityLiveRegion="polite"
+    style={[styles.alert, { top: insets.top + 8, opacity, transform: [{ translateY }] }]}>
+    <View pointerEvents="none" style={styles.icon}><Ionicons name="checkmark" size={20} color="#FFFFFF" /></View>
+    <View pointerEvents="none" style={styles.content}><Text style={styles.title}>{notice.title}</Text><Text style={styles.message} numberOfLines={2}>{notice.message}</Text></View>
     <Pressable onPress={dismiss} accessibilityRole="button" accessibilityLabel="Dismiss message" hitSlop={4} style={styles.close}><Ionicons name="close" size={20} color="#777168" /></Pressable>
-  </Animated.View> : null;
+  </Animated.View></View> : null;
   return { showAlert, feedback, dismiss };
 }
 const styles = StyleSheet.create({

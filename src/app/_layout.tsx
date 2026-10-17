@@ -11,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { dismissNotificationShade, installForegroundHandler, notificationDestination, syncPush } from '../services/pushService';
 import { getSessionSnapshot, onSessionChanged, readTokens, subscribeSession } from '../services/tokenStorage';
 import { orderNotificationState } from '../services/navigation';
+import { rememberLoginDestination, takeLoginDestination } from '../services/login-intent';
 import { cleanSessionNavigationState, guestRoutes, privateRoutes, publicRoutes } from '../services/sessionRoutes';
 
 export const unstable_settings = { initialRouteName: 'index' };
@@ -24,6 +25,7 @@ const splashStartedAt = Date.now();
 export default function RootLayout() {
   const pathname = usePathname();
   const initialOrder = useRef<string | null>(null);
+  const initialProtected = useRef<string | null>(null);
   const webOrderEntry = useRef<'home' | 'orders' | null>(null);
   const [initialLinkReady, setInitialLinkReady] = useState(false);
   useEffect(() => {
@@ -34,6 +36,7 @@ export default function RootLayout() {
       const orderId = link.queryParams?.orderId;
       // Custom-scheme links such as bstore://order-details use the hostname.
       const route = link.path || link.hostname;
+      if (route && privateRoutes.some(name => name === route) && route !== 'order-details') initialProtected.current = `/${route}`;
       if (route === 'order-details' && typeof orderId === 'string' && /^[a-f0-9]{24}$/i.test(orderId)) {
         initialOrder.current = orderId;
       }
@@ -60,12 +63,42 @@ export default function RootLayout() {
   const navigation = useRootNavigationState();
   const navigationRef = useNavigationContainerRef();
   const navigationRevision = useRef(0);
+  const wasAuthenticated = useRef(false);
+  const webLoginEntry = useRef<{ destination: string; home: boolean } | null>(null);
   useEffect(() => {
-    if (session.ready && navigationRef.isReady() && navigationRevision.current !== session.revision) {
+    if (session.ready && initialLinkReady && navigationRef.isReady() && navigationRevision.current !== session.revision) {
       navigationRevision.current = session.revision;
-      navigationRef.resetRoot(cleanSessionNavigationState());
+      if (initialProtected.current) rememberLoginDestination(initialProtected.current);
+      const destination = session.authenticated ? takeLoginDestination() : null;
+      if (Platform.OS === 'web' && session.authenticated && !initialOrder.current && (destination || guestRoutes.some(route => pathname === `/${route}`))) {
+        webLoginEntry.current = { destination: destination || '/', home: false };
+      }
+      const login = !session.authenticated && initialProtected.current;
+      if (!session.authenticated) webLoginEntry.current = null;
+      if (!session.authenticated && wasAuthenticated.current) takeLoginDestination();
+      wasAuthenticated.current = session.authenticated;
+      initialProtected.current = null;
+      navigationRef.resetRoot(destination ? { index: 1, routes: [{ name: 'index' }, { name: destination.slice(1) }] }
+        : login ? { index: 1, routes: [{ name: 'index' }, { name: 'login', params: { returnTo: login } }] } : cleanSessionNavigationState());
     }
-  }, [session.ready, session.revision, navigation?.key, navigationRef]);
+  }, [session.ready, session.revision, session.authenticated, initialLinkReady, navigation?.key, navigationRef, pathname]);
+  useEffect(() => {
+    const entry = webLoginEntry.current;
+    if (!entry || !session.authenticated || !navigationRef.isReady()) return;
+    if (!entry.home) { entry.home = true; router.replace('/'); }
+    else if (pathname === '/') {
+      webLoginEntry.current = null;
+      if (entry.destination !== '/') router.push(entry.destination as never);
+    }
+  }, [session.authenticated, session.revision, pathname, navigation?.key, navigationRef]);
+  useEffect(() => {
+    if (!session.ready || !initialLinkReady || !startupPainted || !navigationRef.isReady() || !initialProtected.current) return;
+    if (session.authenticated) { initialProtected.current = null; return; }
+    const destination = initialProtected.current;
+    initialProtected.current = null;
+    rememberLoginDestination(destination);
+    router.replace({ pathname: '/login', params: { returnTo: destination } });
+  }, [session.ready, session.authenticated, initialLinkReady, startupPainted, navigation?.key, navigationRef]);
   useEffect(() => {
     if (!session.ready || !initialLinkReady || !startupPainted || !navigationRef.isReady() || !navigation?.key || !initialOrder.current) return;
     if (!session.authenticated) {
@@ -152,7 +185,7 @@ export default function RootLayout() {
     return () => { active = false; tap.remove(); rotation.remove(); foreground.remove(); };
   }, [navigation?.key, navigationRef, session.ready, session.revision, initialLinkReady, startupPainted]);
   return (
-    <SafeAreaView style={{ flex: 1, ...(Platform.OS === 'web' ? { width: '100%', maxWidth: ['/login','/register','/verify-otp','/reset-password'].includes(pathname) ? 560 : ['/cart','/favorites','/checkout'].includes(pathname) ? 880 : 1120, alignSelf: 'center' as const } : {}), backgroundColor: fullWindow || !session.ready || !initialLinkReady || !startupPainted ? '#FFFFFF' : '#F7F3EC' }} edges={Platform.OS === 'android' && session.ready && startupPainted && !fullWindow ? ['top', 'bottom', 'left', 'right'] : []}>
+    <SafeAreaView style={{ flex: 1, ...(Platform.OS === 'web' ? { width: '100%', maxWidth: ['/login','/register','/verify-otp','/reset-password'].includes(pathname) ? 560 : ['/cart','/favorites','/checkout'].includes(pathname) ? 880 : 1120, alignSelf: 'center' as const } : {}), backgroundColor: fullWindow || !session.ready || !initialLinkReady || !startupPainted ? '#FFFFFF' : '#F7F3EC' }} edges={Platform.OS === 'android' && session.ready && startupPainted ? ['top', 'bottom', 'left', 'right'] : []}>
       {Platform.OS === 'android' && <StatusBar style="dark" />}
       {!session.ready || !initialLinkReady || !startupPainted ? (
         <StartupScreen onReady={startupReady}>
@@ -174,7 +207,9 @@ export default function RootLayout() {
         <Stack.Protected guard={session.authenticated}>
           {privateRoutes.map(name => <Stack.Screen key={name} name={name} />)}
         </Stack.Protected>
-        {guestRoutes.map(name => <Stack.Screen key={name} name={name} />)}
+        <Stack.Protected guard={!session.authenticated}>
+          {guestRoutes.map(name => <Stack.Screen key={name} name={name} />)}
+        </Stack.Protected>
       </Stack>}
     </SafeAreaView>
   );

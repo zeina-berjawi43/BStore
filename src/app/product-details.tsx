@@ -1,3 +1,4 @@
+import { QuantitySelector } from '../components/quantity-selector';
 import { readPublicCatalog } from '../services/catalogService';
 import { getSessionSnapshot } from '../services/tokenStorage';
 import { useShopping } from '../hooks/use-shopping';
@@ -1135,7 +1136,7 @@ export default function ProductDetails() {
               ADD TO CART
           ================================================= */}
 
-          <Pressable
+          <QuantitySelector product={product} onAdjust={delta => void shopping.adjust(product, delta)}><Pressable
             style={({ pressed }) => [
               styles.cartButton, pressed && { backgroundColor: '#E35B3F' },
 
@@ -1175,7 +1176,7 @@ export default function ProductDetails() {
                   : 'Add to Cart'}
             </Text>
 
-          </Pressable>
+          </Pressable></QuantitySelector>
 
         </View>
 

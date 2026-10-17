@@ -163,7 +163,7 @@ export default function Search() {
                     {onSale && <Text style={styles.oldPrice} numberOfLines={1} adjustsFontSizeToFit>${price.toFixed(2)}</Text>}
                   </View> : <Text style={styles.secondary}>Open for price details</Text>}
                 </View>
-                <AddToCartButton name={item.name} pending={cartBusy} unavailable={!available}
+                <AddToCartButton product={item} onAdjust={delta => void shopping.adjust(item, delta)} name={item.name} pending={cartBusy} unavailable={!available}
                   onPress={() => void changeProduct(item, 'cart')} />
               </View>
             </View>
@@ -198,8 +198,8 @@ const styles = StyleSheet.create({
   price: { flexShrink: 1, fontSize: 16, fontWeight: '900', color: '#171717' },
   salePrice: { color: '#E35B3F' },
   oldPrice: { flexShrink: 1, fontSize: 11, color: '#777168', textDecorationLine: 'line-through' },
-  priceGroup: { flex: 1, minWidth: 0 },
-  addButtonContainer: { margin: 10, marginTop: 'auto', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  priceGroup: { flex: 1, minWidth: 60 },
+  addButtonContainer: { flexWrap: 'wrap', margin: 10, marginTop: 'auto', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   errorBox: { marginHorizontal: 18, marginTop: 10 },
   error: { color: '#A52B22', fontSize: 13 },
   empty: { alignItems: 'center', paddingVertical: 55, paddingHorizontal: 15, gap: 12 },

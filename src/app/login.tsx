@@ -9,9 +9,10 @@ import {
   Platform,
 } from 'react-native';
 
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { rememberLoginDestination } from '../services/login-intent';
 
 import {
   loginUser,
@@ -19,6 +20,8 @@ import {
 } from '../services/authService';
 
 export default function Login() {
+  const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
+  useEffect(() => { rememberLoginDestination(returnTo); }, [returnTo]);
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);

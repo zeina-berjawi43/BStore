@@ -1,3 +1,4 @@
+import { QuantitySelector } from '../components/quantity-selector';
 import { shoppingCardLayout } from '../components/shopping-card-layout';
 import { useActionDialog } from '../components/action-dialog';
 import { useShopping } from '../hooks/use-shopping';
@@ -796,7 +797,7 @@ export default function Favorites() {
 
                       {/* ADD TO CART */}
 
-                      <Pressable
+                      <QuantitySelector product={product} onAdjust={delta => void shopping.adjust(product, delta)}><Pressable
                         accessibilityRole="button"
                         accessibilityLabel={`Add ${product.name} to cart`}
                         style={({ pressed }) => [
@@ -849,7 +850,7 @@ export default function Favorites() {
 
                         )}
 
-                      </Pressable>
+                      </Pressable></QuantitySelector>
 
 
 

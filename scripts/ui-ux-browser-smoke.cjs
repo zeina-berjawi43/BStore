@@ -182,16 +182,16 @@ const mock = () => {
     for (const width of [320, 360, 412]) {
       await send('Emulation.setDeviceMetricsOverride', { width, height: 915, deviceScaleFactor: 1, mobile: true }); await wait(300);
       const layout = await evaluate(`(() => {
-        const b = window.ui('[aria-label="Add Test Almonds to cart"]');
+        const b = window.ui('[aria-label="Increase Test Almonds quantity"]').parentElement;
         const price = [...b.parentElement.querySelectorAll('div')].find(e => e.childElementCount === 0 && e.textContent === '$8.00');
         if (!price) throw Error('Price not found: '+b.parentElement.outerHTML.slice(0,2500));
         const a=b.getBoundingClientRect(), p=price.parentElement.parentElement.getBoundingClientRect();
-        return { unclipped: [...price.parentElement.children].every(e => e.scrollWidth <= e.clientWidth + 1), row: b.parentElement === price.parentElement.parentElement.parentElement, noOverlap: p.right <= a.left, centered: Math.abs((p.top+p.bottom)/2 - (a.top+a.bottom)/2) < 2, width: innerWidth };
+        return { unclipped: [...price.parentElement.children].every(e => e.scrollWidth <= e.clientWidth + 1), row: b.parentElement === price.parentElement.parentElement.parentElement, noOverlap: p.right <= a.left || p.bottom <= a.top, centered: p.bottom <= a.top || Math.abs((p.top+p.bottom)/2 - (a.top+a.bottom)/2) < 2, width: innerWidth };
       })()`);
       assert.ok(layout.noOverlap && layout.centered && layout.unclipped, JSON.stringify(layout));
       await screenshot('customer-search-' + width);
     }
-    checks.push('Search price and cart button share row without overlap at 320/360/412px');
+    checks.push('Search prices and touch-sized quantity controls remain unclipped without overlap at 320/360/412px');
     await evaluate(`window.failFavorite = true; window.ui('[aria-label="Remove Test Biscuits from favorites"]').click()`);
     await until(`!!window.ui('[aria-label="Add Test Biscuits to favorites"]')`);
     await until(`!!window.ui('[aria-label="Remove Test Biscuits from favorites"]')`);
@@ -248,7 +248,7 @@ const mock = () => {
     assert.equal(await evaluate(`/507f191e810c19729de860ea|507f1f77bcf86cd799439012/.test(document.body.innerText)`),false);
     await evaluate(`window.ui('[aria-label="Add Test Almonds to cart"]').click();window.ui('[aria-label="Add Test Almonds to cart"]').click()`);
     await until(`!!window.ui('[aria-label="Open cart, 1 items"]')`);
-    assert.equal(await evaluate(`getComputedStyle(window.ui('[aria-label="Add Test Almonds to cart"]')).backgroundColor`),'rgb(23, 23, 23)');
+    assert.equal(await evaluate(`getComputedStyle(window.ui('[aria-label="Increase Test Almonds quantity"]').parentElement).backgroundColor`),'rgb(23, 23, 23)');
     assert.equal(await evaluate(`location.pathname`),'/favorites');
     checks.push('Favorites reference IDs absent; Add to Cart stays black during delayed request, remains on Favorites and updates badge immediately');
     await wait(1800);
