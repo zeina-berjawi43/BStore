@@ -140,16 +140,7 @@ export default function Notifications() {
             }
           />
 
-          <Text
-            style={
-              styles.sectionTitle
-            }
-          >
-            Notification Preferences
-          </Text>
-
         </View>
-
 
         {/* =================================================
             NOTIFICATION CARD
