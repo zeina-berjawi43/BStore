@@ -371,7 +371,7 @@ const styles =
         1,
 
       borderColor:
-        '#E7DED1',
+        'transparent',
 
       alignItems:
         'center',
@@ -523,7 +523,7 @@ const styles =
         1,
 
       borderColor:
-        '#E7DED1',
+        'transparent',
 
       flexDirection:
         'row',
@@ -573,7 +573,7 @@ const styles =
         1,
 
       borderColor:
-        '#F0CFC4',
+        'transparent',
 
       alignItems:
         'center',
@@ -734,7 +734,7 @@ const styles =
         1,
 
       borderColor:
-        '#F0CFC4',
+        'transparent',
 
       flexDirection:
         'row',
@@ -763,7 +763,7 @@ const styles =
         1,
 
       borderColor:
-        '#F0CFC4',
+        'transparent',
 
       alignItems:
         'center',

@@ -59,7 +59,7 @@ export function useProductFeedback() {
   return { showAlert, updateAlert, feedback, dismiss };
 }
 const styles = StyleSheet.create({
-  alert: { position: 'absolute', left: 18, right: 18, zIndex: 9999, minHeight: 67, backgroundColor: '#FFFFFF', borderRadius: 18, paddingVertical: 11, paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#E9E1D6', shadowColor: '#171717', shadowOffset: { width: 0, height: 7 }, shadowOpacity: 0.13, shadowRadius: 15, elevation: 10 },
+  alert: { position: 'absolute', left: 18, right: 18, zIndex: 9999, minHeight: 67, backgroundColor: '#FFFFFF', borderRadius: 18, paddingVertical: 11, paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: 'transparent', shadowColor: '#171717', shadowOffset: { width: 0, height: 7 }, shadowOpacity: 0.13, shadowRadius: 15, elevation: 10 },
   icon: { width: 41, height: 41, borderRadius: 21, backgroundColor: '#E35B3F', alignItems: 'center', justifyContent: 'center' },
   content: { flex: 1, minWidth: 0, marginLeft: 10, marginRight: 8 },
   close: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },

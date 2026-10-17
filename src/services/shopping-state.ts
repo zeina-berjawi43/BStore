@@ -20,6 +20,18 @@ export function createShoppingState(deps: { send: (path: string, method?: string
   let loaded = false, loading: Promise<void> | null = null, mutationRevision = 0;
   let cartLoading: Promise<void> | null = null;
   let cartError: Error | null = null;
+  let uncertainCart = false;
+  const failedCart = new Map<string, { quantity: number; error: Error }>();
+  const matches = (id: string, quantity: number) => id === '' ? confirmed.cart.length === 0
+    : (confirmed.cart.find(item => item.product._id === id)?.quantity || 0) === quantity;
+  const acceptCart = (data: any) => {
+    if (!Array.isArray(data.cart?.items)) throw Error('Could not verify your cart. Please try again.');
+    confirmed = { ...confirmed, cart: currentCartPrices(data.cart.items), minimum: data.minimumOrderValue ?? confirmed.minimum,
+      deliveryRules: data.pricing?.deliveryRules ?? confirmed.deliveryRules };
+    for (const [id, failure] of failedCart) if (matches(id, failure.quantity)) failedCart.delete(id);
+    cartError = failedCart.values().next().value?.error || null;
+    uncertainCart = false; loaded = true;
+  };
   const listeners = new Set<() => void>();
   let snapshot = { ...empty(), ready: false, busy: false, pendingCart: new Set<string>(), pendingFavorites: new Set<string>(), cartCount: 0 };
   const apply = (data: Data, op: Operation): Data => {
@@ -47,7 +59,7 @@ export function createShoppingState(deps: { send: (path: string, method?: string
     listeners.forEach(fn => fn());
   };
   const reset = () => {
-    intents.clear();
+    intents.clear(); failedCart.clear(); uncertainCart = false;
     generation++; confirmed = empty(); loaded = false; loading = null; cartLoading = null; cartError = null;
     const previous = operations; operations = []; running = false; publish();
     previous.forEach(op => op.reject(Error('Your session changed.')));
@@ -61,12 +73,10 @@ export function createShoppingState(deps: { send: (path: string, method?: string
     const cartWork = deps.send('/cart').then(cart => {
       if (version !== generation) return;
       if (!initial && readRevision !== mutationRevision) return;
-      confirmed = { ...confirmed, cart: currentCartPrices(Array.isArray(cart.cart?.items) ? cart.cart.items : []),
-        minimum: cart.minimumOrderValue ?? Infinity, deliveryRules: cart.pricing?.deliveryRules };
-      cartError = null;
-      loaded = true; publish();
+      acceptCart(cart); publish();
     }).catch(error => {
-      if (version === generation) cartError = error instanceof Error ? error : Error('Could not load your cart.');
+      if (version !== generation || (!initial && readRevision !== mutationRevision)) return;
+      cartError = error instanceof Error ? error : Error('Could not load your cart.');
       throw error;
     }).finally(() => { if (version === generation) cartLoading = null; });
     cartLoading = cartWork;
@@ -82,9 +92,12 @@ export function createShoppingState(deps: { send: (path: string, method?: string
   };
   const drain = async () => {
     if (running) return;
-    running = true; const version = generation; let reconcile = false, needsCartRead = false;
+    running = true; const version = generation; let reconcile = false;
     while (operations.length && version === generation) {
       const op = operations[0];
+      const cartOperation = !['favorite', 'clearFavorites'].includes(op.kind);
+      let intendedQuantity: number | undefined;
+      let confirmationAttempted = false;
       try {
         void refresh().catch(() => {});
         await (cartLoading || Promise.resolve());
@@ -92,14 +105,13 @@ export function createShoppingState(deps: { send: (path: string, method?: string
         if (version !== generation) break;
         // A timed-out write may already exist on the server. Resolve that ambiguity
         // before choosing add versus update for a newer absolute quantity intent.
-        if (needsCartRead && op.kind === 'quantity' && op.product) {
+        if (uncertainCart && cartOperation) {
           const cart = await deps.send('/cart');
           if (version !== generation) break;
-          if (!Array.isArray(cart.cart?.items)) throw Error('Could not verify your cart. Please try again.');
-          confirmed = { ...confirmed, cart: currentCartPrices(cart.cart.items), minimum: cart.minimumOrderValue ?? confirmed.minimum,
-            deliveryRules: cart.pricing?.deliveryRules ?? confirmed.deliveryRules };
-          needsCartRead = false; cartError = null; publish();
+          acceptCart(cart); mutationRevision++; publish();
         }
+        intendedQuantity = op.kind === 'add' ? (confirmed.cart.find(item => item.product._id === op.id)?.quantity || 0) + 1
+          : op.kind === 'quantity' ? op.quantity : 0;
         op.started = true;
         const inline = op.kind === 'quantity' && op.product;
         const cartAction = inline ? op.quantity === 0 ? 'remove' : confirmed.cart.some(item => item.product._id === op.id) ? 'update' : 'add' : op.kind === 'quantity' ? 'update' : op.kind;
@@ -108,23 +120,53 @@ export function createShoppingState(deps: { send: (path: string, method?: string
           : `/cart/${cartAction}`;
         const method = cartAction === 'add' || (op.kind === 'favorite' && op.selected) ? 'POST' : cartAction === 'update' ? 'PUT' : 'DELETE';
         const absent = inline && op.quantity === 0 && !confirmed.cart.some(item => item.product._id === op.id);
-        const data = absent ? {} : await deps.send(path, method, op.id ? { productId: op.id, ...(op.kind === 'add' ? { quantity: 1 } : op.kind === 'quantity' && op.quantity! > 0 ? { quantity: op.quantity } : {}) } : undefined);
+        let data = absent ? {} : await deps.send(path, method, op.id ? { productId: op.id, ...(op.kind === 'add' ? { quantity: 1 } : op.kind === 'quantity' && op.quantity! > 0 ? { quantity: op.quantity } : {}) } : undefined);
         if (version !== generation) break;
+        if (cartOperation && !absent && !Array.isArray(data.cart?.items)) {
+          confirmationAttempted = true; uncertainCart = true;
+          data = await deps.send('/cart');
+          if (version !== generation) break;
+          if (!Array.isArray(data.cart?.items)) throw Error('Could not verify your cart. Please try again.');
+        }
         const next = apply(confirmed, op);
-        confirmed = Array.isArray(data.cart?.items) ? { ...next, cart: currentCartPrices(data.cart.items), minimum: data.minimumOrderValue ?? next.minimum, deliveryRules: data.pricing?.deliveryRules ?? next.deliveryRules } : next;
+        if (Array.isArray(data.cart?.items)) {
+          acceptCart(data);
+          if (cartOperation && !matches(op.id, intendedQuantity!)) throw Error('The saved cart does not match your change. Please try again.');
+          if (cartOperation && matches(op.id, intendedQuantity!)) {
+            if (op.kind === 'clearCart') failedCart.clear(); else failedCart.delete(op.id);
+            cartError = failedCart.values().next().value?.error || null;
+          }
+        } else confirmed = next;
         operations.shift(); mutationRevision++; publish(); op.resolve();
       } catch (error) {
         if (version !== generation) break;
-        reconcile = true;
-        if (!['favorite', 'clearFavorites'].includes(op.kind)) needsCartRead = true;
-        if (!['favorite', 'clearFavorites'].includes(op.kind)) cartError = error instanceof Error ? error : Error('Could not save your cart.');
-        operations.shift(); mutationRevision++; publish(); op.reject(error instanceof Error ? error : Error('Could not save your change.'));
+        const failure = error instanceof Error ? error : Error('Could not save your change.');
+        const status = (error as { status?: number })?.status;
+        // Transport/parsing/session-verification failures and 5xx responses can follow a committed write.
+        const uncertain = !status || status === 409 || status >= 500;
+        if (cartOperation && op.started && uncertain && !confirmationAttempted) {
+          uncertainCart = true;
+          try {
+            const cart = await deps.send('/cart');
+            if (version !== generation) break;
+            acceptCart(cart); mutationRevision++;
+            if (matches(op.id, intendedQuantity!)) {
+              if (op.kind === 'clearCart') failedCart.clear(); else failedCart.delete(op.id);
+              cartError = failedCart.values().next().value?.error || null;
+              operations.shift(); mutationRevision++; publish(); op.resolve(); continue;
+            }
+          } catch { if (version !== generation) break; }
+        }
+        if (cartOperation) {
+          cartError = failure;
+          if (intendedQuantity !== undefined) failedCart.set(op.id, { quantity: intendedQuantity, error: failure });
+        } else reconcile = true;
+        operations.shift(); mutationRevision++; publish(); op.reject(failure);
       }
     }
     if (version === generation) {
       running = false;
-      // A timeout may occur after the server committed. Read back once, after
-      // queued writes settle; never retry a mutation or overwrite newer intent.
+      // Favorites retain their existing rollback/refetch behavior. Cart writes reconcile inline.
       if (reconcile) void refresh(true).catch(() => {});
     }
   };
@@ -142,7 +184,12 @@ export function createShoppingState(deps: { send: (path: string, method?: string
   };
   const enqueue = (input: Omit<Operation, 'promise' | 'resolve' | 'reject'>) => {
     if (!deps.authenticated()) return Promise.reject(Error('Please log in to save your change.'));
-    if (['quantity', 'add', 'remove'].includes(input.kind)) intents.set(input.id, (intents.get(input.id) || 0) + 1);
+    if (['quantity', 'add', 'remove', 'clearCart'].includes(input.kind)) {
+      intents.set('', (intents.get('') || 0) + 1);
+      if (input.kind === 'clearCart') {
+        for (const id of intents.keys()) if (id) intents.set(id, intents.get(id)! + 1);
+      } else intents.set(input.id, (intents.get(input.id) || 0) + 1);
+    }
     if (input.kind === 'quantity') {
       const tail = operations.at(-1);
       const previous = tail?.kind === 'quantity' && tail.id === input.id && !tail.started ? tail : undefined;
@@ -176,7 +223,7 @@ export const shoppingState = createShoppingState({ authenticated: () => getSessi
     if (!token || revision !== getSessionSnapshot().revision) throw Error('Please log in to save your change.');
     const response = await request(`${API_URL}${path}`, { method, headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, ...(body ? { body: JSON.stringify(body) } : {}) });
     const data = await response.json();
-    if (!response.ok) throw Error(data.message || 'Could not save your change. Please try again.');
+    if (!response.ok) throw Object.assign(Error(data.message || 'Could not save your change. Please try again.'), { status: response.status });
     return data;
   } });
 let revision = getSessionSnapshot().revision;

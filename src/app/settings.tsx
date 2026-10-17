@@ -636,7 +636,7 @@ const styles =
       borderWidth: 1,
 
       borderColor:
-        '#E7DED1',
+        'transparent',
 
       alignItems:
         'center',
@@ -768,7 +768,7 @@ const styles =
       borderWidth: 1,
 
       borderColor:
-        '#E7DED1',
+        'transparent',
 
       overflow:
         'hidden',
@@ -827,7 +827,7 @@ const styles =
       borderWidth: 1,
 
       borderColor:
-        '#F0CFC4',
+        'transparent',
 
       alignItems:
         'center',

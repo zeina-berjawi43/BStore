@@ -1745,7 +1745,7 @@ const styles =
       borderRadius: 23,
       backgroundColor: "#FFFFFF",
       borderWidth: 1,
-      borderColor: "#E7DED1",
+      borderColor: 'transparent',
       alignItems: "center",
       justifyContent: "center",
 
@@ -1785,7 +1785,7 @@ const styles =
       borderRadius: 16,
       backgroundColor: "#FFFFFF",
       borderWidth: 1,
-      borderColor: "#E7DED1",
+      borderColor: 'transparent',
       alignItems: "center",
       justifyContent: "center",
       marginRight: 13,
@@ -1891,7 +1891,7 @@ const styles =
       borderRadius: 10,
       backgroundColor: "#FFF7F3",
       borderWidth: 1,
-      borderColor: "#F0CFC4",
+      borderColor: 'transparent',
     },
 
 
@@ -1912,7 +1912,7 @@ const styles =
       borderRadius: 21,
       padding: 15,
       borderWidth: 1,
-      borderColor: "#E7DED1",
+      borderColor: 'transparent',
 
       shadowColor: "#171717",
       shadowOffset: {
@@ -1943,7 +1943,7 @@ const styles =
       borderRadius: 12,
       backgroundColor: "#FFF7F3",
       borderWidth: 1,
-      borderColor: "#F0CFC4",
+      borderColor: 'transparent',
       alignItems: "center",
       justifyContent: "center",
     },
@@ -1982,7 +1982,7 @@ const styles =
       padding: 18,
       alignItems: "center",
       borderWidth: 1,
-      borderColor: "#E7DED1",
+      borderColor: 'transparent',
 
       shadowColor: "#171717",
       shadowOffset: {
@@ -2001,7 +2001,7 @@ const styles =
       borderRadius: 17,
       backgroundColor: "#FFF7F3",
       borderWidth: 1,
-      borderColor: "#F0CFC4",
+      borderColor: 'transparent',
       alignItems: "center",
       justifyContent: "center",
     },
@@ -2047,7 +2047,7 @@ const styles =
       flexDirection: "row",
       alignItems: "center",
       borderWidth: 1,
-      borderColor: "#E7DED1",
+      borderColor: 'transparent',
 
       shadowColor: "#171717",
       shadowOffset: {
@@ -2134,7 +2134,7 @@ const styles =
       padding: 20,
       alignItems: "center",
       borderWidth: 1,
-      borderColor: "#E7DED1",
+      borderColor: 'transparent',
     },
 
 
@@ -2144,7 +2144,7 @@ const styles =
       borderRadius: 17,
       backgroundColor: "#FFF7F3",
       borderWidth: 1,
-      borderColor: "#F0CFC4",
+      borderColor: 'transparent',
       alignItems: "center",
       justifyContent: "center",
       marginBottom: 10,
@@ -2171,7 +2171,7 @@ const styles =
       alignItems: "center",
       marginBottom: 13,
       borderWidth: 1,
-      borderColor: "#E7DED1",
+      borderColor: 'transparent',
 
       shadowColor: "#171717",
       shadowOffset: {
@@ -2218,7 +2218,7 @@ const styles =
       flexDirection: "row",
       alignItems: "center",
       borderWidth: 1,
-      borderColor: "#E7DED1",
+      borderColor: 'transparent',
 
       shadowColor: "#171717",
       shadowOffset: {
@@ -2237,7 +2237,7 @@ const styles =
       borderRadius: 14,
       backgroundColor: "#FFF7F3",
       borderWidth: 1,
-      borderColor: "#F0CFC4",
+      borderColor: 'transparent',
       alignItems: "center",
       justifyContent: "center",
     },
@@ -2296,7 +2296,7 @@ const styles =
       borderRadius: 21,
       padding: 13,
       borderWidth: 1,
-      borderColor: "#E7DED1",
+      borderColor: 'transparent',
 
       shadowColor: "#171717",
       shadowOffset: {

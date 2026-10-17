@@ -10,6 +10,6 @@ const styles = StyleSheet.create({
   heading: { flexDirection: 'row', alignItems: 'center' },
   accent: { width: 4, height: 20, borderRadius: 3, backgroundColor: '#E35B3F', marginRight: 9 },
   title: { fontSize: 20, fontWeight: '900', color: '#171717', letterSpacing: -0.3 },
-  chip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 11, backgroundColor: '#FFF7F3', borderWidth: 1, borderColor: '#F0CFC4' },
+  chip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 11, backgroundColor: '#FFF7F3', borderWidth: 1, borderColor: 'transparent' },
   count: { fontSize: 11, color: '#817B71', fontWeight: '700' },
 });

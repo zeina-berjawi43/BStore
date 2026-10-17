@@ -22,7 +22,7 @@ test('cart writes and confirmation do not wait for unrelated Favorites loading',
   const favorites = deferred(); let writes = 0;
   const state = createShoppingState({ authenticated: () => true, send: async (url, method) => {
     if (url === '/favorites') return favorites.promise;
-    if (!method) return { cart: { items: [] } };
+    if (!method) return { cart: { items: writes ? [item('A')] : [] } };
     writes++; return {};
   } });
   const read = state.refresh(); const operation = state.adjust(product('A'), 1); await operation;
@@ -40,10 +40,10 @@ test('uncertain committed write is read back without retry; checkout stays block
     }
     writes++; await write.promise; server = [item('A')]; throw Error('response timed out after commit');
   } });
-  await state.refresh(); const operation = state.add(product('A')); const failure = assert.rejects(operation, /timed out/);
-  await flush(); write.resolve(); await failure; await flush();
-  assert.equal(state.getSnapshot().cartCount, 0); assert.equal(state.getSnapshot().busy, true);
-  read.resolve(); await flush();
+  await state.refresh(); const operation = state.add(product('A')); let settled = false; operation.then(() => { settled = true; });
+  await flush(); write.resolve(); await flush();
+  assert.equal(settled, false); assert.equal(state.getSnapshot().cartCount, 1); assert.equal(state.getSnapshot().busy, true);
+  read.resolve(); await operation; await state.synchronizeCart();
   assert.equal(state.getSnapshot().cartCount, 1); assert.equal(state.getSnapshot().busy, false); assert.equal(writes, 1);
 });
 
@@ -168,7 +168,7 @@ test('account reset clears all private state and ignores a late old-account writ
 test('stale focus refetch cannot revert a completed mutation', async () => {
   const cartRead = deferred(); let reads = 0;
   const state = createShoppingState({ authenticated: () => true, send: async (url, method) => {
-    if (method) return {}; if (url === '/favorites') return { favorites: [] };
+    if (method) return { cart: { items: [item('A'), item('B')] } }; if (url === '/favorites') return { favorites: [] };
     if (++reads === 1) return { cart: { items: [item('A')] }, minimumOrderValue: 100 }; return cartRead.promise;
   } }); await state.refresh(); const read = state.refresh(true), add = state.add(product('B'));
   cartRead.resolve({ cart: { items: [] }, minimumOrderValue: 100 }); await read; await add; assert.equal(state.getSnapshot().cartCount, 2);
@@ -213,4 +213,100 @@ test('Favorites retains backend-relative image resolution after adopting shared 
   for (const value of ['photo.png', 'uploads/photo.png', '/uploads/photo.png', 'uploads\\photo.png']) assert.equal(context.exports.image(value), 'https://store.example/uploads/photo.png');
   assert.equal(context.exports.image('https://images.example/photo.png'), 'https://images.example/photo.png');
   assert.equal(context.exports.image(''), ''); assert.match(text, /getImageUrl\(product.image\)/);
+});
+
+for (const reason of ['response timed out', 'invalid JSON', 'Your session changed. Please reload this page.']) test('committed write with ' + reason + ' confirms without error or additive retry', async () => {
+  let server = [], writes = 0;
+  const state = createShoppingState({ authenticated: () => true, send: async (url, method) => {
+    if (!method) return url === '/favorites' ? { favorites: [] } : { cart: { items: server } };
+    writes++; server = [item('A')]; throw Error(reason);
+  } });
+  await state.refresh(); const { hook, messages } = shoppingHook(state);
+  await hook.add(product('A')); await state.synchronizeCart();
+  assert.equal(writes, 1); assert.equal(state.getSnapshot().cartCount, 1);
+  assert.equal(messages.some(message => message[1] === 'Could not save'), false);
+});
+
+test('definite rejection is not disguised as success and unrelated writes cannot clear its error', async () => {
+  let server = [item('A')], reads = 0;
+  const state = createShoppingState({ authenticated: () => true, send: async (url, method, body) => {
+    if (!method) { if (url === '/favorites') return { favorites: [] }; reads++; return { cart: { items: server } }; }
+    if (body.quantity === 2) throw Object.assign(Error('Quantity rejected'), { status: 400 });
+    server = [item('A'), item('B')]; return { cart: { items: server } };
+  } });
+  await state.refresh(); await assert.rejects(state.quantity('A', 2), /Quantity rejected/);
+  assert.equal(reads, 1); await state.add(product('B'));
+  await assert.rejects(state.synchronizeCart(), /Quantity rejected/);
+  await state.refresh(true); await assert.rejects(state.synchronizeCart(), /Quantity rejected/);
+});
+
+test('failed confirmation retains error; later authoritative matching quantity clears it', async () => {
+  let reads = 0, writes = 0;
+  const state = createShoppingState({ authenticated: () => true, send: async (url, method) => {
+    if (url === '/favorites') return { favorites: [] };
+    if (!method) { if (++reads > 1 && writes === 1) throw Error('read offline'); return { cart: { items: [item('A', writes > 1 ? 3 : 1)] } }; }
+    if (++writes === 1) throw Error('write timed out');
+    return { cart: { items: [item('A', 3)] } };
+  } });
+  await state.refresh(); await assert.rejects(state.quantity('A', 2), /write timed out/);
+  await assert.rejects(state.synchronizeCart(), /write timed out/);
+  // The unknown outcome must first be read successfully before another write is sent.
+  writes = 2; await state.quantity('A', 3); await state.synchronizeCart();
+  assert.equal(state.getSnapshot().cart[0].quantity, 3);
+});
+
+test('newer cart intent suppresses an older operation error while retaining the latest quantity', async () => {
+  const first = deferred(); let writes = 0, server = [item('A')];
+  const state = createShoppingState({ authenticated: () => true, send: async (url, method, body) => {
+    if (!method) return url === '/favorites' ? { favorites: [] } : { cart: { items: server } };
+    if (++writes === 1) { await first.promise; throw Error('offline'); }
+    server = [item('A', body.quantity)]; return { cart: { items: server } };
+  } });
+  await state.refresh(); const { hook, messages } = shoppingHook(state);
+  const older = hook.quantity('A', 2); await flush(); const newer = hook.quantity('A', 3);
+  first.resolve(); await Promise.all([older, newer]); await state.synchronizeCart();
+  assert.equal(state.getSnapshot().cart[0].quantity, 3);
+  assert.equal(messages.filter(message => message[1] === 'Could not save').length, 0); assert.equal(writes, 2);
+});
+
+test('stale failed refresh cannot poison a newer successful mutation', async () => {
+  const stale = deferred(); let reads = 0;
+  const state = createShoppingState({ authenticated: () => true, send: async (url, method) => {
+    if (url === '/favorites') return { favorites: [] };
+    if (!method) return ++reads === 1 ? { cart: { items: [item('A')] } } : stale.promise;
+    return { cart: { items: [item('A', 2)] } };
+  } });
+  await state.refresh(); const refresh = state.refresh(true); const update = state.quantity('A', 2);
+  stale.reject(Error('old read failed')); await refresh; await update; await state.synchronizeCart();
+  assert.equal(state.getSnapshot().cart[0].quantity, 2);
+});
+
+for (const response of [{ cart: { items: [] } }, {}]) test('uncertain save remains rejected when read-back cannot confirm (' + JSON.stringify(response) + ')', async () => {
+  let reads = 0, writes = 0;
+  const state = createShoppingState({ authenticated: () => true, send: async (url, method) => {
+    if (url === '/favorites') return { favorites: [] };
+    if (!method) return ++reads === 1 ? { cart: { items: [] } } : response;
+    writes++; throw Error('response timed out');
+  } });
+  await state.refresh(); await assert.rejects(state.add(product('A')), /response timed out/);
+  await assert.rejects(state.synchronizeCart(), /response timed out/); assert.equal(writes, 1);
+});
+
+test('a confirmed clear supersedes prior failed product quantities without stale checkout errors', async () => {
+  const { state } = fixture({ cart: [item('A')], send: (url) => {
+    if (url === '/cart/update') throw Object.assign(Error('rejected'), { status: 400 }); return {};
+  } });
+  await state.refresh(); await assert.rejects(state.quantity('A', 2), /rejected/);
+  await state.clearCart(); await state.synchronizeCart(); assert.equal(state.getSnapshot().cartCount, 0);
+});
+
+test('body-less success acknowledgement requires backend confirmation, not optimistic assumptions', async () => {
+  let writes = 0, reads = 0;
+  const state = createShoppingState({ authenticated: () => true, send: async (url, method) => {
+    if (url === '/favorites') return { favorites: [] };
+    if (!method) { reads++; return { cart: { items: [] } }; }
+    writes++; return {};
+  } });
+  await state.refresh(); await assert.rejects(state.add(product('A')), /does not match/);
+  await assert.rejects(state.synchronizeCart(), /does not match/); assert.equal(writes, 1); assert.equal(reads, 2);
 });

@@ -382,7 +382,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E7DED1',
+    borderColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -419,7 +419,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 21,
     borderWidth: 1,
-    borderColor: '#E7DED1',
+    borderColor: 'transparent',
     padding: 19,
     shadowColor: '#171717',
     shadowOffset: {
@@ -454,7 +454,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     fontSize: 15,
     borderWidth: 1,
-    borderColor: '#E6DED2',
+    borderColor: 'transparent',
     marginBottom: 7,
     color: '#171717',
     fontWeight: '500',
@@ -465,7 +465,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F2EA',
     borderRadius: 15,
     borderWidth: 1,
-    borderColor: '#E6DED2',
+    borderColor: 'transparent',
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 7,
@@ -490,7 +490,7 @@ const styles = StyleSheet.create({
   },
 
   inputError: {
-    borderColor: '#D93025',
+    borderColor: 'transparent',
     backgroundColor: '#FFF7F3',
   },
 
@@ -570,7 +570,7 @@ const styles = StyleSheet.create({
   registerButton: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E7DED1',
+    borderColor: 'transparent',
     borderRadius: 16,
     paddingVertical: 12,
     paddingHorizontal: 20,

@@ -552,7 +552,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
 
     borderColor:
-      '#E7DED1',
+      'transparent',
 
     alignItems: 'center',
 
@@ -616,7 +616,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
 
     borderColor:
-      '#E7DED1',
+      'transparent',
 
     padding: 15,
 
@@ -655,7 +655,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
 
     borderColor:
-      '#F0CFC4',
+      'transparent',
 
     alignItems: 'center',
 
@@ -771,7 +771,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
 
     borderColor:
-      '#E7DED1',
+      'transparent',
 
     overflow: 'hidden',
 
@@ -821,7 +821,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
 
     borderColor:
-      '#F0CFC4',
+      'transparent',
 
     alignItems: 'center',
 
@@ -948,7 +948,7 @@ deleteAccountButton: {
   minHeight: 53,
   borderRadius: 16,
   borderWidth: 1,
-  borderColor: '#E9B7B3',
+  borderColor: 'transparent',
   backgroundColor: '#FFF5F4',
   flexDirection: 'row',
   alignItems: 'center',

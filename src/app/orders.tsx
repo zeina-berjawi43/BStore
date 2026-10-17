@@ -751,7 +751,7 @@ export default function Orders() {
                               statusBackground,
 
                             borderColor:
-                              statusColor,
+                              'transparent',
                           },
 
                         ]}
@@ -855,7 +855,7 @@ const styles =
       borderWidth: 1,
 
       borderColor:
-        '#E7DED1',
+        'transparent',
 
       alignItems: 'center',
 
@@ -924,7 +924,7 @@ const styles =
       borderWidth: 1,
 
       borderColor:
-        '#E7DED1',
+        'transparent',
 
       shadowColor:
         '#171717',
@@ -994,7 +994,7 @@ const styles =
       borderWidth: 1,
 
       borderColor:
-        '#F0CFC4',
+        'transparent',
 
       alignItems: 'center',
 
@@ -1067,7 +1067,7 @@ const styles =
     },
 
 
-    statusContainer: {
+    statusContainer: { borderColor: 'transparent',
       paddingHorizontal: 11,
 
       paddingVertical: 8,
@@ -1124,7 +1124,7 @@ const styles =
       borderWidth: 1,
 
       borderColor:
-        '#E7DED1',
+        'transparent',
 
       alignItems: 'center',
 

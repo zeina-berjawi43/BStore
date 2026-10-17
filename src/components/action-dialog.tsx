@@ -42,7 +42,7 @@ export function useActionDialog({ showIcon = true, acknowledgeOnDismiss = false 
 const styles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(23,23,23,0.42)', alignItems: 'center', justifyContent: 'center', padding: 24 },
   scroll: { width: '100%', maxWidth: 420, flexGrow: 0, flexShrink: 1 },
-  card: { width: '100%', maxWidth: 420, backgroundColor: '#FFFCF7', borderRadius: 24, padding: 24, borderWidth: 1, borderColor: '#E9DED0', gap: 14 },
+  card: { width: '100%', maxWidth: 420, backgroundColor: '#FFFCF7', borderRadius: 24, padding: 24, borderWidth: 1, borderColor: 'transparent', gap: 14 },
   icon: { width: 48, height: 48, backgroundColor: '#FDE5DA', borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   title: { color: '#171717', fontSize: 21, lineHeight: 27, fontWeight: '800' },
   message: { color: '#6D6256', fontSize: 15, lineHeight: 23 },

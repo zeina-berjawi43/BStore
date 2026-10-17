@@ -20,9 +20,9 @@ test('inline remove and re-add behind an in-flight write preserve latest intent'
   const first=state.adjust(product('A'),1);await flush();
   const more=[state.adjust(product('A'),-1),state.adjust(product('A'),-1),state.adjust(product('A'),1)];
   assert.equal(state.getSnapshot().cartCount,1);gate.resolve({});await Promise.all([first,...more]);
-  assert.equal(state.getSnapshot().cartCount,1);assert.equal(calls.at(-1).body.quantity,1);
-  await state.adjust(product('A'),-1);assert.equal(state.getSnapshot().cartCount,0);assert.equal(calls.at(-1).url,'/cart/remove');
-  await state.adjust(product('A'),1);assert.equal(calls.at(-1).url,'/cart/add');assert.equal(state.getSnapshot().cartCount,1);
+  assert.equal(state.getSnapshot().cartCount,1);assert.equal(calls.filter(c=>c.method).at(-1).body.quantity,1);
+  await state.adjust(product('A'),-1);assert.equal(state.getSnapshot().cartCount,0);assert.equal(calls.filter(c=>c.method).at(-1).url,'/cart/remove');
+  await state.adjust(product('A'),1);assert.equal(calls.filter(c=>c.method).at(-1).url,'/cart/add');assert.equal(state.getSnapshot().cartCount,1);
 });
 test('inline failure rolls back, availability forbids increases, account changes reject stale writes',async()=>{
   const gate=deferred(), {state}=fixture({cart:[{product:product('A'),quantity:2}],send:()=>gate.promise});await state.refresh();
@@ -46,8 +46,8 @@ test('an ambiguous committed add is read back before a newer inline quantity, ne
     writes.push(path);if(path==='/cart/add'){await gate.promise;server=[{product:product('A'),quantity:1}];throw Error('timed out after commit');}
     server=server.map(row=>({...row,quantity:body.quantity}));return {cart:{items:server}};
   }});await state.refresh();
-  const first=state.add(product('A')),failed=assert.rejects(first,/timed out/);await flush();
-  const next=state.adjust(product('A'),1);gate.resolve();await Promise.all([failed,next]);await flush();
+  const first=state.add(product('A'));await flush();
+  const next=state.adjust(product('A'),1);gate.resolve();await Promise.all([first,next]);await flush();
   assert.deepEqual(writes,['/cart/add','/cart/update']);assert.equal(server[0].quantity,2);assert.equal(state.getSnapshot().cartCount,2);
 });
 test('web pull refresh requires a downward top-edge gesture, ignores horizontal/cancel and cleans listeners',async()=>{

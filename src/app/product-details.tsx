@@ -1249,7 +1249,7 @@ const styles =
         1,
 
       borderColor:
-        '#F0CFC4',
+        'transparent',
 
       alignItems:
         'center',
@@ -1389,7 +1389,7 @@ const styles =
         1,
 
       borderColor:
-        '#E7DED1',
+        'transparent',
 
       alignItems:
         'center',
@@ -1454,7 +1454,7 @@ const styles =
         1,
 
       borderColor:
-        '#E7DED1',
+        'transparent',
 
       alignItems:
         'center',
@@ -1523,7 +1523,7 @@ const styles =
         1,
 
       borderColor:
-        '#E7DED1',
+        'transparent',
 
       alignItems:
         'center',
@@ -1583,7 +1583,7 @@ const styles =
         1,
 
       borderColor:
-        '#F0CFC4',
+        'transparent',
 
       alignItems:
         'center',
@@ -1626,7 +1626,7 @@ const styles =
         1,
 
       borderColor:
-        '#E7DED1',
+        'transparent',
 
       padding:
         19,
@@ -1695,7 +1695,7 @@ const styles =
         1,
 
       borderColor:
-        '#E7DED1',
+        'transparent',
 
     },
 
@@ -1813,7 +1813,7 @@ const styles =
         1,
 
       borderColor:
-        '#F0CFC4',
+        'transparent',
 
       paddingHorizontal:
         9,
@@ -1885,7 +1885,7 @@ const styles =
         1,
 
       borderColor:
-        '#F0CFC4',
+        'transparent',
 
       flexDirection:
         'row',
@@ -1943,7 +1943,7 @@ const styles =
         1,
 
       borderColor:
-        '#F0CCCC',
+        'transparent',
 
       gap:
         6,
@@ -2144,7 +2144,7 @@ const styles =
         1,
 
       borderColor:
-        '#E7DED1',
+        'transparent',
 
       shadowColor:
         '#171717',
@@ -2254,7 +2254,7 @@ const styles =
         1,
 
       borderColor:
-        '#F0CFC4',
+        'transparent',
 
       alignItems:
         'center',
@@ -2307,7 +2307,7 @@ const styles =
         1,
 
       borderColor:
-        '#E7DED1',
+        'transparent',
 
       shadowColor:
         '#171717',
@@ -2417,7 +2417,7 @@ const styles =
         1,
 
       borderColor:
-        '#F0CFC4',
+        'transparent',
 
       alignItems:
         'center',

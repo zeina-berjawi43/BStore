@@ -204,7 +204,7 @@ const getStatusStyles = (
 
       return {
         backgroundColor: '#EFFAF3',
-        borderColor: '#CFE8D8',
+        borderColor: 'transparent',
         dotColor: '#3A8F5B',
         textColor: '#317A4D',
       };
@@ -214,7 +214,7 @@ const getStatusStyles = (
 
       return {
         backgroundColor: '#FFF7F3',
-        borderColor: '#F0CFC4',
+        borderColor: 'transparent',
         dotColor: '#E35B3F',
         textColor: '#C94C35',
       };
@@ -224,7 +224,7 @@ const getStatusStyles = (
 
       return {
         backgroundColor: '#F1F6FC',
-        borderColor: '#D6E3F1',
+        borderColor: 'transparent',
         dotColor: '#4A7FB8',
         textColor: '#3D6B9D',
       };
@@ -234,7 +234,7 @@ const getStatusStyles = (
 
       return {
         backgroundColor: '#EFFAF3',
-        borderColor: '#CFE8D8',
+        borderColor: 'transparent',
         dotColor: '#3A8F5B',
         textColor: '#317A4D',
       };
@@ -244,7 +244,7 @@ const getStatusStyles = (
 
       return {
         backgroundColor: '#FFF1F1',
-        borderColor: '#F0CCCC',
+        borderColor: 'transparent',
         dotColor: '#C94C4C',
         textColor: '#B33F3F',
       };
@@ -255,7 +255,7 @@ const getStatusStyles = (
 
       return {
         backgroundColor: '#FFF7F3',
-        borderColor: '#F0CFC4',
+        borderColor: 'transparent',
         dotColor: '#E35B3F',
         textColor: '#C94C35',
       };
@@ -908,7 +908,7 @@ export default function OrderDetails() {
                   statusStyles.backgroundColor,
 
                 borderColor:
-                  statusStyles.borderColor,
+                  'transparent',
               },
             ]}
           >
@@ -1516,7 +1516,7 @@ const styles =
       borderWidth: 1,
 
       borderColor:
-        '#E7DED1',
+        'transparent',
 
       alignItems:
         'center',
@@ -1597,7 +1597,7 @@ const styles =
       borderWidth: 1,
 
       borderColor:
-        '#E7DED1',
+        'transparent',
 
       flexDirection:
         'row',
@@ -1654,7 +1654,7 @@ const styles =
       borderWidth: 1,
 
       borderColor:
-        '#F0CFC4',
+        'transparent',
 
       alignItems:
         'center',
@@ -1736,7 +1736,7 @@ const styles =
     // STATUS
     // =====================================================
 
-    statusContainer: {
+    statusContainer: { borderColor: 'transparent',
 
       paddingHorizontal: 10,
 
@@ -1847,7 +1847,7 @@ const styles =
       borderWidth: 1,
 
       borderColor:
-        '#E7DED1',
+        'transparent',
 
       shadowColor:
         '#171717',
@@ -1900,7 +1900,7 @@ const styles =
       borderWidth: 1,
 
       borderColor:
-        '#F0CFC4',
+        'transparent',
 
       alignItems:
         'center',
@@ -1966,7 +1966,7 @@ const styles =
       borderWidth: 1,
 
       borderColor:
-        '#E7DED1',
+        'transparent',
 
       flexDirection:
         'row',
@@ -2007,7 +2007,7 @@ const styles =
       borderWidth: 1,
 
       borderColor:
-        '#E7DED1',
+        'transparent',
 
       alignItems:
         'center',
@@ -2122,7 +2122,7 @@ const styles =
       borderWidth: 1,
 
       borderColor:
-        '#E7DED1',
+        'transparent',
 
       flexDirection:
         'row',
@@ -2214,7 +2214,7 @@ const styles =
       borderWidth: 1,
 
       borderColor:
-        '#E7DED1',
+        'transparent',
 
       alignItems:
         'center',
@@ -2291,7 +2291,7 @@ const styles =
       borderWidth: 1,
 
       borderColor:
-        '#E7DED1',
+        'transparent',
 
       alignItems:
         'center',
@@ -2355,7 +2355,7 @@ const styles =
       borderWidth: 1,
 
       borderColor:
-        '#E7DED1',
+        'transparent',
 
       alignItems:
         'center',

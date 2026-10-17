@@ -903,7 +903,7 @@ const styles =
         1,
 
       borderColor:
-        '#E7DED1',
+        'transparent',
 
       alignItems:
         'center',
@@ -1020,7 +1020,7 @@ const styles =
         1,
 
       borderColor:
-        '#F0CFC4',
+        'transparent',
 
       borderRadius:
         12,
@@ -1093,7 +1093,7 @@ const styles =
         1,
 
       borderColor:
-        '#F0CFC4',
+        'transparent',
 
       alignItems:
         'center',
@@ -1236,7 +1236,7 @@ const styles =
         1,
 
       borderColor:
-        '#E7DED1',
+        'transparent',
 
       position:
         'relative',
@@ -1277,7 +1277,7 @@ const styles =
         1,
 
       borderColor:
-        '#EEE4D7',
+        'transparent',
 
       alignItems:
         'center',

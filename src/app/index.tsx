@@ -1648,7 +1648,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E6DED2',
+    borderColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#171717',
@@ -1690,7 +1690,7 @@ const styles = StyleSheet.create({
     borderRadius: 23,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E6DED2',
+    borderColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 9,
@@ -1717,7 +1717,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E6DED2',
+    borderColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1773,7 +1773,7 @@ const styles = StyleSheet.create({
       'rgba(255,255,255,0.65)',
     borderWidth: 1,
     borderColor:
-      'rgba(23,23,23,0.15)',
+      'transparent',
   },
 
   slideDotActive: {
@@ -1858,7 +1858,7 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     padding: 7,
     borderWidth: 1,
-    borderColor: '#E7DED1',
+    borderColor: 'transparent',
   },
 
   topSellingImageBox: {
@@ -2003,7 +2003,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: '#E6DED2',
+    borderColor: 'transparent',
     shadowColor: '#171717',
     shadowOffset: {
       width: 0,
@@ -2020,7 +2020,7 @@ const styles = StyleSheet.create({
     borderRadius: 17,
     backgroundColor: '#F8F2EA',
     borderWidth: 1,
-    borderColor: '#EEE4D7',
+    borderColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -2057,7 +2057,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E7DED1',
+    borderColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -2128,7 +2128,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     minHeight: 164,
     borderWidth: 1,
-    borderColor: '#EEAA91',
+    borderColor: 'transparent',
     shadowColor: '#171717',
     shadowOffset: {
       width: 0,
@@ -2276,7 +2276,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#E7DED1',
+    borderColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2292,11 +2292,11 @@ const styles = StyleSheet.create({
     height: 25,
   },
 
-  bottomNav: {
+  bottomNav: { borderColor: 'transparent',
     height: 76,
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
-    borderTopColor: '#E7DED1',
+    borderTopColor: 'transparent',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
@@ -2363,7 +2363,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 3,
     borderWidth: 1,
-    borderColor: '#FFFFFF',
+    borderColor: 'transparent',
   },
 
   navBadgeText: {

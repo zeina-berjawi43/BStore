@@ -505,7 +505,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E7DED1',
+    borderColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -539,7 +539,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 21,
     borderWidth: 1,
-    borderColor: '#E7DED1',
+    borderColor: 'transparent',
     padding: 19,
     alignItems: 'center',
     shadowColor: '#171717',
@@ -612,7 +612,7 @@ const styles = StyleSheet.create({
     height: 57,
     borderRadius: 15,
     borderWidth: 1,
-    borderColor: '#E7DED1',
+    borderColor: 'transparent',
     backgroundColor: '#F8F2EA',
     color: '#171717',
     fontSize: 25,
@@ -621,7 +621,7 @@ const styles = StyleSheet.create({
   },
 
   inputError: {
-    borderColor: '#C94C4C',
+    borderColor: 'transparent',
     backgroundColor: '#FFF7F3',
   },
 
@@ -687,11 +687,11 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
 
-  resendSection: {
+  resendSection: { borderColor: 'transparent',
     width: '100%',
     marginTop: 24,
     borderTopWidth: 1,
-    borderTopColor: '#E7DED1',
+    borderTopColor: 'transparent',
     paddingTop: 20,
   },
 
@@ -716,7 +716,7 @@ const styles = StyleSheet.create({
     height: 54,
     borderRadius: 15,
     borderWidth: 1,
-    borderColor: '#E7DED1',
+    borderColor: 'transparent',
     backgroundColor: '#F8F2EA',
     flexDirection: 'row',
     alignItems: 'center',

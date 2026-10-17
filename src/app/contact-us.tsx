@@ -91,20 +91,20 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
   backButton: {
     width: 46, height: 46, borderRadius: 16, backgroundColor: '#FFFFFF',
-    borderWidth: 1, borderColor: '#E7DED1', alignItems: 'center', justifyContent: 'center', marginRight: 12,
+    borderWidth: 1, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center', marginRight: 12,
     shadowColor: '#171717', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.07, shadowRadius: 8, elevation: 2,
   },
   headerText: { flex: 1 },
   title: { fontSize: 29, fontWeight: '900', color: '#171717', letterSpacing: -0.8 },
   subtitle: { marginTop: 3, fontSize: 13, fontWeight: '500', color: '#817B71' },
   card: {
-    backgroundColor: '#FFFFFF', borderRadius: 21, borderWidth: 1, borderColor: '#E7DED1', overflow: 'hidden',
+    backgroundColor: '#FFFFFF', borderRadius: 21, borderWidth: 1, borderColor: 'transparent', overflow: 'hidden',
     shadowColor: '#171717', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.07, shadowRadius: 9, elevation: 2,
   },
   row: { minHeight: 84, paddingHorizontal: 14, paddingVertical: 16, flexDirection: 'row', alignItems: 'center' },
   iconContainer: {
     width: 46, height: 46, borderRadius: 15, backgroundColor: '#FFF7F3', borderWidth: 1,
-    borderColor: '#F0CFC4', alignItems: 'center', justifyContent: 'center',
+    borderColor: 'transparent', alignItems: 'center', justifyContent: 'center',
   },
   rowText: { flex: 1, marginLeft: 13, paddingRight: 8 },
   rowTitle: { fontSize: 15, fontWeight: '800', color: '#24221E', letterSpacing: -0.1 },

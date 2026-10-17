@@ -261,7 +261,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
 
     borderColor:
-      '#E7DED1',
+      'transparent',
 
     alignItems:
       'center',
@@ -346,7 +346,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
 
     borderColor:
-      '#F0CFC4',
+      'transparent',
 
     padding: 16,
 
@@ -369,7 +369,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
 
     borderColor:
-      '#F0CFC4',
+      'transparent',
 
     alignItems:
       'center',
@@ -437,7 +437,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
 
     borderColor:
-      '#E7DED1',
+      'transparent',
 
     shadowColor:
       '#171717',

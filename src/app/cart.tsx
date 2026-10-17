@@ -1092,7 +1092,7 @@ const styles =
     borderRadius: 16,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E7DED1',
+    borderColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 13,
@@ -1147,7 +1147,7 @@ const styles =
     borderRadius: 26,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E7DED1',
+    borderColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
 
@@ -1231,7 +1231,7 @@ const styles =
     borderRadius: 21,
     flexDirection: 'row',
     borderWidth: 1,
-    borderColor: '#E7DED1',
+    borderColor: 'transparent',
     position: 'relative',
 
     shadowColor: '#171717',
@@ -1380,7 +1380,7 @@ const styles =
     height: 34,
     marginHorizontal: 7,
     borderWidth: 1,
-    borderColor: '#E6DED2',
+    borderColor: 'transparent',
     borderRadius: 11,
     backgroundColor: '#F8F2EA',
     textAlign: 'center',
@@ -1417,7 +1417,7 @@ const styles =
     borderRadius: 21,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#E7DED1',
+    borderColor: 'transparent',
 
     shadowColor: '#171717',
     shadowOffset: {
@@ -1469,7 +1469,7 @@ const styles =
     borderRadius: 15,
     backgroundColor: '#FFF7F3',
     borderWidth: 1,
-    borderColor: '#F0CFC4',
+    borderColor: 'transparent',
     flexDirection: 'row',
     alignItems: 'center',
   },
