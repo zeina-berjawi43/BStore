@@ -113,7 +113,7 @@ export default function Search() {
         <Text style={styles.error}>{error} Tap to retry.</Text>
       </Pressable>}
       <View style={styles.resultsHeader}>
-        <ProductCount count={results.length} />
+        <ProductCount count={results.length} title={false} />
 
       </View>
       <FlatList
@@ -150,14 +150,6 @@ export default function Search() {
                 <View style={styles.info}>
                   <Text style={styles.name} numberOfLines={2}>{item.name}</Text>
                   <Text style={styles.secondary} numberOfLines={1}>{label(item.brand) || label(item.category)}</Text>
-                </View>
-              </Pressable>
-              <Pressable style={styles.favorite} disabled={favoriteBusy || !favoritesReady}
-                onPress={() => void changeProduct(item, 'favorite')}
-                accessibilityRole="button" accessibilityLabel={`${favorite ? 'Remove' : 'Add'} ${item.name} ${favorite ? 'from' : 'to'} favorites`}
-                accessibilityState={{ selected: favorite, disabled: favoriteBusy || !favoritesReady }}>
-                <Ionicons name={favorite ? 'heart' : 'heart-outline'} size={22} color={favorite ? '#E35B3F' : '#777168'} />
-              </Pressable>
               <View style={styles.addButtonContainer}>
                 <View style={styles.priceGroup}>
                   {hasPrice ? <View style={styles.prices}>
@@ -168,6 +160,14 @@ export default function Search() {
                 <AddToCartButton product={item} onAdjust={delta => void shopping.adjust(item, delta)} name={item.name} pending={cartBusy} unavailable={!available}
                   onPress={() => void changeProduct(item, 'cart')} />
               </View>
+                </View>
+              </Pressable>
+              <Pressable style={styles.favorite} disabled={favoriteBusy || !favoritesReady}
+                onPress={() => void changeProduct(item, 'favorite')}
+                accessibilityRole="button" accessibilityLabel={`${favorite ? 'Remove' : 'Add'} ${item.name} ${favorite ? 'from' : 'to'} favorites`}
+                accessibilityState={{ selected: favorite, disabled: favoriteBusy || !favoritesReady }}>
+                <Ionicons name={favorite ? 'heart' : 'heart-outline'} size={22} color={favorite ? '#E35B3F' : '#777168'} />
+              </Pressable>
             </View>
           );
         }}
@@ -183,7 +183,7 @@ const styles = StyleSheet.create({
   title: { flex: 1, fontSize: 28, fontWeight: '900', color: '#171717' },
   searchBar: { marginHorizontal: 18, flexDirection: 'row', alignItems: 'center', borderRadius: 18, borderWidth: 1, borderColor: '#E7DED1', backgroundColor: '#FFFFFF', paddingHorizontal: 12, height: 56 },
   input: { flex: 1, fontSize: 14, color: '#171717', height: 54, paddingHorizontal: 10 },
-  resultsHeader: { paddingHorizontal: 18, paddingTop: 16 },
+  resultsHeader: { paddingHorizontal: 18, paddingTop: 8 },
   sectionTitle: { fontSize: 16, fontWeight: '800', color: '#171717' },
   list: { paddingHorizontal: 18, paddingBottom: 28, flexGrow: 1 },
   row: { gap: 12 },
@@ -193,15 +193,15 @@ const styles = StyleSheet.create({
   favorite: { position: 'absolute', top: 5, right: 5, width: 44, height: 44, borderRadius: 22, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
   discount: { position: 'absolute', top: 10, left: 8, paddingHorizontal: 6, paddingVertical: 4, borderRadius: 6, backgroundColor: '#E35B3F' },
   discountText: { fontSize: 11, fontWeight: '800', color: '#FFFFFF' },
-  info: { padding: 7, paddingBottom: 2, gap: 2 },
+  info: { ...productCardLayout.content, padding: 7 },
   name: { ...productCardLayout.title, fontSize: 14, fontWeight: '800', color: '#171717', minHeight: 36 },
   secondary: { fontSize: 12, color: '#777168', lineHeight: 18 },
   prices: { alignItems: 'flex-start', gap: 2 },
   price: { lineHeight: 20, flexShrink: 0, fontSize: 16, fontWeight: '900', color: '#171717' },
   salePrice: { color: '#E35B3F' },
   oldPrice: { lineHeight: 12, flexShrink: 1, fontSize: 11, color: '#777168', textDecorationLine: 'line-through' },
-  priceGroup: { ...productCardLayout.price, height: 'auto', minHeight: 0, minWidth: 0, alignSelf: 'flex-start', justifyContent: 'flex-start' },
-  addButtonContainer: { ...productCardLayout.bottom, alignItems: 'flex-start', width: 'auto', margin: 7, marginTop: 0 },
+  priceGroup: { ...productCardLayout.flowPrice },
+  addButtonContainer: { ...productCardLayout.bottom, alignItems: 'flex-start', width: '100%' },
   errorBox: { marginHorizontal: 18, marginTop: 10 },
   error: { color: '#A52B22', fontSize: 13 },
   empty: { alignItems: 'center', paddingVertical: 55, paddingHorizontal: 15, gap: 12 },

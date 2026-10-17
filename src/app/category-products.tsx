@@ -474,6 +474,7 @@ const CatalogCard = memo(function CatalogCard({ columns, product, favorite, pend
                         favorite
                       }
                     />
+                    <View style={styles.productContent}>
                     {/* NAME */}
                     <Text
                       style={
@@ -584,6 +585,7 @@ const CatalogCard = memo(function CatalogCard({ columns, product, favorite, pend
                       <AddToCartButton product={product} onAdjust={delta => onAdjust(product, delta)} name={product.name}
                         pending={pending} unavailable={isOutOfStock}
                         onPress={() => void onAdd(product)} />
+                    </View>
                     </View>
                   </Pressable>
                 );
@@ -966,9 +968,9 @@ const styles =
   favoriteButtonActive: {
     opacity: 0.98,
   },
+  productContent: { ...productCardLayout.content, marginTop: 6 },
   productName: {
     ...productCardLayout.title,
-    marginTop: 6,
     fontSize: 15,
     fontWeight: '800',
     color: '#24221E',
@@ -976,23 +978,21 @@ const styles =
   },
   productCategory: {
     height: 18, lineHeight: 18,
-    marginTop: 2,
     fontSize: 12,
     color: '#817B71',
     fontWeight: '600',
   },
   outOfStockText: {
     height: 14, lineHeight: 14,
-    marginTop: 1,
     fontSize: 11.5,
     fontWeight: '800',
     color: '#C94C4C',
   },
   productBottom: {
-    ...productCardLayout.bottom, alignItems: 'flex-start', marginTop: 4,
+    ...productCardLayout.bottom, alignItems: 'flex-start',
   },
   priceContainer: {
-    ...productCardLayout.price, height: 'auto', minHeight: 0, minWidth: 0, alignSelf: 'flex-start', justifyContent: 'flex-start',
+    ...productCardLayout.flowPrice,
     paddingRight: 0,
   },
   discountPriceContainer: {
