@@ -926,6 +926,44 @@ export default function ProductDetails() {
           ) : null}
 
 
+          {!!product.description?.trim() && (
+            <View style={styles.descriptionSection}>
+          <View
+            style={
+              styles.descriptionHeader
+            }
+          >
+
+            <View
+              style={
+                styles.descriptionAccent
+              }
+            />
+
+
+            <Text
+              style={
+                styles.descriptionTitle
+              }
+            >
+              Description
+            </Text>
+
+          </View>
+
+
+          <Text
+            style={
+              styles.description
+            }
+          >
+            {product.description.trim()}
+          </Text>
+            </View>
+          )}
+
+          <View style={styles.purchaseRow}>
+            <View style={styles.purchasePrice}>
           {/* =================================================
               PRICE - USD ONLY
           ================================================= */}
@@ -1052,93 +1090,8 @@ export default function ProductDetails() {
             </Pressable>
 
           )}
-
-
-          {/* =================================================
-              OUT OF STOCK
-          ================================================= */}
-
-          {isOutOfStock && (
-
-            <View
-              style={
-                styles.outOfStockBadge
-              }
-            >
-
-              <Ionicons
-                name="close-circle-outline"
-                size={16}
-                color="#C62828"
-              />
-
-
-              <Text
-                style={
-                  styles.outOfStockText
-                }
-              >
-                Out of Stock
-              </Text>
-
             </View>
-
-          )}
-
-
-          {/* =================================================
-              DIVIDER
-          ================================================= */}
-
-          <View
-            style={
-              styles.divider
-            }
-          />
-
-
-          {/* =================================================
-              DESCRIPTION
-          ================================================= */}
-
-          <View
-            style={
-              styles.descriptionHeader
-            }
-          >
-
-            <View
-              style={
-                styles.descriptionAccent
-              }
-            />
-
-
-            <Text
-              style={
-                styles.descriptionTitle
-              }
-            >
-              Description
-            </Text>
-
-          </View>
-
-
-          <Text
-            style={
-              styles.description
-            }
-          >
-            {product.description ||
-              'No description available for this product.'}
-          </Text>
-
-
-          {/* =================================================
-              ADD TO CART
-          ================================================= */}
-
+            <View style={styles.purchaseControl}>
           <QuantitySelector product={product} onAdjust={delta => void shopping.adjust(product, delta)}><Pressable
             style={({ pressed }) => [
               styles.cartButton, pressed && { backgroundColor: '#E35B3F' },
@@ -1180,6 +1133,39 @@ export default function ProductDetails() {
             </Text>
 
           </Pressable></QuantitySelector>
+            </View>
+          </View>
+
+          {/* =================================================
+              OUT OF STOCK
+          ================================================= */}
+
+          {isOutOfStock && (
+
+            <View
+              style={
+                styles.outOfStockBadge
+              }
+            >
+
+              <Ionicons
+                name="close-circle-outline"
+                size={16}
+                color="#C62828"
+              />
+
+
+              <Text
+                style={
+                  styles.outOfStockText
+                }
+              >
+                Out of Stock
+              </Text>
+
+            </View>
+
+          )}
 
         </View>
 
@@ -1745,10 +1731,11 @@ const styles =
     },
 
 
+    descriptionSection: { marginTop: 12 },
+    purchaseRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 },
+    purchasePrice: { flex: 1, minWidth: 0 },
+    purchaseControl: { width: 124, maxWidth: '45%', flexShrink: 0 },
     priceSection: {
-
-      marginTop:
-        15,
 
     },
 
@@ -1771,9 +1758,6 @@ const styles =
 
 
     priceUnavailable: {
-
-      marginTop:
-        15,
 
       fontSize:
         14,
@@ -1881,9 +1865,6 @@ const styles =
 
       alignSelf:
         'flex-start',
-
-      marginTop:
-        15,
 
       minHeight:
         42,
@@ -2071,17 +2052,14 @@ const styles =
 
     cartButton: {
 
-      marginTop:
-        24,
-
       backgroundColor:
         '#171717',
 
       minHeight:
-        54,
+        44,
 
       borderRadius:
-        16,
+        12,
 
       alignItems:
         'center',
@@ -2130,12 +2108,14 @@ const styles =
 
 
     cartButtonText: {
+      flexShrink: 1,
+      textAlign: 'center',
 
       color:
         '#FFFFFF',
 
       fontSize:
-        15,
+        12,
 
       fontWeight:
         '900',

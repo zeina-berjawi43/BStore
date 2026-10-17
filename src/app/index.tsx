@@ -1,3 +1,4 @@
+import { productFavoriteDesign, ProductFavoriteHeart } from '../components/product-favorite-design';
 import { productCardLayout } from '../components/product-card-layout';
 import { QuantitySelector } from '../components/quantity-selector';
 import { openProtected } from '../services/login-intent';
@@ -1399,19 +1400,7 @@ function TopSellingProductRow({
             }}
             hitSlop={7}
           >
-            <Ionicons
-              name={
-                isFavorite
-                  ? 'heart'
-                  : 'heart-outline'
-              }
-              size={14}
-              color={
-                isFavorite
-                  ? '#E35B3F'
-                  : '#8B857D'
-              }
-            />
+            <ProductFavoriteHeart selected={isFavorite} />
           </Pressable>
         </View>
 
@@ -1573,19 +1562,7 @@ function RecentProduct({
             }}
             hitSlop={6}
           >
-            <Ionicons
-              name={
-                isFavorite
-                  ? 'heart'
-                  : 'heart-outline'
-              }
-              size={15}
-              color={
-                isFavorite
-                  ? '#E35B3F'
-                  : '#777168'
-              }
-            />
+            <ProductFavoriteHeart selected={isFavorite} />
           </Pressable>
         </View>
 
@@ -1963,26 +1940,7 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
 
-  topSellingFavorite: {
-    position: 'absolute',
-    top: 6,
-    right: 6,
-    width: 25,
-    height: 25,
-    borderRadius: 13,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#171717',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
-    zIndex: 2,
-  },
+  topSellingFavorite: { ...productFavoriteDesign, position: 'absolute', top: 6, right: 6 },
 
   categoriesLoading: {
     height: 105,
@@ -2122,25 +2080,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
 
-  recentHeart: {
-    position: 'absolute',
-    top: 6,
-    right: 6,
-    width: 25,
-    height: 25,
-    borderRadius: 13,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#171717',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
-  },
+  recentHeart: { ...productFavoriteDesign, position: 'absolute', top: 6, right: 6 },
 
   recentDiscount: {
     position: 'absolute',

@@ -1,3 +1,4 @@
+import { productFavoriteDesign, ProductFavoriteHeart } from '../components/product-favorite-design';
 import { productCardLayout } from '../components/product-card-layout';
 import { useShopping } from '../hooks/use-shopping';
 
@@ -123,7 +124,7 @@ type FavoriteButtonProps = {
 const FavoriteButton = memo(function FavoriteButton({ initialFavorite, onToggle }: FavoriteButtonProps) { return (
         <Pressable style={[styles.favoriteButton, initialFavorite && styles.favoriteButtonActive]} hitSlop={5}
           accessibilityRole="button" accessibilityState={{ selected: initialFavorite }} onPress={onToggle}>
-          <Ionicons name={initialFavorite ? 'heart' : 'heart-outline'} size={20} color={initialFavorite ? '#E35B3F' : '#171717'} />
+          <ProductFavoriteHeart selected={initialFavorite} />
         </Pressable>); });
 /* =========================================================
    DEPARTMENT CATEGORIES
@@ -968,30 +969,9 @@ const styles =
     fontSize: 10,
     fontWeight: '900',
   },
-  favoriteButton: {
-    position: 'absolute',
-    top: 17,
-    right: 17,
-    width: 35,
-    height: 35,
-    borderRadius: 50,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E7DED1',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 5,
-    shadowColor: '#171717',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    elevation: 1,
-  },
+  favoriteButton: { ...productFavoriteDesign, position: 'absolute', top: 17, right: 17 },
   favoriteButtonActive: {
-    opacity: 0.98,
+    opacity: 1,
   },
   productContent: { ...productCardLayout.content, marginTop: 6 },
   productName: {

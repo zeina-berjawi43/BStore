@@ -554,7 +554,7 @@ export default function Cart() {
 
 <Pressable accessibilityRole="button" accessibilityLabel={`Remove ${product.name} from cart`} style={styles.removeButton}
   disabled={itemUpdating} onPress={() => removeProduct(productId)}><Ionicons name="close" size={21} color="#E35B3F" /></Pressable>
-{discount > 0 &&
+{Number.isFinite(discount) && discount > 0 && discount <= 100 &&
                       originalPrice >
                         cartPrice && (
 
@@ -569,7 +569,7 @@ export default function Cart() {
                               styles.discountText
                             }
                           >
-                            {discount}% OFF
+                            -{discount}%
                           </Text>
 
                         </View>
@@ -1333,23 +1333,19 @@ const styles =
 
   discountBadge: {
     position: 'absolute',
-    left: 10,
-    bottom: 10,
-    alignSelf: 'flex-start',
-    marginTop: 5,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 7,
-    backgroundColor: '#FFF7F3',
-    borderWidth: 1,
-    borderColor: '#F0CFC4',
+    top: 17,
+    left: 17,
+    backgroundColor: '#E35B3F',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 9,
+    zIndex: 4,
   },
-
 
   discountText: {
     fontSize: 10,
     fontWeight: '900',
-    color: '#E35B3F',
+    color: '#FFFFFF',
   },
 
 

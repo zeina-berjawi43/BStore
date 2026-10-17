@@ -1,3 +1,4 @@
+import { productFavoriteDesign, ProductFavoriteHeart } from '../components/product-favorite-design';
 import { productCardLayout } from '../components/product-card-layout';
 import { ProductCount } from '../components/product-count';
 import { getSessionSnapshot, onPricingChanged } from '../services/tokenStorage';
@@ -166,7 +167,7 @@ export default function Search() {
                 onPress={() => void changeProduct(item, 'favorite')}
                 accessibilityRole="button" accessibilityLabel={`${favorite ? 'Remove' : 'Add'} ${item.name} ${favorite ? 'from' : 'to'} favorites`}
                 accessibilityState={{ selected: favorite, disabled: favoriteBusy || !favoritesReady }}>
-                <Ionicons name={favorite ? 'heart' : 'heart-outline'} size={22} color={favorite ? '#E35B3F' : '#777168'} />
+                <ProductFavoriteHeart selected={favorite} />
               </Pressable>
             </View>
           );
@@ -190,7 +191,7 @@ const styles = StyleSheet.create({
   card: { flex: 1, maxWidth: '50%', backgroundColor: '#FFFFFF', borderRadius: 18, borderWidth: 1, borderColor: '#E6DED2', marginBottom: 12, overflow: 'hidden' },
   imageBox: { height: 145, padding: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF', overflow: 'hidden' },
   image: { backgroundColor: '#FFFFFF',  width: '100%', height: '100%' },
-  favorite: { position: 'absolute', top: 5, right: 5, width: 44, height: 44, borderRadius: 22, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
+  favorite: { ...productFavoriteDesign, position: 'absolute', top: 5, right: 5 },
   discount: { position: 'absolute', top: 10, left: 8, paddingHorizontal: 6, paddingVertical: 4, borderRadius: 6, backgroundColor: '#E35B3F' },
   discountText: { fontSize: 11, fontWeight: '800', color: '#FFFFFF' },
   info: { ...productCardLayout.content, padding: 7 },

@@ -109,12 +109,6 @@ const getImageUrl = (image?: string) => {
 // FAVORITES
 // =========================================================
 
-// References may be unpopulated ObjectId strings; only human-readable names belong in cards.
-function favoriteReferenceLabel(reference: unknown): string {
-  const value = reference && typeof reference === 'object' && 'name' in reference ? reference.name : reference;
-  return typeof value === 'string' && !/^[a-f\d]{24}$/i.test(value.trim()) ? value : '';
-}
-
 export default function Favorites() {
   const { alert: actionAlert, dialog } = useActionDialog({ showIcon: false });
   const shopping = useShopping();
@@ -123,7 +117,10 @@ export default function Favorites() {
   // STATE
   // =======================================================
 
-  const favorites = shopping.favorites.map(p => ({ ...p, id: String(p._id || p.id), category: favoriteReferenceLabel(p.category), brand: favoriteReferenceLabel(p.brand) })) as FavoriteProduct[];
+  // The API does not guarantee order. Use the same identity order for optimistic and refreshed products.
+  const favorites = shopping.favorites
+    .map(p => ({ ...p, id: String(p._id || p.id) }))
+    .sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0) as FavoriteProduct[];
 
   const [
     ,
@@ -665,38 +662,6 @@ export default function Favorites() {
                     </Text>
 
 
-                    {product.brand ? (
-
-                      <Text
-                        style={
-                          styles.brand
-                        }
-                        numberOfLines={1}
-                      >
-                        {
-                          product.brand
-                        }
-                      </Text>
-
-                    ) : null}
-
-
-                    {product.category ? (
-
-                      <Text
-                        style={
-                          styles.category
-                        }
-                        numberOfLines={1}
-                      >
-                        {
-                          product.category
-                        }
-                      </Text>
-
-                    ) : null}
-
-
                     {/* =================================================
                         OUT OF STOCK
                     ================================================= */}
@@ -718,6 +683,7 @@ export default function Favorites() {
                         PRICE
                     ================================================= */}
 
+                    <View style={styles.priceActionsRow}>
                     <View style={styles.priceArea}>
                     {product.price !==
                     undefined ? (
@@ -796,7 +762,7 @@ export default function Favorites() {
 
                       {/* ADD TO CART */}
 
-                      <QuantitySelector product={product} onAdjust={delta => void shopping.adjust(product, delta)}><Pressable
+                      <QuantitySelector compact grid product={product} onAdjust={delta => void shopping.adjust(product, delta)}><Pressable
                         accessibilityRole="button"
                         accessibilityLabel={`Add ${product.name} to cart`}
                         style={({ pressed }) => [
@@ -831,7 +797,7 @@ export default function Favorites() {
 
                             <Ionicons
                               name="cart-outline"
-                              size={17}
+                              size={14}
                               color="#FFFFFF"
                             />
 
@@ -852,6 +818,7 @@ export default function Favorites() {
 
 
 
+                    </View>
                     </View>
 
                   </View>
@@ -1469,7 +1436,8 @@ const styles =
     // PRICE
     // =======================================================
 
-    priceArea: { height: 38, justifyContent: 'center' },
+    priceActionsRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
+    priceArea: { flex: 1, minWidth: 0, justifyContent: 'center' },
     discountPriceContainer: {
       height: 38, justifyContent: 'center',
 
@@ -1530,7 +1498,7 @@ const styles =
     // =======================================================
 
     actions: {
-      width: 124, maxWidth: '100%', marginTop: 4,
+      width: 72, flexShrink: 0,
 
       flexDirection:
         'row',
@@ -1548,7 +1516,7 @@ const styles =
         '#171717',
 
       minHeight:
-        44,
+        34,
 
       borderRadius:
         11,
@@ -1563,7 +1531,7 @@ const styles =
         'center',
 
       gap:
-        6,
+        3,
 
     },
 
@@ -1580,7 +1548,7 @@ const styles =
         '#FFFFFF',
 
       fontSize:
-        12,
+        10,
 
       fontWeight:
         '800',
