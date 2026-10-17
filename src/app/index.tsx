@@ -1562,7 +1562,7 @@ function RecentProduct({
             }}
             hitSlop={6}
           >
-            <ProductFavoriteHeart selected={isFavorite} />
+            <ProductFavoriteHeart selected={isFavorite} small />
           </Pressable>
         </View>
 
@@ -1575,18 +1575,7 @@ function RecentProduct({
           {product.name}
         </Text>
 
-        {product.price !==
-        undefined ? (
-          <Text
-            style={
-              styles.recentPrice
-            }
-          >
-            $
-            {getFinalPrice(product).toFixed(2)}
-            {getFinalPrice(product) < Number(product.price) && <Text style={{ textDecorationLine: "line-through", color: "#817B71", fontSize: 9 }}> ${Number(product.price).toFixed(2)}</Text>}
-          </Text>
-        ) : null}
+
       </Pressable>
     </Animated.View>
   );
@@ -2058,7 +2047,7 @@ const styles = StyleSheet.create({
   },
 
   recentItem: {
-    width: 92, height: 142,
+    width: 92, height: 111,
     alignItems: 'center',
   },
 
@@ -2080,7 +2069,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
 
-  recentHeart: { ...productFavoriteDesign, position: 'absolute', top: 6, right: 6 },
+  recentHeart: { ...productFavoriteDesign, width: 24, height: 24, shadowOffset: { width: 0, height: 2 }, shadowRadius: 5, position: 'absolute', top: 6, right: 6 },
 
   recentDiscount: {
     position: 'absolute',

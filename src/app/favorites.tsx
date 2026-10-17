@@ -762,7 +762,7 @@ export default function Favorites() {
 
                       {/* ADD TO CART */}
 
-                      <QuantitySelector compact grid product={product} onAdjust={delta => void shopping.adjust(product, delta)}><Pressable
+                      <QuantitySelector compact grid style={styles.favoriteQuantity} product={product} onAdjust={delta => void shopping.adjust(product, delta)}><Pressable
                         accessibilityRole="button"
                         accessibilityLabel={`Add ${product.name} to cart`}
                         style={({ pressed }) => [
@@ -1497,8 +1497,9 @@ const styles =
     // ACTIONS
     // =======================================================
 
+    favoriteQuantity: { width: 88 },
     actions: {
-      width: 72, flexShrink: 0,
+      width: 88, flexShrink: 0,
 
       flexDirection:
         'row',

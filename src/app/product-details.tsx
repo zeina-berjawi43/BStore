@@ -2073,22 +2073,6 @@ const styles =
       gap:
         8,
 
-      shadowColor:
-        '#E35B3F',
-
-      shadowOffset: {
-        width: 0,
-        height: 5,
-      },
-
-      shadowOpacity:
-        0.22,
-
-      shadowRadius:
-        8,
-
-      elevation:
-        3,
 
     },
 
@@ -2098,11 +2082,6 @@ const styles =
       backgroundColor:
         '#B8B1A8',
 
-      shadowOpacity:
-        0,
-
-      elevation:
-        0,
 
     },
 

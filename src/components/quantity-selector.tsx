@@ -1,13 +1,13 @@
 import { useSyncExternalStore, type ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { shoppingState, type ShoppingProduct } from '../services/shopping-state';
 
-export function QuantitySelector({ product, onAdjust, children, compact = false, variant = 'standard', grid = false }: {
-  product: ShoppingProduct; onAdjust: (delta: number) => void; children: ReactNode; compact?: boolean; variant?: 'standard' | 'offer'; grid?: boolean;
+export function QuantitySelector({ product, onAdjust, children, compact = false, variant = 'standard', grid = false, style }: {
+  product: ShoppingProduct; onAdjust: (delta: number) => void; children: ReactNode; compact?: boolean; variant?: 'standard' | 'offer'; grid?: boolean; style?: StyleProp<ViewStyle>;
 }) {
   const readQuantity = () => shoppingState.getSnapshot().cart.find(item => item.product._id === String(product._id || product.id))?.quantity || 0;
   const quantity = useSyncExternalStore(shoppingState.subscribe, readQuantity, readQuantity);
-  return <View testID={variant === 'offer' ? 'offer-cart-control' : 'quantity-slot'} style={[styles.slot, compact && styles.compact, grid && styles.grid]}>
+  return <View testID={variant === 'offer' ? 'offer-cart-control' : 'quantity-slot'} style={[styles.slot, compact && styles.compact, grid && styles.grid, style]}>
     <View pointerEvents={quantity ? 'none' : 'auto'} accessibilityElementsHidden={!!quantity} importantForAccessibility={quantity ? 'no-hide-descendants' : 'auto'} style={[styles.original, grid && styles.gridOriginal, !!quantity && styles.hidden]}>{children}</View>
     {!!quantity && <View style={[styles.row, variant === 'offer' && styles.offer, grid && styles.gridRow]} accessibilityLabel={`Quantity for ${product.name}`}>
     <Pressable hitSlop={grid ? 9 : undefined} accessibilityRole="button" accessibilityLabel={`Decrease ${product.name} quantity`} style={[styles.button, grid && styles.gridButton]}
