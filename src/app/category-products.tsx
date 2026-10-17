@@ -989,10 +989,10 @@ const styles =
     color: '#C94C4C',
   },
   productBottom: {
-    ...productCardLayout.bottom, marginTop: 4,
+    ...productCardLayout.bottom, alignItems: 'flex-start', marginTop: 4,
   },
   priceContainer: {
-    ...productCardLayout.price, minWidth: 0, justifyContent: 'flex-start',
+    ...productCardLayout.price, height: 'auto', minHeight: 0, minWidth: 0, alignSelf: 'flex-start', justifyContent: 'flex-start',
     paddingRight: 0,
   },
   discountPriceContainer: {
