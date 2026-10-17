@@ -69,17 +69,16 @@ export default function RootLayout() {
     if (session.ready && initialLinkReady && navigationRef.isReady() && navigationRevision.current !== session.revision) {
       navigationRevision.current = session.revision;
       if (initialProtected.current) rememberLoginDestination(initialProtected.current);
-      const destination = session.authenticated ? takeLoginDestination() : null;
-      if (Platform.OS === 'web' && session.authenticated && !initialOrder.current && (destination || guestRoutes.some(route => pathname === `/${route}`))) {
-        webLoginEntry.current = { destination: destination || '/', home: false };
+      if (session.authenticated) takeLoginDestination();
+      if (Platform.OS === 'web' && session.authenticated && !initialOrder.current && guestRoutes.some(route => pathname === `/${route}`)) {
+        webLoginEntry.current = { destination: '/', home: false };
       }
       const login = !session.authenticated && initialProtected.current;
       if (!session.authenticated) webLoginEntry.current = null;
       if (!session.authenticated && wasAuthenticated.current) takeLoginDestination();
       wasAuthenticated.current = session.authenticated;
       initialProtected.current = null;
-      navigationRef.resetRoot(destination ? { index: 1, routes: [{ name: 'index' }, { name: destination.slice(1) }] }
-        : login ? { index: 1, routes: [{ name: 'index' }, { name: 'login', params: { returnTo: login } }] } : cleanSessionNavigationState());
+      navigationRef.resetRoot(login ? { index: 1, routes: [{ name: 'index' }, { name: 'login', params: { returnTo: login } }] } : cleanSessionNavigationState());
     }
   }, [session.ready, session.revision, session.authenticated, initialLinkReady, navigation?.key, navigationRef, pathname]);
   useEffect(() => {

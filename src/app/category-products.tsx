@@ -1,3 +1,4 @@
+import { ProductCount } from '../components/product-count';
 import { getSessionSnapshot } from '../services/tokenStorage';
 
 import { useShopping } from '../hooks/use-shopping';
@@ -292,46 +293,7 @@ export function CategoryProductsScreen({ category, offersOnly = false }: { categ
         {/* =================================================
             RESULTS
         ================================================= */}
-        <View
-          style={
-            styles.resultsHeader
-          }
-        >
-          <View
-            style={
-              styles.resultsTitleWrap
-            }
-          >
-            <View
-              style={
-                styles.resultsAccent
-              }
-            />
-            <Text
-              style={
-                styles.resultsTitle
-              }
-            >
-              Products
-            </Text>
-          </View>
-          {!loadingProducts && (
-            <View
-              style={
-                styles.resultsCountChip
-              }
-            >
-              <Text
-                style={
-                  styles.resultsCount
-                }
-              >
-                {filteredProducts.length}{' '}
-                products
-              </Text>
-            </View>
-          )}
-        </View>
+        <ProductCount count={filteredProducts.length} title={!offersOnly} />
         {/* =================================================
             LOADING PRODUCTS
         ================================================= */}

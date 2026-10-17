@@ -260,12 +260,11 @@ for (const file of ['index.tsx', 'category-products.tsx']) {
     product.price = 0; await add(product); assert.deepEqual(calls, [product]); assert.equal(notices.length, 1);
   });
 }
-test('Product Details blocks cached information until fresh; retry delegates the product and absent product stays safe', async () => {
+test('Product Details first tap delegates cached authorized product immediately; absent product stays safe', async () => {
   const calls = [], notices = [], productFresh = { current: false }, product = { _id: 'A', price: 10 };
   const shopping = { add: value => calls.push(value), showAlert: text => notices.push(text) };
   const add = handler('product-details.tsx', 'addToCart', { product, productFresh, productError: 'Refresh failed', shopping });
-  await add(); assert.equal(calls.length, 0); assert.deepEqual(notices, ['Refresh failed']);
-  productFresh.current = true; await add(); assert.deepEqual(calls, [product]);
+  await add(); assert.deepEqual(calls, [product]); assert.deepEqual(notices, []);
   await handler('product-details.tsx', 'addToCart', { product: null, productFresh, shopping })(); assert.equal(calls.length, 1);
 });
 test('Search guards unpriced cart actions while favorites remain usable, then accepts a loaded zero price', async () => {

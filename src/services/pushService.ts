@@ -16,13 +16,13 @@ export async function dismissNotificationShade(responseId: string) {
   try { await Notifications.dismissAllNotificationsAsync(); } catch { /* Routing must still proceed. */ }
 }
 
-export function syncPush(requestPermission = false, enable = false): Promise<PushState> {
-  const result = queue.then(() => register(requestPermission, enable));
+export function syncPush(requestPermission = false, enable = false, preference?: boolean): Promise<PushState> {
+  const result = queue.then(() => register(requestPermission, enable, preference));
   queue = result.catch(() => undefined);
   return result;
 }
 
-async function register(ask: boolean, enable: boolean): Promise<PushState> {
+async function register(ask: boolean, enable: boolean, preference?: boolean): Promise<PushState> {
   if (Platform.OS === 'web' || Constants.appOwnership === 'expo') return 'unsupported';
   await flushPendingLogouts();
   const accessToken = await getValidAccessToken();
@@ -33,7 +33,7 @@ async function register(ask: boolean, enable: boolean): Promise<PushState> {
       name: 'BStore notifications', importance: Notifications.AndroidImportance.DEFAULT,
     });
   }
-  const enabled = enable || await getNotificationSetting();
+  const enabled = enable || (preference ?? await getNotificationSetting());
   let permission = await Notifications.getPermissionsAsync();
   if (enabled && ask && !permission.granted && permission.canAskAgain) {
     permission = await Notifications.requestPermissionsAsync();

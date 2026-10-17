@@ -254,7 +254,7 @@ export default function ResetPassword() {
             Verification Code
           </Text>
 
-          <TextInput
+          <TextInput underlineColorAndroid="transparent"
             style={styles.otpInput}
             value={otp}
             onChangeText={(value) => {
@@ -301,7 +301,7 @@ export default function ResetPassword() {
               color="#817B71"
             />
 
-            <TextInput
+            <TextInput underlineColorAndroid="transparent"
               style={styles.passwordInput}
               value={newPassword}
               onChangeText={(value) => {
@@ -357,7 +357,7 @@ export default function ResetPassword() {
               color="#817B71"
             />
 
-            <TextInput
+            <TextInput underlineColorAndroid="transparent"
               style={styles.passwordInput}
               value={confirmPassword}
               onChangeText={(value) => {

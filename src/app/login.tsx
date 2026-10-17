@@ -160,7 +160,7 @@ export default function Login() {
             Phone Number
           </Text>
 
-          <TextInput
+          <TextInput underlineColorAndroid="transparent"
             placeholder="Phone Number"
             placeholderTextColor="#9A9186"
             value={phone}
@@ -200,7 +200,7 @@ export default function Login() {
                 : null,
             ]}
           >
-            <TextInput
+            <TextInput underlineColorAndroid="transparent"
               placeholder="Enter your password"
               placeholderTextColor="#9A9186"
               value={password}

@@ -259,7 +259,7 @@ export default function VerifyOTP() {
             Verification Code
           </Text>
 
-          <TextInput
+          <TextInput underlineColorAndroid="transparent"
             value={otp}
             onChangeText={(value) => {
               setOtp(
@@ -361,7 +361,7 @@ export default function VerifyOTP() {
               </Text>
 
               <View style={styles.passwordContainer}>
-                <TextInput
+                <TextInput underlineColorAndroid="transparent"
                   value={password}
                   onChangeText={(value) => {
                     setPassword(value);

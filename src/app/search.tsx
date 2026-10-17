@@ -1,3 +1,4 @@
+import { ProductCount } from '../components/product-count';
 import { getSessionSnapshot, onPricingChanged } from '../services/tokenStorage';
 import { useShopping } from '../hooks/use-shopping';
 
@@ -99,7 +100,7 @@ export default function Search() {
       </View>
       <View style={styles.searchBar}>
         <Ionicons name="search-outline" size={21} color="#E35B3F" />
-        <TextInput value={searchText} onChangeText={setSearchText} placeholder="Search products, categories or brands..."
+        <TextInput underlineColorAndroid="transparent" value={searchText} onChangeText={setSearchText} placeholder="Search products, categories or brands..."
           placeholderTextColor="#8B857D" style={styles.input} autoFocus autoCorrect={false} autoCapitalize="none"
           returnKeyType="search" accessibilityLabel="Search products" />
         {!!searchText && <Pressable onPress={() => setSearchText('')} hitSlop={10} accessibilityLabel="Clear search" accessibilityRole="button">
@@ -111,7 +112,7 @@ export default function Search() {
         <Text style={styles.error}>{error} Tap to retry.</Text>
       </Pressable>}
       <View style={styles.resultsHeader}>
-        <Text style={styles.sectionTitle}>{query ? `${results.length} ${results.length === 1 ? 'product' : 'products'}` : ''}</Text>
+        <ProductCount count={results.length} />
 
       </View>
       <FlatList
@@ -181,7 +182,7 @@ const styles = StyleSheet.create({
   title: { flex: 1, fontSize: 28, fontWeight: '900', color: '#171717' },
   searchBar: { marginHorizontal: 18, flexDirection: 'row', alignItems: 'center', borderRadius: 18, borderWidth: 1, borderColor: '#E7DED1', backgroundColor: '#FFFFFF', paddingHorizontal: 12, height: 56 },
   input: { flex: 1, fontSize: 14, color: '#171717', height: 54, paddingHorizontal: 10 },
-  resultsHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingVertical: 16 },
+  resultsHeader: { paddingHorizontal: 18, paddingTop: 16 },
   sectionTitle: { fontSize: 16, fontWeight: '800', color: '#171717' },
   list: { paddingHorizontal: 18, paddingBottom: 28, flexGrow: 1 },
   row: { gap: 12 },

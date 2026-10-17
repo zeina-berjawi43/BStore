@@ -9,6 +9,27 @@ const EMPTY: Tokens = { accessToken: null, refreshToken: null };
 const options = { keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY };
 let webRemember = false;
 let cachedTokens: Tokens | null = null;
+let cachedUser: object | null = null;
+export const peekSessionUser = () => sessionSnapshot.authenticated ? cachedUser : null;
+// Scope the immediate profile to the credential's owner, including old storage
+// left by interrupted app versions. This is cache isolation, not authentication.
+function scopedProfile(user: object | null, tokens: Tokens): object | null {
+  if (!user) return null;
+  const id = (user as { _id?: string; id?: string })._id || (user as { id?: string }).id;
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  try {
+    const encoded = (tokens.refreshToken || tokens.accessToken || '').split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    let decoded = '', buffer = 0, bits = 0;
+    for (const character of encoded) {
+      const value = alphabet.indexOf(character);
+      if (value < 0) continue;
+      buffer = (buffer << 6) | value; bits += 6;
+      if (bits >= 8) { bits -= 8; decoded += String.fromCharCode((buffer >> bits) & 255); }
+    }
+    const payload = JSON.parse(decoded);
+    return id && String(payload.userId || payload.sub) === String(id) ? user : null;
+  } catch { return null; }
+}
 let queue: Promise<unknown> = Promise.resolve();
 const listeners = new Set<() => void>();
 const pricingListeners = new Set<() => void>();
@@ -91,7 +112,11 @@ async function read(): Promise<Tokens> {
   }
   await AsyncStorage.multiRemove(LEGACY_KEYS);
   cachedTokens = tokens;
-  if (!sessionSnapshot.ready) publishSession(tokens);
+  if (!sessionSnapshot.ready) {
+    const saved = tokens.accessToken || tokens.refreshToken ? await AsyncStorage.getItem('user') : null;
+    try { cachedUser = scopedProfile(saved ? JSON.parse(saved) : null, tokens); } catch { cachedUser = null; }
+    publishSession(tokens);
+  }
   return tokens;
 }
 
@@ -115,12 +140,13 @@ export const updateTokens = (tokens: Partial<Tokens>, user?: object, expectedAcc
     ...(tokens.refreshToken && current.refreshToken && tokens.refreshToken !== current.refreshToken ? [current.refreshToken] : []),
   ])];
   // Clear the old profile before installing another session, even if a later write fails.
-  if (changed) await AsyncStorage.multiRemove(['user', 'isLoggedIn']);
+  if (changed) { cachedUser = null; await AsyncStorage.multiRemove(['user', 'isLoggedIn']); }
   const next = { ...current, ...tokens, pendingLogouts };
   await persist(next, rememberMe);
   try {
     if (user) {
       await AsyncStorage.setItem('user', JSON.stringify(user));
+      cachedUser = scopedProfile(user, next);
       await AsyncStorage.setItem('isLoggedIn', 'true');
     }
     await AsyncStorage.multiRemove(LEGACY_KEYS);
@@ -136,9 +162,14 @@ export const saveSessionUser = (expectedAccessToken: string, user: object): Prom
     throw new Error('Your session changed. Please try again.');
   }
   const previous = await AsyncStorage.getItem('user');
+  const previousUser = previous ? JSON.parse(previous) : null;
+  if (previousUser?.pricingScope && !(user as { pricingScope?: string }).pricingScope) {
+    user = { ...user, pricingScope: previousUser.pricingScope };
+  }
   await AsyncStorage.setItem('user', JSON.stringify(user));
-  const priceClass = (value: object) => (value as { priceClass?: string }).priceClass;
-  if (previous && priceClass(JSON.parse(previous)) !== priceClass(user)) pricingListeners.forEach(listener => listener());
+  cachedUser = scopedProfile(user, current);
+  const priceClass = (value: object) => (value as { pricingScope?: string }).pricingScope;
+  if (previous && priceClass(JSON.parse(previous)) !== undefined && priceClass(user) !== undefined && priceClass(JSON.parse(previous)) !== priceClass(user)) pricingListeners.forEach(listener => listener());
 });
 
 async function clear(): Promise<void> {
@@ -148,6 +179,7 @@ async function clear(): Promise<void> {
   const pendingLogouts = [...new Set([...(current.pendingLogouts || []), ...(current.refreshToken ? [current.refreshToken] : [])])];
   await persist({ ...EMPTY, pendingLogouts });
   // Secure logout already succeeded: discard mounted screens even if plaintext cleanup fails.
+  cachedUser = null;
   publishSession(EMPTY, true);
   await AsyncStorage.multiRemove([...LEGACY_KEYS, 'user', 'isLoggedIn']);
 }

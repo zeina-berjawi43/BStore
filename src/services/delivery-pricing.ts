@@ -1,4 +1,4 @@
-export type DeliveryRules = { priceClass: 'A' | 'B' | 'C'; minimumCheckoutAmount: number; freeDeliveryThreshold?: number; deliveryFeeBelowThreshold?: number };
+export type DeliveryRules = { priceClass: string; minimumCheckoutAmount: number; freeDeliveryThreshold?: number; deliveryFeeBelowThreshold?: number };
 
 // Display-only projection of the backend's current rules. Checkout independently recalculates in its transaction.
 export function deliverySummary(subtotal: number, rules?: DeliveryRules, minimum = Infinity) {

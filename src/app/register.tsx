@@ -170,7 +170,7 @@ export default function Register() {
             First Name
           </Text>
 
-          <TextInput
+          <TextInput underlineColorAndroid="transparent"
             placeholder="First Name"
             placeholderTextColor="#9A9186"
             value={firstName}
@@ -193,7 +193,7 @@ export default function Register() {
             Last Name
           </Text>
 
-          <TextInput
+          <TextInput underlineColorAndroid="transparent"
             placeholder="Last Name"
             placeholderTextColor="#9A9186"
             value={lastName}
@@ -216,7 +216,7 @@ export default function Register() {
             Phone Number
           </Text>
 
-          <TextInput
+          <TextInput underlineColorAndroid="transparent"
             placeholder="Phone Number"
             placeholderTextColor="#9A9186"
             value={phone}
@@ -241,7 +241,7 @@ export default function Register() {
             Address
           </Text>
 
-          <TextInput
+          <TextInput underlineColorAndroid="transparent"
             placeholder="Address"
             placeholderTextColor="#9A9186"
             value={address}
@@ -266,7 +266,7 @@ export default function Register() {
           </Text>
 
           <View style={styles.passwordRow}>
-            <TextInput
+            <TextInput underlineColorAndroid="transparent"
               placeholder="Password (8–72 characters)"
               placeholderTextColor="#9A9186"
               value={password}
@@ -314,7 +314,7 @@ export default function Register() {
           </Text>
 
           <View style={styles.passwordRow}>
-            <TextInput
+            <TextInput underlineColorAndroid="transparent"
               placeholder="Confirm Password"
               placeholderTextColor="#9A9186"
               value={confirmPassword}

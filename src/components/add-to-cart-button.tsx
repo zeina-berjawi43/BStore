@@ -16,11 +16,11 @@ export function AddToCartButton({ name, pending, unavailable, onPress, compact =
     onPress={event => { event.stopPropagation(); if (!pending) onPress(); }}>
     <Ionicons name="add" size={compact ? 14 : 20} color="#FFFFFF" />
   </Pressable>;
-  return product && onAdjust ? <QuantitySelector product={product} onAdjust={onAdjust}>{button}</QuantitySelector> : button;
+  return product && onAdjust ? <QuantitySelector compact product={product} onAdjust={onAdjust}>{button}</QuantitySelector> : button;
 }
 const styles = StyleSheet.create({
-  button: { width: 34, height: 34, borderRadius: 12, backgroundColor: '#171717', alignItems: 'center', justifyContent: 'center' },
-  compact: { width: 27, height: 27, borderRadius: 14 },
+  button: { alignSelf: 'flex-end', width: 44, height: 44, borderRadius: 12, backgroundColor: '#171717', alignItems: 'center', justifyContent: 'center' },
+  compact: { borderRadius: 14 },
   disabled: { backgroundColor: '#B8B2A9' },
   active: { backgroundColor: '#E35B3F' },
 });

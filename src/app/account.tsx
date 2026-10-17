@@ -1,6 +1,6 @@
 import { useActionDialog } from '../components/action-dialog';
 import { goBackOrHome } from '../services/navigation';
-import { getSessionSnapshot } from '../services/tokenStorage';
+import { getSessionSnapshot, peekSessionUser } from '../services/tokenStorage';
 import {
   View,
   Text,
@@ -39,7 +39,7 @@ import {
 export default function Account() {
   const { alert: actionAlert, dialog } = useActionDialog({ showIcon: false });
   const [user, setUser] =
-    useState<User | null>(null);
+    useState<User | null>(() => peekSessionUser() as User | null);
   const [deletingAccount, setDeletingAccount] = useState(false);
   const deletionInProgress = useRef(false);
   const logoutInProgress = useRef(false);
@@ -49,11 +49,13 @@ export default function Account() {
   // =======================================================
 
   const loadUser = async () => {
+    const revision = getSessionSnapshot().revision;
+    setUser(peekSessionUser() as User | null);
     try {
       const currentUser =
         await fetchCurrentUser();
 
-      setUser(currentUser);
+      if (revision === getSessionSnapshot().revision && getSessionSnapshot().authenticated) setUser(currentUser);
     } catch (error) {
       if (__DEV__) { console.log(
         'GET USER ERROR:',

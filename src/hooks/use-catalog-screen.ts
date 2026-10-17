@@ -50,7 +50,10 @@ export function useCatalogScreen(departmentId?: string, legacyName?: string, off
           const cached = offersOnly ? [] : peekCurrentCatalog();
           if (cached.length) { setProducts(cached); setLoadingProducts(false); }
           const next = offersOnly ? await fetchProductSection('offers', token, force) : await fetchCatalog(token, force);
-          if (valid()) setProducts(next);
+          if (valid()) {
+            setProducts(next);
+            if (offersOnly) setSelectedSubCategory(selected => selected === 'ALL' || next.some(product => (typeof product.category === 'object' ? product.category?._id : product.category) === selected) ? selected : 'ALL');
+          }
         } catch { failures.push('Products could not be refreshed.'); }
         finally { if (valid()) setLoadingProducts(false); }
       })();
@@ -78,9 +81,9 @@ export function useCatalogScreen(departmentId?: string, legacyName?: string, off
     const tick = setInterval(() => { if (AppState.currentState === 'active' && (Platform.OS !== 'web' || document.visibilityState === 'visible')) void refresh(); }, 60_000);
     return () => { active = false; operation.current++; foreground.remove(); clearInterval(tick); };
   }, [path, offersOnly]));
-  const visibleCategories = useMemo(() => legacyName && legacyName.toUpperCase() !== 'ALL'
+  const visibleCategories = useMemo(() => offersOnly ? subCategories.filter(category => products.some(product => (typeof product.category === 'object' ? product.category?._id : product.category) === category._id)) : legacyName && legacyName.toUpperCase() !== 'ALL'
     ? subCategories.filter(item => typeof item.department === 'object' && item.department?.name?.toLowerCase().trim() === legacyName.toLowerCase().trim())
-    : subCategories, [subCategories, legacyName]);
+    : subCategories, [subCategories, legacyName, offersOnly, products]);
   const filteredProducts = useMemo(() => selectCatalog(products, visibleCategories, selectedSubCategory, offersOnly || (!departmentId && legacyName?.toUpperCase() === 'ALL')), [products, visibleCategories, selectedSubCategory, departmentId, legacyName, offersOnly]);
   return { products, subCategories: visibleCategories, selectedSubCategory, setSelectedSubCategory, loadingProducts, loadingSubCategories,
     productsError, filteredProducts, isLoggedIn: session.authenticated, retry: () => { void refreshRef.current(true); } };

@@ -8,7 +8,7 @@ function load(file, dependencies = {}) {
 }
 const session = { authenticated: true, revision: 1 };
 const { createShoppingState } = load('services/shopping-state.ts', {
-  './authService': {}, './request': {}, './tokenStorage': { getSessionSnapshot: () => session, subscribeSession: () => {} },
+  './authService': {}, './request': {}, './tokenStorage': { getSessionSnapshot: () => session, subscribeSession: () => {}, onPricingChanged: () => {} },
   './cartPricing': load('services/cartPricing.ts'), './product-price': load('services/product-price.ts'),
 });
 const product = id => ({ _id: id, id, name: id, price: 12, discountedPrice: 10, imageFrame: { zoom: 2, x: .5, y: -.5 } });

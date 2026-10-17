@@ -67,7 +67,7 @@ test('Product Details timeout keeps cached metadata; first launch has an explici
   const gate = deferred();
   const context = { product: null, productId: 'p', productRequest: { current: 0 }, productFresh: { current: false }, getSessionSnapshot: () => ({ revision: 1 }),
     setProduct: value => { displayed = value; }, setProductError: value => { error = value; }, setProductLoaded: value => { loaded = value; },
-    readPublicCatalog: async () => [product], AbortController, scheduleTimeout: () => 1, clearTimeout: () => {}, checkLogin: async () => 'A', request: () => gate.promise, API_URL: 'https://test',
+    peekCurrentProduct: () => undefined, readPublicCatalog: async () => [product], AbortController, scheduleTimeout: () => 1, clearTimeout: () => {}, checkLogin: async () => 'A', request: () => gate.promise, API_URL: 'https://test',
   };
   const job = handler('product-details.tsx', 'loadProduct', context)(); await Promise.resolve(); await Promise.resolve();
   assert.equal(displayed._id, 'p'); gate.reject(Error('timeout')); await job;

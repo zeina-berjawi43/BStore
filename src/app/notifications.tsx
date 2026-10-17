@@ -9,6 +9,7 @@ import {
   Alert,
   Linking,
   AppState,
+  Platform,
 } from 'react-native';
 
 import { Ionicons } from '@expo/vector-icons';
@@ -53,8 +54,7 @@ export default function Notifications() {
           await getNotificationSetting();
 
         setNotificationsEnabled(enabled);
-        try { setDeviceState(await syncPush()); }
-        catch { setDeviceState('error'); }
+        void syncPush(false, false, enabled).then(setDeviceState).catch(() => setDeviceState('error'));
 
       } catch (error) {
         setLoadFailed(true);
@@ -88,7 +88,7 @@ export default function Notifications() {
 
   const toggleNotifications =
     async () => {
-      if (busy || loadFailed || savingRef.current) return;
+      if (Platform.OS === 'web' || busy || loadFailed || savingRef.current) return;
       savingRef.current = true;
       setBusy(true);
 
@@ -104,13 +104,6 @@ export default function Notifications() {
 
 
       try {
-        if (newValue) {
-          const state = await syncPush(true, true);
-          setDeviceState(state);
-          if (state !== 'ready') {
-            throw new Error(state === 'denied' ? 'Allow notifications in your phone settings first.' : 'Notifications require a signed-in native app build.');
-          }
-        }
         const savedValue =
           await updateNotificationSetting(
             newValue
@@ -118,6 +111,7 @@ export default function Notifications() {
 
 
         if (!savedValue) setDeviceState('disabled');
+        void syncPush(savedValue, savedValue, savedValue).then(setDeviceState).catch(() => { setDeviceState('error'); Alert.alert('Device setup failed', 'Your preference was saved. Retry device registration below.'); });
 
         // Use backend value
 
@@ -221,7 +215,7 @@ export default function Notifications() {
                 styles.subtitle
               }
             >
-              Manage your notifications
+              {Platform.OS === 'web' ? 'Push delivery is available in the Android app' : 'Manage your notifications'}
             </Text>
 
           </View>
@@ -310,9 +304,9 @@ export default function Notifications() {
 
 
           <Pressable
-            disabled={busy || loadFailed}
+            disabled={Platform.OS === 'web' || busy || loadFailed}
             accessibilityRole="switch"
-            accessibilityState={{ checked: notificationsEnabled, disabled: busy || loadFailed }}
+            accessibilityState={{ checked: notificationsEnabled, disabled: Platform.OS === 'web' || busy || loadFailed }}
             accessibilityLabel="Notifications"
             style={[
               styles.switch,
@@ -399,7 +393,7 @@ export default function Notifications() {
 
         </View>
 
-        <Pressable disabled={busy} onPress={() => {
+        {Platform.OS !== 'web' && <Pressable disabled={busy} onPress={() => {
           if (deviceState === 'denied') { void Linking.openSettings(); return; }
           savingRef.current = true;
           setBusy(true);
@@ -408,7 +402,7 @@ export default function Notifications() {
           }).finally(() => { savingRef.current = false; setBusy(false); });
         }} style={{ padding: 20 }}>
           <Text>{deviceState === 'denied' ? 'Open phone settings' : 'Retry device registration'}</Text>
-        </Pressable>
+        </Pressable>}
         {loadFailed && <Pressable onPress={() => { void loadNotificationSetting(); }} style={{ padding: 20 }}>
           <Text>Retry loading settings</Text>
         </Pressable>}

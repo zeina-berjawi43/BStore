@@ -89,3 +89,29 @@ test('usable price snapshots expire rather than becoming an offline price cache'
   const f = fixture(); await f.catalog.fetchCatalog('A'); f.advance(300001);
   assert.equal(f.catalog.peekCurrentCatalog().length, 0); f.dispose();
 });
+
+test('Details can immediately reuse authorized listing and offer prices, then isolates reassignment and logout', async () => {
+  const f = fixture();
+  await f.catalog.fetchCatalog('A');
+  assert.equal(f.catalog.peekCurrentProduct('p').discountedPrice, 8);
+  assert.equal(f.catalog.peekCurrentProduct('unknown'), undefined);
+  f.pricingChanged(); assert.equal(f.catalog.peekCurrentProduct('p'), undefined);
+  f.products([{ _id: 'p', name: 'Dynamic class offer', price: 112.5, discountedPrice: 90, discount: 20, category: 'shampoo' }]);
+  await f.catalog.fetchProductSection('offers', 'Wholesale');
+  assert.equal(f.catalog.peekCurrentProduct('p').discountedPrice, 90);
+  f.switchAccount(null); assert.equal(f.catalog.peekCurrentProduct('p'), undefined);
+  await f.catalog.fetchCatalog(null); assert.equal(f.catalog.peekCurrentProduct('p').price, undefined);
+  f.advance(300001); assert.equal(f.catalog.peekCurrentProduct('p'), undefined);
+  f.dispose();
+});
+
+test('Offers categories contain eligible products only and a removed selection resets to All', async () => {
+  const f = fixture(); f.render(undefined, true); f.focus(); await f.flush();
+  let view = f.render(undefined, true);
+  assert.deepEqual(Array.from(view.subCategories, item => item._id), ['shampoo']);
+  view.setSelectedSubCategory('shampoo');
+  f.products([]); view.retry(); await f.flush();
+  view = f.render(undefined, true); view = f.render(undefined, true);
+  assert.equal(view.subCategories.length, 0); assert.equal(view.filteredProducts.length, 0);
+  assert.equal(view.selectedSubCategory, 'ALL'); f.dispose();
+});

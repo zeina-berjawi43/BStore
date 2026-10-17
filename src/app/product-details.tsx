@@ -1,6 +1,6 @@
 import { QuantitySelector } from '../components/quantity-selector';
-import { readPublicCatalog } from '../services/catalogService';
-import { getSessionSnapshot } from '../services/tokenStorage';
+import { readPublicCatalog, peekCurrentProduct } from '../services/catalogService';
+import { getSessionSnapshot, onPricingChanged } from '../services/tokenStorage';
 import { useShopping } from '../hooks/use-shopping';
 
 import { CartButton } from '../components/cart-button';
@@ -326,7 +326,7 @@ export default function ProductDetails() {
   const [
     product,
     setProduct,
-  ] = useState<Product | null>(null);
+  ] = useState<Product | null>(() => { const cached = peekCurrentProduct(productId) || shopping.favorites.find(item => String(item._id || item.id) === productId) as Product | undefined; return cached ? { ...cached, image: cached.image || '' } : null; });
 
 
   const [
@@ -338,7 +338,7 @@ export default function ProductDetails() {
   const [
     isLoggedIn,
     setIsLoggedIn,
-  ] = useState(false);
+  ] = useState(getSessionSnapshot().authenticated);
 
 
 
@@ -411,18 +411,21 @@ export default function ProductDetails() {
   ======================================================= */
 
   const [productError, setProductError] = useState('');
-  const productFresh = useRef(false);
+
   const productRequest = useRef(0);
   const loadProduct = async () => {
     const operation = ++productRequest.current;
     const revision = getSessionSnapshot().revision;
-    productFresh.current = false;
+    if (product && product._id !== productId) {
+      const cached = peekCurrentProduct(productId);
+      setProduct(cached ? { ...cached, image: cached.image || '' } : null);
+    }
     setProductError('');
     if (!product) setProductLoaded(false);
     let completed = false;
     void readPublicCatalog().then(items => {
       const cached = items.find(item => item._id === productId);
-      if (productRequest.current === operation && revision === getSessionSnapshot().revision && !completed && cached) {
+      if (productRequest.current === operation && revision === getSessionSnapshot().revision && !completed && cached && !product && !peekCurrentProduct(productId)) {
         setProduct({ ...cached, image: cached.image || '' });
         setProductLoaded(true);
       }
@@ -444,7 +447,6 @@ export default function ProductDetails() {
       if (productRequest.current !== operation || revision !== getSessionSnapshot().revision) return;
       if (!data?.product?._id || typeof data.product.name !== 'string') throw new Error('Product is unavailable. Please try again.');
       completed = true;
-      productFresh.current = true;
       setProduct(data.product);
     } catch {
       if (productRequest.current === operation) setProductError('Product is unavailable. Please try again.');
@@ -453,6 +455,7 @@ export default function ProductDetails() {
       if (productRequest.current === operation) setProductLoaded(true);
     }
   };
+
 
   const loadFavoriteStatus = async () => { await shopping.refresh(); };
 
@@ -463,6 +466,7 @@ export default function ProductDetails() {
 
   const focusLoader = useRef({ id: productId, load: () => { void loadProduct(); void loadFavoriteStatus(); } });
   useEffect(() => { focusLoader.current = { id: productId, load: () => { void loadProduct(); void loadFavoriteStatus(); } }; });
+  useEffect(() => onPricingChanged(() => { productRequest.current++; setProduct(null); setProductLoaded(false); focusLoader.current.load(); }), []);
   useFocusEffect(
     useCallback(() => {
 
@@ -490,7 +494,6 @@ export default function ProductDetails() {
   ======================================================= */
 
   const addToCart = () => {
-    if (!productFresh.current) { shopping.showAlert(productError || 'Please wait for current product information to load.'); return Promise.resolve(); }
     return product ? shopping.add(product) : Promise.resolve();
   };
 
@@ -539,7 +542,7 @@ export default function ProductDetails() {
      PREVENT "PRODUCT NOT FOUND" DURING FETCH
   ======================================================= */
 
-  if (!productLoaded && !product) {
+  if ((!productLoaded && !product) || (product && product._id !== productId)) {
     return <View style={styles.container}><Text style={{ color: '#817B71', padding: 24 }}>Loading product...</Text></View>;
   }
 

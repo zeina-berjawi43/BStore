@@ -1,6 +1,6 @@
 import { API_URL, getValidAccessToken } from './authService';
 import { request } from './request';
-import { getSessionSnapshot, subscribeSession } from './tokenStorage';
+import { getSessionSnapshot, subscribeSession, onPricingChanged } from './tokenStorage';
 import { currentCartPrices } from './cartPricing';
 import { getFinalPrice } from './product-price';
 import type { DeliveryRules } from './delivery-pricing';
@@ -175,6 +175,7 @@ export const shoppingState = createShoppingState({ authenticated: () => getSessi
     return data;
   } });
 let revision = getSessionSnapshot().revision;
+onPricingChanged(() => { shoppingState.reset(); void shoppingState.refresh().catch(() => {}); });
 subscribeSession(() => {
   const session = getSessionSnapshot();
   if (session.revision !== revision || !session.authenticated) { revision = session.revision; shoppingState.reset(); }

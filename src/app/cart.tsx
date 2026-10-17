@@ -749,7 +749,7 @@ export default function Cart() {
 
                         {/* INPUT */}
 
-                        <TextInput
+                        <TextInput underlineColorAndroid="transparent"
                           accessibilityLabel={`${product.name} quantity`}
                           value={
                             manualValue

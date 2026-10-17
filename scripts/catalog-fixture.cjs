@@ -31,7 +31,7 @@ function fixture() {
     'expo-router': { useFocusEffect: fn => { focus = fn; } }, '../services/authService': auth, '../services/tokenStorage': tokens,
     '../services/catalogService': catalog, '../services/request': { request }, '../services/resource-cache': resources,
     '../services/product-price': load('services/product-price.ts') });
-  return { catalog, resources, calls, render: (id = 'care') => { cursor = 0; return hook.useCatalogScreen(id); },
+  return { catalog, resources, calls, render: (id = 'care', offers = false) => { cursor = 0; return hook.useCatalogScreen(id, undefined, offers); },
     focus: () => { cleanup = focus(); }, blur: () => { cleanup?.(); },
     advance: ms => { time += ms; }, fail: value => { fail = value; }, products: value => { products = value; },
     switchAccount: value => { token = value; session.revision++; sessionListeners.forEach(fn => fn()); },

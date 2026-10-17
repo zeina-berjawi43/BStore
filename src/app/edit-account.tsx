@@ -1100,7 +1100,7 @@ export default function EditAccount() {
               Full Name
             </Text>
 
-            <TextInput
+            <TextInput underlineColorAndroid="transparent"
               placeholder="Full Name"
               placeholderTextColor="#9A9186"
               value={name}
@@ -1134,7 +1134,7 @@ export default function EditAccount() {
               Email
             </Text>
 
-            <TextInput
+            <TextInput underlineColorAndroid="transparent"
               placeholder="Email (Optional)"
               placeholderTextColor="#9A9186"
               value={email}
@@ -1177,7 +1177,7 @@ export default function EditAccount() {
               Phone Number
             </Text>
 
-            <TextInput
+            <TextInput underlineColorAndroid="transparent"
               placeholder="Phone Number"
               placeholderTextColor="#9A9186"
               value={phone}
@@ -1278,7 +1278,7 @@ export default function EditAccount() {
               </Text>
 
 
-              <TextInput
+              <TextInput underlineColorAndroid="transparent"
                 placeholder="Enter 6-digit code"
                 placeholderTextColor="#9A9186"
                 value={otp}
@@ -1332,7 +1332,7 @@ export default function EditAccount() {
             </Text>
 
 
-            <TextInput
+            <TextInput underlineColorAndroid="transparent"
               placeholder="Address"
               placeholderTextColor="#9A9186"
               value={address}

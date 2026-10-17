@@ -151,7 +151,7 @@ export default function ForgotPassword() {
               color="#817B71"
             />
 
-            <TextInput
+            <TextInput underlineColorAndroid="transparent"
               style={styles.input}
               value={phone}
               onChangeText={(value) => {

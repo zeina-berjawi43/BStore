@@ -36,6 +36,18 @@ function invalidatePrices() { generation++; snapshot = null; pending.clear(); se
 onSessionChanged(invalidatePrices);
 onPricingChanged?.(invalidatePrices);
 
+export function peekCurrentProduct(id?: string): CatalogProduct | undefined {
+  if (!id) return undefined;
+  const sources = [snapshot, ...sectionSnapshots.values()];
+  for (const source of sources) {
+    if (source && Date.now() - source.time < 300_000) {
+      const product = source.products.find(item => item._id === id);
+      if (product) return product;
+    }
+  }
+  return undefined;
+}
+
 export function peekCurrentCatalog(): CatalogProduct[] {
   return snapshot && Date.now() - snapshot.time < 300_000 ? snapshot.products : [];
 }

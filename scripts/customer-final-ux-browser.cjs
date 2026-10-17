@@ -120,10 +120,10 @@ const mock = () => {
     assert.ok(await evaluate(`!document.body.innerText.includes('$')`));checks.push('Direct all-offers URL survives cold load anonymously; final offer remains reachable');
     await evaluate(`${visible('[aria-label^="Open cart,"]')}.click()`);await until(`location.pathname==='/login'`);
     await evaluate(`(()=>{const setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;for(const [placeholder,value]of [['Phone Number','71000000'],['Enter your password','fixture-password']]){const node=document.querySelector('input[placeholder="'+placeholder+'"]');if(!node)throw Error('Missing '+placeholder);setter.call(node,value);node.dispatchEvent(new Event('input',{bubbles:true}));}})()`);
-    await click('Login');await until(`location.pathname==='/cart'&&document.body.innerText.includes('Continue Shopping')`);
+    await click('Login');await until(`location.pathname==='/'&&document.body.innerText.includes('Product 0')`);
     assert.equal(await evaluate(`document.querySelectorAll('[role="progressbar"]').length`),0);
     await evaluate('history.back()');await until(`['/','/offers'].includes(location.pathname)`);assert.ok(await evaluate(`!document.body.innerText.includes('Enter your password')`));
-    checks.push('Protected cart login resumes Cart, empty cart hides progress and Back excludes Login');
+    checks.push('Protected cart login opens Home and Back excludes Login');
     await send('Page.navigate',{url:'http://127.0.0.1:4175/'});await until(`document.body&&document.body.innerText.includes('Product 0')`);
     await evaluate(`window.homeScroll=[...document.querySelectorAll('div')].find(e=>!e.closest('[aria-hidden="true"]')&&e.clientHeight>0&&getComputedStyle(e).overflowY==='auto'&&e.scrollHeight>e.clientHeight);window.homeScroll.scrollTop=180`);await wait(150);
     const homePosition=await evaluate(`window.homeScroll.scrollTop`);assert.ok(homePosition>100);
@@ -166,9 +166,9 @@ const mock = () => {
       await evaluate(`(()=>{const setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;for(const [placeholder,value]of [['Phone Number','71000000'],['Enter your password','fixture-password']]){const node=document.querySelector('input[placeholder="'+placeholder+'"]');setter.call(node,value);node.dispatchEvent(new Event('input',{bubbles:true}));}})()`);
       await click('Login');
     };
-    await send('Page.navigate',{url:'http://127.0.0.1:4175/cart?guest=true'});await until(`location.pathname==='/login'`);await login();await until(`location.pathname==='/cart'&&document.body.innerText.includes('Continue Shopping')`);
+    await send('Page.navigate',{url:'http://127.0.0.1:4175/cart?guest=true'});await until(`location.pathname==='/login'`);await login();await until(`location.pathname==='/'&&document.body.innerText.includes('Product 0')`);
     await send('Page.navigate',{url:'http://127.0.0.1:4175/login?guest=true'});await until(`document.body&&document.body.innerText.includes('Enter your phone number')||!!document.querySelector('input[placeholder="Phone Number"]')`);await login();await until(`location.pathname==='/'&&document.body.innerText.includes('Product 0')`);
-    checks.push('Cold protected Cart resumes after login; login with no destination opens Home');
+    checks.push('Cold protected Cart login and direct login both open Home');
     assert.equal(errors.length,0,JSON.stringify(errors));
     fs.writeFileSync(path.join(evidence,'customer-final-ux-browser.json'),JSON.stringify({checks,errors},null,2));console.log(JSON.stringify({checks,errors},null,2));
   } finally {socket?.close();chrome.kill();server.close();}
