@@ -201,7 +201,7 @@ const styles = StyleSheet.create({
   salePrice: { color: '#E35B3F' },
   oldPrice: { flexShrink: 1, fontSize: 11, color: '#777168', textDecorationLine: 'line-through' },
   priceGroup: { ...productCardLayout.price, minWidth: 0 },
-  addButtonContainer: { ...productCardLayout.bottom, width: 'auto', margin: 10, marginTop: 'auto' },
+  addButtonContainer: { ...productCardLayout.bottom, width: 'auto', margin: 10, marginTop: 0 },
   errorBox: { marginHorizontal: 18, marginTop: 10 },
   error: { color: '#A52B22', fontSize: 13 },
   empty: { alignItems: 'center', paddingVertical: 55, paddingHorizontal: 15, gap: 12 },

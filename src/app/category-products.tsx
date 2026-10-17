@@ -989,7 +989,7 @@ const styles =
     color: '#C94C4C',
   },
   productBottom: {
-    ...productCardLayout.bottom, marginTop: 10,
+    ...productCardLayout.bottom, marginTop: 4,
   },
   priceContainer: {
     ...productCardLayout.price, minWidth: 0,

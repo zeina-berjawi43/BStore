@@ -1290,7 +1290,7 @@ const styles =
 
       elevation:
         2,
-      ...shoppingCardLayout.card, height: 190,
+      ...shoppingCardLayout.card,
     },
 
 
@@ -1469,12 +1469,9 @@ const styles =
     // PRICE
     // =======================================================
 
-    priceArea: { height: 50, justifyContent: 'center' },
+    priceArea: { height: 38, justifyContent: 'center' },
     discountPriceContainer: {
-      height: 42, justifyContent: 'center',
-
-      marginTop:
-        8,
+      height: 38, justifyContent: 'center',
 
     },
 
@@ -1533,7 +1530,7 @@ const styles =
     // =======================================================
 
     actions: {
-      width: '100%', marginTop: 'auto',
+      width: 124, maxWidth: '100%', marginTop: 4,
 
       flexDirection:
         'row',

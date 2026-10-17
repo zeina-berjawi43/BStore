@@ -16,7 +16,7 @@ export function AddToCartButton({ name, unavailable, onPress, compact = false, p
     onPress={event => { event.stopPropagation(); onPress(); }}>
     <Ionicons name="add" size={compact ? 14 : 20} color="#FFFFFF" />
   </Pressable>;
-  return product && onAdjust ? <QuantitySelector compact product={product} onAdjust={onAdjust}>{button}</QuantitySelector> : button;
+  return product && onAdjust ? <QuantitySelector compact grid product={product} onAdjust={onAdjust}>{button}</QuantitySelector> : button;
 }
 const styles = StyleSheet.create({
   button: { alignSelf: 'flex-end', width: 44, height: 44, borderRadius: 12, backgroundColor: '#171717', alignItems: 'center', justifyContent: 'center' },

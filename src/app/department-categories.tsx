@@ -1,3 +1,4 @@
+import { productCardLayout } from '../components/product-card-layout';
 import { useShopping } from '../hooks/use-shopping';
 
 import { CartButton } from '../components/cart-button';
@@ -503,7 +504,7 @@ const CatalogCard = memo(function CatalogCard({ columns, product, favorite, pend
                       style={
                         styles.productName
                       }
-                      numberOfLines={1}
+                      numberOfLines={2}
                     >
                       {product.name}
                     </Text>
@@ -523,13 +524,13 @@ const CatalogCard = memo(function CatalogCard({ columns, product, favorite, pend
                       }
                     </Text>
                     {/* OUT OF STOCK */}
-                    {isOutOfStock && (
+                    {(
                       <Text
                         style={
                           styles.outOfStockText
                         }
                       >
-                        Out of Stock
+                        {isOutOfStock ? 'Out of Stock' : ' '}
                       </Text>
                     )}
                     {/* BOTTOM */}
@@ -555,8 +556,7 @@ const CatalogCard = memo(function CatalogCard({ columns, product, favorite, pend
                                 <Text
                                   style={
                                     styles.oldPrice
-                                  }
-                                >
+                                  } numberOfLines={1} adjustsFontSizeToFit>
                                   {
                                     formatPrice(
                                       originalPrice
@@ -566,8 +566,7 @@ const CatalogCard = memo(function CatalogCard({ columns, product, favorite, pend
                                 <Text
                                   style={
                                     styles.productPrice
-                                  }
-                                >
+                                  } numberOfLines={1} adjustsFontSizeToFit>
                                   {
                                     formatPrice(
                                       finalPrice
@@ -579,8 +578,7 @@ const CatalogCard = memo(function CatalogCard({ columns, product, favorite, pend
                               <Text
                                 style={
                                   styles.productPrice
-                                }
-                              >
+                                } numberOfLines={1} adjustsFontSizeToFit>
                                 {
                                   formatPrice(
                                     originalPrice
@@ -994,6 +992,7 @@ const styles =
     opacity: 0.98,
   },
   productName: {
+    ...productCardLayout.title,
     marginTop: 12,
     fontSize: 15,
     fontWeight: '800',
@@ -1001,27 +1000,24 @@ const styles =
     letterSpacing: -0.1,
   },
   productCategory: {
+    height: 18, lineHeight: 18,
     marginTop: 5,
     fontSize: 12,
     color: '#817B71',
     fontWeight: '600',
   },
   outOfStockText: {
+    height: 18, lineHeight: 18,
     marginTop: 7,
     fontSize: 11.5,
     fontWeight: '800',
     color: '#C94C4C',
   },
   productBottom: {
-    flexWrap: 'wrap', rowGap: 6,
-    marginTop: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    ...productCardLayout.bottom, marginTop: 4,
   },
   priceContainer: {
-    minWidth: 60,
-    flex: 1,
+    ...productCardLayout.price, minWidth: 0,
     paddingRight: 5,
   },
   discountPriceContainer: {
