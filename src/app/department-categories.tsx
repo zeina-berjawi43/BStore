@@ -556,7 +556,7 @@ const CatalogCard = memo(function CatalogCard({ columns, product, favorite, pend
                                 <Text
                                   style={
                                     styles.oldPrice
-                                  } numberOfLines={1} adjustsFontSizeToFit>
+                                  } >
                                   {
                                     formatPrice(
                                       originalPrice
@@ -566,7 +566,7 @@ const CatalogCard = memo(function CatalogCard({ columns, product, favorite, pend
                                 <Text
                                   style={
                                     styles.productPrice
-                                  } numberOfLines={1} adjustsFontSizeToFit>
+                                  } >
                                   {
                                     formatPrice(
                                       finalPrice
@@ -578,7 +578,7 @@ const CatalogCard = memo(function CatalogCard({ columns, product, favorite, pend
                               <Text
                                 style={
                                   styles.productPrice
-                                } numberOfLines={1} adjustsFontSizeToFit>
+                                } >
                                 {
                                   formatPrice(
                                     originalPrice
@@ -922,7 +922,7 @@ const styles =
     borderRadius: 20,
     borderWidth: 1,
     borderColor: '#E7DED1',
-    padding: 11,
+    padding: 7,
     position: 'relative',
     shadowColor: '#171717',
     shadowOffset: {
@@ -993,7 +993,7 @@ const styles =
   },
   productName: {
     ...productCardLayout.title,
-    marginTop: 12,
+    marginTop: 6,
     fontSize: 15,
     fontWeight: '800',
     color: '#24221E',
@@ -1001,14 +1001,14 @@ const styles =
   },
   productCategory: {
     height: 18, lineHeight: 18,
-    marginTop: 5,
+    marginTop: 2,
     fontSize: 12,
     color: '#817B71',
     fontWeight: '600',
   },
   outOfStockText: {
     height: 18, lineHeight: 18,
-    marginTop: 7,
+    marginTop: 1,
     fontSize: 11.5,
     fontWeight: '800',
     color: '#C94C4C',
@@ -1018,7 +1018,7 @@ const styles =
   },
   priceContainer: {
     ...productCardLayout.price, minWidth: 0,
-    paddingRight: 5,
+    paddingRight: 0,
   },
   discountPriceContainer: {
     justifyContent: 'center',
@@ -1032,6 +1032,7 @@ const styles =
   },
   productPrice: {
     fontSize: 17,
+    flexShrink: 0,
     fontWeight: '900',
     color: '#171717',
     letterSpacing: -0.2,

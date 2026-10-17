@@ -161,8 +161,8 @@ export default function Search() {
               <View style={styles.addButtonContainer}>
                 <View style={styles.priceGroup}>
                   {hasPrice ? <View style={styles.prices}>
-                    <Text style={[styles.price, onSale && styles.salePrice]} numberOfLines={1} adjustsFontSizeToFit>${finalPrice.toFixed(2)}</Text>
-                    {onSale && <Text style={styles.oldPrice} numberOfLines={1} adjustsFontSizeToFit>${price.toFixed(2)}</Text>}
+                    <Text style={[styles.price, onSale && styles.salePrice]} >${finalPrice.toFixed(2)}</Text>
+                    {onSale && <Text style={styles.oldPrice} >${price.toFixed(2)}</Text>}
                   </View> : <Text style={styles.secondary}>Open for price details</Text>}
                 </View>
                 <AddToCartButton product={item} onAdjust={delta => void shopping.adjust(item, delta)} name={item.name} pending={cartBusy} unavailable={!available}
@@ -193,15 +193,15 @@ const styles = StyleSheet.create({
   favorite: { position: 'absolute', top: 5, right: 5, width: 44, height: 44, borderRadius: 22, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
   discount: { position: 'absolute', top: 10, left: 8, paddingHorizontal: 6, paddingVertical: 4, borderRadius: 6, backgroundColor: '#E35B3F' },
   discountText: { fontSize: 11, fontWeight: '800', color: '#FFFFFF' },
-  info: { padding: 11, gap: 5 },
-  name: { ...productCardLayout.title, fontSize: 14, fontWeight: '800', color: '#171717', minHeight: 36 },
+  info: { padding: 7, gap: 2 },
+  name: { ...productCardLayout.title, fontSize: 14, fontWeight: '800', color: '#171717', minHeight: 32 },
   secondary: { fontSize: 12, color: '#777168', lineHeight: 18 },
   prices: { alignItems: 'flex-start', gap: 2 },
-  price: { flexShrink: 1, fontSize: 16, fontWeight: '900', color: '#171717' },
+  price: { flexShrink: 0, fontSize: 16, fontWeight: '900', color: '#171717' },
   salePrice: { color: '#E35B3F' },
   oldPrice: { flexShrink: 1, fontSize: 11, color: '#777168', textDecorationLine: 'line-through' },
   priceGroup: { ...productCardLayout.price, minWidth: 0 },
-  addButtonContainer: { ...productCardLayout.bottom, width: 'auto', margin: 10, marginTop: 0 },
+  addButtonContainer: { ...productCardLayout.bottom, width: 'auto', margin: 7, marginTop: 0 },
   errorBox: { marginHorizontal: 18, marginTop: 10 },
   error: { color: '#A52B22', fontSize: 13 },
   empty: { alignItems: 'center', paddingVertical: 55, paddingHorizontal: 15, gap: 12 },

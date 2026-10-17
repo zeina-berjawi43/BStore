@@ -1438,10 +1438,10 @@ function TopSellingProductRow({
             product.price !==
               undefined ? (
               <View style={styles.topSellingPrices}>
-                <Text style={[styles.topSellingPrice, !isAvailable && styles.unavailableTopSellingPrice]} numberOfLines={1} adjustsFontSizeToFit>
+                <Text style={[styles.topSellingPrice, !isAvailable && styles.unavailableTopSellingPrice]} >
                   ${finalPrice.toFixed(2)}
                 </Text>
-                {onSale && <Text style={styles.topSellingOldPrice} numberOfLines={1} adjustsFontSizeToFit>
+                {onSale && <Text style={styles.topSellingOldPrice} >
                   ${Number(product.price).toFixed(2)}
                 </Text>}
               </View>
@@ -1878,7 +1878,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    rowGap: 12,
+    rowGap: 8, columnGap: 6,
     paddingBottom: HOME_CONTENT_INSET,
   },
 
@@ -1933,19 +1933,19 @@ const styles = StyleSheet.create({
     lineHeight: 14,
     fontWeight: '800',
     color: '#24221E',
-    marginTop: 7,
-    marginBottom: 5,
+    marginTop: 4,
+    marginBottom: 2,
   },
 
   topSellingBottom: {
     ...productCardLayout.bottom,
   },
 
-  topSellingPrices: { ...productCardLayout.price, minWidth: 0, alignItems: 'flex-start', gap: 2, marginRight: 5 },
-  topSellingOldPrice: { flexShrink: 1, fontSize: 9, color: '#817B71', textDecorationLine: 'line-through' },
+  topSellingPrices: { ...productCardLayout.price, minWidth: 0, alignItems: 'flex-start', gap: 0, marginRight: 0 },
+  topSellingOldPrice: { flexShrink: 0, fontSize: 11, color: '#817B71', textDecorationLine: 'line-through' },
   topSellingPrice: {
-    flexShrink: 1,
-    fontSize: 10.5,
+    flexShrink: 0,
+    fontSize: 17,
     fontWeight: '900',
     color: '#E35B3F',
     marginRight: 5,
