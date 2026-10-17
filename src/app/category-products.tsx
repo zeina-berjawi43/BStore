@@ -499,13 +499,13 @@ const CatalogCard = memo(function CatalogCard({ columns, product, favorite, pend
                       }
                     </Text>
                     {/* OUT OF STOCK */}
-                    {(
+                    {isOutOfStock && (
                       <Text
                         style={
                           styles.outOfStockText
                         }
                       >
-                        {isOutOfStock ? 'Out of Stock' : ' '}
+                        Out of Stock
                       </Text>
                     )}
                     {/* BOTTOM */}
@@ -992,7 +992,7 @@ const styles =
     ...productCardLayout.bottom, marginTop: 4,
   },
   priceContainer: {
-    ...productCardLayout.price, minWidth: 0,
+    ...productCardLayout.price, minWidth: 0, justifyContent: 'flex-start',
     paddingRight: 0,
   },
   discountPriceContainer: {
