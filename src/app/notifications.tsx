@@ -134,12 +134,6 @@ export default function Notifications() {
           }
         >
 
-          <View
-            style={
-              styles.sectionAccent
-            }
-          />
-
         </View>
 
         {/* =================================================
