@@ -124,7 +124,6 @@ export default function Index() {
   const [offersLoading, setOffersLoading] = useState(true);
   const [offersError, setOffersError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
-  const [refreshError, setRefreshError] = useState('');
   const [slideResetKey, setSlideResetKey] = useState(0);
   const refreshInFlight = useRef<Promise<void> | null>(null);
   const catalogueLoadedRef = useRef(false);
@@ -249,9 +248,7 @@ export default function Index() {
     }
   };
 
-  const loadCartCount = async (_token?: string | null) => { await shopping.refresh(true); };
-
-  const loadFavorites = async (_token?: string | null) => { await shopping.refresh(); };
+  const loadCartCount = async (_token?: string | null, force = false) => { await shopping.refresh(force); };
 
   const loadData = async () => {
     try {
@@ -280,7 +277,7 @@ export default function Index() {
         });
       }
       // Public sections can load without waiting for a token refresh.
-      const requests: Promise<unknown>[] = [loadSlideshow(!force), loadDepartments(!force)];
+      const requests: Promise<unknown>[] = [loadSlideshow(force), loadDepartments(force)];
       const { token, loggedIn, failed } = await loadData();
       if (failed || generation !== homeGenerationRef.current) return false;
       accessTokenRef.current = token;
@@ -303,7 +300,7 @@ export default function Index() {
         sectionsRef.current = { token, time: Date.now() };
       }
       if (loggedIn) {
-        requests.push(loadCartCount(token), loadFavorites(token));
+        requests.push(loadCartCount(token, force));
       }
       const results = await Promise.allSettled(requests);
       homeLoadedRef.current = true;
@@ -319,14 +316,11 @@ export default function Index() {
   const refreshHome = () => {
     if (refreshInFlight.current) return refreshInFlight.current;
     const revision = getSessionSnapshot().revision;
-    setRefreshing(true); setRefreshError('');
+    setRefreshing(true);
     const operation = loadHome(true).then(success => {
       if (revision !== getSessionSnapshot().revision) return;
       if (success) { setCurrentSlide(0); setSlideResetKey(value => value + 1); }
-      else setRefreshError('Some Home content could not be refreshed. Please try again.');
-    }).catch(() => {
-      if (revision === getSessionSnapshot().revision) setRefreshError('Home could not be refreshed. Please try again.');
-    }).finally(() => { setRefreshing(false); refreshInFlight.current = null; });
+    }).catch(() => {}).finally(() => { setRefreshing(false); refreshInFlight.current = null; });
     refreshInFlight.current = operation;
     return operation;
   };
@@ -445,8 +439,6 @@ export default function Index() {
           </Pressable>
           </View>
         </View>
-        {!!refreshError && <Pressable accessibilityRole="button" onPress={() => { void refreshHome(); }}><Text accessibilityRole="alert" style={{ color: '#E35B3F', marginBottom: 10 }}>{refreshError} Tap to retry.</Text></Pressable>}
-
         {/* SLIDESHOW */}
 
         <View

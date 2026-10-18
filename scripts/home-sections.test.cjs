@@ -70,11 +70,38 @@ test('slow refresh permits disk hydration; late disk reads cannot replace newer 
   late.resolve(JSON.stringify({ version: 1, items: [{ id: 'old', name: '', image: 'old', order: 1, active: true }] }));
   assert.equal((await reading)[0].id, 'fresh');
 });
-test('out-of-order responses cannot overwrite newer data in memory or disk', async () => {
-  const api = service(); const older = api.refreshHomeSection('slides'); const newer = api.refreshHomeSection('slides');
-  api.calls[1].resolve(response('slides', [item('new')])); await newer;
-  api.calls[0].resolve(response('slides', [item('old')])); await older; await flush();
-  assert.equal((await service(api.disk).readHomeSection('slides'))[0].id, 'new');
+test('concurrent refreshes share one request and preserve the resulting memory and disk snapshot', async () => {
+  const api = service(); const first = api.refreshHomeSection('slides'); const second = api.refreshHomeSection('slides');
+  assert.equal(api.calls.length, 1);
+  api.calls[0].resolve(response('slides', [item('fresh')])); await second; await flush();
+  assert.equal((await service(api.disk).readHomeSection('slides'))[0].id, 'fresh');
+});
+test('fresh snapshots prevent repeat focus requests, while a forced refresh still revalidates', async () => {
+  const api = service();
+  const first = api.refreshHomeSection('slides', false); api.calls[0].resolve(response('slides', [item('A')]));
+  await first;
+  assert.equal((await api.refreshHomeSection('slides', false)).length, 1);
+  assert.equal(api.calls.length, 1);
+  const forced = api.refreshHomeSection('slides', true); assert.equal(api.calls.length, 2);
+  api.calls[1].resolve(response('slides', [item('B')]));
+  assert.equal((await forced)[0].id, 'B');
+});
+test('an expired focus cache revalidates, and a transient failure releases the request for recovery', async () => {
+  const originalNow = Date.now; let now = 1_000;
+  Date.now = () => now;
+  try {
+    const api = service();
+    const initial = api.refreshHomeSection('slides', false); api.calls[0].resolve(response('slides', [item('cached')]));
+    await initial;
+    now += 60_001;
+    const failed = api.refreshHomeSection('slides', false); assert.equal(api.calls.length, 2);
+    api.calls[1].reject(new Error('temporary network failure'));
+    await assert.rejects(failed, /temporary network failure/);
+    assert.equal((await api.readHomeSection('slides'))[0].id, 'cached');
+    const recovered = api.refreshHomeSection('slides', false); assert.equal(api.calls.length, 3);
+    api.calls[2].resolve(response('slides', [item('recovered')]));
+    assert.equal((await recovered)[0].id, 'recovered');
+  } finally { Date.now = originalNow; }
 });
 test('invalid cache and unavailable device storage degrade to usable network data', async () => {
   const api = service(new Map(), { getItem: async () => '{invalid', setItem: async () => { throw new Error('Disk full'); } });

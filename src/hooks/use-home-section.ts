@@ -19,10 +19,10 @@ export function useHomeSection(section: HomeSection) {
     });
     return () => { mounted.current = false; operations.current++; };
   }, [section]);
-  const refresh = useCallback(async (_showLoading = true) => {
+  const refresh = useCallback(async (force = false) => {
     const operation = ++revision.current;
     try {
-      const next = await refreshHomeSection(section);
+      const next = await refreshHomeSection(section, force);
       if (!mounted.current || operation !== revision.current) return;
       fresh.current = true;
       setItems(next);

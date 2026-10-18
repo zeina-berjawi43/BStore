@@ -133,13 +133,12 @@ const mock = () => {
     await evaluate(`window.oldPager=window.slideshowPager();window.oldPager.scrollLeft=window.oldPager.clientWidth*2;window.failSlide=true;true;`);await wait(300);
     await refresh();await waitRefresh();
     assert.ok(await evaluate(`window.oldPager.isConnected&&Math.abs(window.oldPager.scrollLeft-window.oldPager.clientWidth*2)<2`));
-    assert.ok(await evaluate(`document.body.innerText.includes('Some Home content could not be refreshed.')&&document.body.innerText.includes('Test Almonds')`));
-    checks.push('Failed refresh retains the slideshow position and cached content, with failure feedback');
+    assert.ok(await evaluate(`!document.body.innerText.includes('Some Home content could not be refreshed.')&&document.body.innerText.includes('Test Almonds')`));
+    checks.push('Failed refresh retains the slideshow position and cached content without a duplicate Home-wide warning');
     const attempts=await evaluate(`window.fixtureRequests.filter(p=>p==='/slideshows').length`);
-    await evaluate(`window.failSlide=false;[...document.querySelectorAll('[role="alert"]')].find(e=>e.textContent.includes('Tap to retry.')).click()`);
-    await until(`!document.body.innerText.includes('Tap to retry.')&&!document.querySelector('[aria-label="Refreshing Home"]')`);
+    await evaluate(`window.failSlide=false;true`); await refresh(); await waitRefresh();
     assert.equal(await evaluate(`window.fixtureRequests.filter(p=>p==='/slideshows').length`),attempts+1);
-    checks.push('Retry repeats the failed real section request and clears error only after success');
+    checks.push('A later pull repeats the failed real section request and recovers');
     assert.equal(errors.length,0,JSON.stringify(errors));
     fs.writeFileSync(path.join(evidence,'phase3-browser-results.json'),JSON.stringify({checks,errors},null,2));
     console.log(JSON.stringify({checks,errors},null,2));

@@ -12,7 +12,7 @@ function handler(name, context) {
   assert.ok(code); return execute('exports.fn=' + code, context).fn;
 }
 
-for (const result of [true, false, 'reject']) test(`Home refresh ${result}: deduplication, real progress, success-only slideshow reset`, async () => {
+for (const result of [true, false, 'reject']) test(`Home refresh ${result}: deduplication, real progress and success-only slideshow reset`, async () => {
   let resolve, reject, calls = 0, refreshing = false, reset = 0, slide = 2, error = '';
   const gate = new Promise((yes, no) => { resolve = yes; reject = no; });
   const ref = { current: null };
@@ -24,7 +24,7 @@ for (const result of [true, false, 'reject']) test(`Home refresh ${result}: dedu
   if (result === 'reject') reject(Error('offline')); else resolve(result);
   await first; assert.equal(refreshing, false); assert.equal(ref.current, null);
   assert.equal(slide, result === true ? 0 : 2); assert.equal(reset, result === true ? 1 : 0);
-  assert.equal(!!error, result !== true);
+  assert.equal(error, '');
 });
 
 test('Home aggregate refresh reports partial failure and waits for every section without clearing cached content', async () => {

@@ -5,9 +5,12 @@ const API_URL = 'https://mystore-backend-u6ey.onrender.com';
 export type HomeSection = 'slides' | 'departments';
 export type HomeItem = { id: string; name: string; image: string; imageKey?: string; order: number; active: boolean };
 const snapshots = new Map<HomeSection, HomeItem[]>();
+const refreshedAt = new Map<HomeSection, number>();
 const revisions = new Map<HomeSection, number>();
 const writes = new Map<HomeSection, Promise<void>>();
+const pending = new Map<HomeSection, Promise<HomeItem[]>>();
 const key = (section: HomeSection) => `homeSections:v1:${section}`;
+const FRESH_MS = 60_000;
 
 function imageUrl(image: unknown): string {
   if (image && typeof image === 'object') {
@@ -71,20 +74,30 @@ export async function readHomeSection(section: HomeSection): Promise<HomeItem[] 
   } catch { return null; }
 }
 
-export async function refreshHomeSection(section: HomeSection): Promise<HomeItem[]> {
+export async function refreshHomeSection(section: HomeSection, force = true): Promise<HomeItem[]> {
+  const cached = snapshots.get(section);
+  if (!force && cached && Date.now() - (refreshedAt.get(section) || 0) < FRESH_MS) return cached;
+  const inFlight = pending.get(section);
+  if (inFlight) return inFlight;
   const revision = (revisions.get(section) || 0) + 1;
   revisions.set(section, revision);
-  const endpoint = section === 'slides' ? 'slideshows' : 'departments';
-  const response = await request(`${API_URL}/${endpoint}`, { headers: { Accept: 'application/json' } });
-  if (!response.ok) throw new Error('Home content unavailable');
-  const data = await response.json();
-  const items = normalize(section, data?.[section], Date.now());
-  if (revision !== revisions.get(section)) return snapshots.get(section) ?? items;
-  snapshots.set(section, items);
-  // Serialize disk writes so an older successful response cannot finish last.
-  const write = (writes.get(section) ?? Promise.resolve()).then(() =>
-    AsyncStorage.setItem(key(section), JSON.stringify({ version: 1, items }))).catch(() => {});
-  writes.set(section, write);
-  void write.finally(() => { if (writes.get(section) === write) writes.delete(section); });
-  return items;
+  const operation = (async () => {
+    const endpoint = section === 'slides' ? 'slideshows' : 'departments';
+    const response = await request(`${API_URL}/${endpoint}`, { headers: { Accept: 'application/json' } });
+    if (!response.ok) throw new Error('Home content unavailable');
+    const now = Date.now();
+    const data = await response.json();
+    const items = normalize(section, data?.[section], now);
+    if (revision !== revisions.get(section)) return snapshots.get(section) ?? items;
+    snapshots.set(section, items);
+    refreshedAt.set(section, now);
+    // Serialize disk writes so an older successful response cannot finish last.
+    const write = (writes.get(section) ?? Promise.resolve()).then(() =>
+      AsyncStorage.setItem(key(section), JSON.stringify({ version: 1, items }))).catch(() => {});
+    writes.set(section, write);
+    void write.finally(() => { if (writes.get(section) === write) writes.delete(section); });
+    return items;
+  })().finally(() => { if (pending.get(section) === operation) pending.delete(section); });
+  pending.set(section, operation);
+  return operation;
 }
