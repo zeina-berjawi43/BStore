@@ -64,10 +64,28 @@ test('Android status icons are dark before/after startup without web/native padd
   const layout = source('app/_layout.tsx');
   assert.match(layout, /Platform.OS === 'android' && <StatusBar style="dark"/);
   assert.match(layout, /statusBarStyle: 'dark'/);
+  assert.match(layout, /backgroundColor: pathname === '\/loading' \|\| !session\.ready \|\| !initialLinkReady \|\| !startupPainted \? '#FFFFFF' : '#F7F3EC'/);
+  assert.match(layout, /pathname === '\/' \? \['bottom', 'left', 'right'\] : \['top', 'bottom', 'left', 'right'\]/);
+  const home = source('app/index.tsx');
+  assert.match(home, /useSafeAreaInsets/);
+  assert.doesNotMatch(home, /container:\s*\{[^}]*paddingTop/);
+  assert.match(home, /paddingTop: Platform\.OS === 'android' \? insets\.top \+ 19 : 39/);
   for (const file of fs.readdirSync('src/app').filter(file => file.endsWith('.tsx') && file !== '_layout.tsx')) {
     assert.doesNotMatch(source('app/' + file), /<StatusBar|setBarStyle\(/);
   }
   assert.doesNotMatch(source('components/startup-screen.tsx'), /<StatusBar/);
+});
+
+test('Home web presentation uses current style APIs and keeps native animation drivers off the web', () => {
+  const home = source('app/index.tsx');
+  assert.match(home, /const USE_NATIVE_DRIVER = Platform\.OS !== 'web'/);
+  assert.doesNotMatch(home, /pointerEvents=/);
+  assert.match(home, /boxShadow:/);
+  for (const file of ['components/offer-shine.tsx', 'components/product-feedback.tsx', 'components/quantity-selector.tsx']) {
+    assert.doesNotMatch(source(file), /pointerEvents=/);
+  }
+  assert.match(source('components/offer-shine.tsx'), /useNativeDriver: Platform\.OS !== 'web'/);
+  assert.match(source('components/product-feedback.tsx'), /useNativeDriver: Platform\.OS !== 'web'/);
 });
 
 test('Cart/Favorites share compact dimensions and accessible corner-X hit targets', () => {

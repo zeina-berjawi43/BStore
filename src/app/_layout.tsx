@@ -184,7 +184,7 @@ export default function RootLayout() {
     return () => { active = false; tap.remove(); rotation.remove(); foreground.remove(); };
   }, [navigation?.key, navigationRef, session.ready, session.revision, initialLinkReady, startupPainted]);
   return (
-    <SafeAreaView style={{ flex: 1, ...(Platform.OS === 'web' ? { width: '100%', maxWidth: ['/login','/register','/verify-otp','/reset-password'].includes(pathname) ? 560 : ['/cart','/favorites','/checkout'].includes(pathname) ? 880 : 1120, alignSelf: 'center' as const } : {}), backgroundColor: fullWindow || !session.ready || !initialLinkReady || !startupPainted ? '#FFFFFF' : '#F7F3EC' }} edges={Platform.OS === 'android' && session.ready && startupPainted ? ['top', 'bottom', 'left', 'right'] : []}>
+    <SafeAreaView style={{ flex: 1, ...(Platform.OS === 'web' ? { width: '100%', maxWidth: ['/login','/register','/verify-otp','/reset-password'].includes(pathname) ? 560 : ['/cart','/favorites','/checkout'].includes(pathname) ? 880 : 1120, alignSelf: 'center' as const } : {}), backgroundColor: pathname === '/loading' || !session.ready || !initialLinkReady || !startupPainted ? '#FFFFFF' : '#F7F3EC' }} edges={Platform.OS === 'android' && session.ready && startupPainted ? pathname === '/' ? ['bottom', 'left', 'right'] : ['top', 'bottom', 'left', 'right'] : []}>
       {Platform.OS === 'android' && <StatusBar style="dark" />}
       {!session.ready || !initialLinkReady || !startupPainted ? (
         <StartupScreen onReady={startupReady}>

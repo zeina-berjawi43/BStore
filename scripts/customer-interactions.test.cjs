@@ -212,7 +212,7 @@ test('shared feedback replaces rapid messages, announces them, auto-dismisses, c
     require: name => name === 'react' ? env.react : name === 'react/jsx-runtime' ? { jsx, jsxs: jsx }
       : name === 'react-native-safe-area-context' ? { useSafeAreaInsets: () => ({ top: 30, bottom: 24 }) }
       : name === '@expo/vector-icons' ? { Ionicons: 'Icon' }
-      : { Animated: { Value, View: 'Animated', parallel: () => animation, timing: () => animation, spring: () => animation },
+      : { Animated: { Value, View: 'Animated', parallel: () => animation, timing: () => animation, spring: () => animation }, Platform: { OS: 'android' },
           AccessibilityInfo: { announceForAccessibility: value => announcements.push(value) }, Pressable: 'Pressable', View: 'View', Text: 'Text', StyleSheet: { create: value => value } },
   });
   let hook = env.render(useProductFeedback);
@@ -220,8 +220,8 @@ test('shared feedback replaces rapid messages, announces them, auto-dismisses, c
   hook.showAlert('First'); const confirmation = hook.showAlert('Second', 'Added to Favorites');
   assert.equal(timers.size, 1); assert.equal(announcements.length, 2);
   hook = env.render(useProductFeedback);
-  assert.equal(hook.feedback.props.pointerEvents, 'box-none');
-  assert.equal(hook.feedback.props.children.props.pointerEvents, 'box-none');
+  assert.equal(hook.feedback.props.style[1].pointerEvents, 'box-none');
+  assert.equal(hook.feedback.props.children.props.style[1].pointerEvents, 'box-none');
   assert.equal(hook.feedback.props.children.props.style[1].top, 38);
   assert.ok(!JSON.stringify(hook.feedback).includes('cart-outline'));
   assert.ok(JSON.stringify(hook.feedback).includes('Second'));

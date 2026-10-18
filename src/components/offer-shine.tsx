@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { AccessibilityInfo, Animated, AppState, StyleSheet, View } from 'react-native';
+import { AccessibilityInfo, Animated, AppState, Platform, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 
 // One faint band for the whole carousel; images and gestures remain unobstructed.
@@ -21,13 +21,13 @@ export function OfferShine() {
     if (!focused || !foreground || reducedMotion || !width) return;
     progress.setValue(0);
     const animation = Animated.loop(Animated.sequence([
-      Animated.delay(3500), Animated.timing(progress, { toValue: 1, duration: 1800, useNativeDriver: true }),
-      Animated.timing(progress, { toValue: 0, duration: 0, useNativeDriver: true }),
+      Animated.delay(3500), Animated.timing(progress, { toValue: 1, duration: 1800, useNativeDriver: Platform.OS !== 'web' }),
+      Animated.timing(progress, { toValue: 0, duration: 0, useNativeDriver: Platform.OS !== 'web' }),
     ]));
     animation.start();
     return () => { animation.stop(); progress.setValue(0); };
   }, [focused, foreground, reducedMotion, width, progress]);
-  return <View pointerEvents="none" accessible={false} style={StyleSheet.absoluteFill}
+  return <View accessible={false} style={[StyleSheet.absoluteFill, { pointerEvents: 'none' }]}
     onLayout={event => setWidth(event.nativeEvent.layout.width)}>
     {!reducedMotion && focused && foreground && <Animated.View style={[styles.band, {
       transform: [{ translateX: progress.interpolate({ inputRange: [0, 1], outputRange: [-100, width + 100] }) }, { skewX: '-18deg' }],

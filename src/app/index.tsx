@@ -10,7 +10,7 @@ import { useShopping } from '../hooks/use-shopping';
 import { AddToCartButton } from '../components/add-to-cart-button';
 import { OfferShine } from '../components/offer-shine';
 import { PagedCarousel } from '../components/paged-carousel';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StartupScreen } from '../components/startup-screen';
 import { getFinalPrice } from '../services/product-price';
 import { ProductImage } from '../components/product-image';
@@ -32,6 +32,7 @@ const HOME_TITLE_GAP = 10;
 const HOME_CONTENT_INSET = 4;
 
 const API_URL = 'https://mystore-backend-u6ey.onrender.com';
+const USE_NATIVE_DRIVER = Platform.OS !== 'web';
 
 
 type Product = {
@@ -113,6 +114,7 @@ const buildImageUrl = (image: any): string => {
 };
 
 export default function Index() {
+  const insets = useSafeAreaInsets();
   const shopping = useShopping();
   const { showAlert, feedback } = shopping;
   const [initialLoading, setInitialLoading] = useState(true);
@@ -386,7 +388,7 @@ export default function Index() {
     <SafeAreaView style={styles.container} edges={Platform.OS === 'android' ? ['left', 'right'] : ['top', 'bottom', 'left', 'right']}>
       {feedback}
 
-      {Platform.OS === 'web' && (refreshing || pullDistance > 0) && <View pointerEvents="none" style={{ position: 'absolute', top: 6, alignSelf: 'center', zIndex: 20, backgroundColor: '#FFFFFF', padding: 8, borderRadius: 18 }}>
+      {Platform.OS === 'web' && (refreshing || pullDistance > 0) && <View style={{ position: 'absolute', top: 6, alignSelf: 'center', zIndex: 20, backgroundColor: '#FFFFFF', padding: 8, borderRadius: 18, pointerEvents: 'none' }}>
         {refreshing ? <ActivityIndicator accessibilityLabel="Refreshing Home" color="#E35B3F" /> : <Text>{pullDistance >= 70 ? 'Release to refresh' : 'Pull to refresh'}</Text>}
       </View>}
       <ScrollView
@@ -395,9 +397,10 @@ export default function Index() {
         refreshControl={<RefreshControl refreshing={refreshing} tintColor="#E35B3F" colors={['#E35B3F']} progressBackgroundColor="#FFFFFF"
           onRefresh={() => { void refreshHome(); }} />}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={
-          styles.scrollContent
-        }
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingTop: Platform.OS === 'android' ? insets.top + 19 : 39 },
+        ]}
       >
         <View style={styles.header}>
           <View>
@@ -1231,7 +1234,7 @@ function StartupLoading() {
       Animated.timing(progress, {
         toValue: 3,
         duration: 1050,
-        useNativeDriver: true,
+        useNativeDriver: USE_NATIVE_DRIVER,
       })
     );
     animation.start();
@@ -1295,7 +1298,7 @@ function TopSellingProductRow({
     Animated.timing(appear, {
       toValue: 1,
       duration: 300,
-      useNativeDriver: true,
+      useNativeDriver: USE_NATIVE_DRIVER,
     }).start();
   }, [appear]);
 
@@ -1306,7 +1309,7 @@ function TopSellingProductRow({
         {
           toValue: 0.96,
           duration: 80,
-          useNativeDriver: true,
+          useNativeDriver: USE_NATIVE_DRIVER,
         }
       ),
       Animated.spring(
@@ -1314,7 +1317,7 @@ function TopSellingProductRow({
         {
           toValue: 1,
           friction: 6,
-          useNativeDriver: true,
+          useNativeDriver: USE_NATIVE_DRIVER,
         }
       ),
     ]).start();
@@ -1466,7 +1469,7 @@ function RecentProduct({
     Animated.timing(appear, {
       toValue: 1,
       duration: 150,
-      useNativeDriver: true,
+      useNativeDriver: USE_NATIVE_DRIVER,
     }).start();
   }, [appear, index]);
 
@@ -1474,7 +1477,7 @@ function RecentProduct({
     Animated.spring(scale, {
       toValue: 0.93,
       friction: 7,
-      useNativeDriver: true,
+      useNativeDriver: USE_NATIVE_DRIVER,
     }).start();
   };
 
@@ -1482,7 +1485,7 @@ function RecentProduct({
     Animated.spring(scale, {
       toValue: 1,
       friction: 6,
-      useNativeDriver: true,
+      useNativeDriver: USE_NATIVE_DRIVER,
     }).start();
   };
 
@@ -1590,7 +1593,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F7F3EC',
-    paddingTop: 20,
   },
 
   scrollContent: {
@@ -1643,14 +1645,7 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#171717',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
+    ...(Platform.OS === 'web' ? { boxShadow: '0px 4px 8px rgba(23, 23, 23, 0.08)' } : { shadowColor: '#171717', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 3 }),
   },
 
   /* SLIDESHOW */
@@ -1996,14 +1991,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     borderWidth: 1,
     borderColor: 'transparent',
-    shadowColor: '#171717',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.07,
-    shadowRadius: 8,
-    elevation: 3,
+    ...(Platform.OS === 'web' ? { boxShadow: '0px 4px 8px rgba(23, 23, 23, 0.07)' } : { shadowColor: '#171717', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.07, shadowRadius: 8, elevation: 3 }),
   },
 
   categoryIcon: {
@@ -2061,7 +2049,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
 
-  recentHeart: { ...productFavoriteDesign, width: 24, height: 24, shadowOffset: { width: 0, height: 2 }, shadowRadius: 5, position: 'absolute', top: 6, right: 6 },
+  recentHeart: { ...productFavoriteDesign, width: 24, height: 24, ...(Platform.OS === 'web' ? { boxShadow: '0px 2px 5px rgba(23, 23, 23, 0.08)' } : { shadowOffset: { width: 0, height: 2 }, shadowRadius: 5 }), position: 'absolute', top: 6, right: 6 },
 
   recentDiscount: {
     position: 'absolute',
@@ -2121,14 +2109,7 @@ const styles = StyleSheet.create({
     minHeight: 164,
     borderWidth: 1,
     borderColor: 'transparent',
-    shadowColor: '#171717',
-    shadowOffset: {
-      width: 0,
-      height: 7,
-    },
-    shadowOpacity: 0.14,
-    shadowRadius: 13,
-    elevation: 5,
+    ...(Platform.OS === 'web' ? { boxShadow: '0px 7px 13px rgba(23, 23, 23, 0.14)' } : { shadowColor: '#171717', shadowOffset: { width: 0, height: 7 }, shadowOpacity: 0.14, shadowRadius: 13, elevation: 5 }),
   },
 
   offerShowcasePressable: {
@@ -2293,14 +2274,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-around',
     paddingBottom: 5,
-    shadowColor: '#171717',
-    shadowOffset: {
-      width: 0,
-      height: -5,
-    },
-    shadowOpacity: 0.07,
-    shadowRadius: 10,
-    elevation: 9,
+    ...(Platform.OS === 'web' ? { boxShadow: '0px -5px 10px rgba(23, 23, 23, 0.07)' } : { shadowColor: '#171717', shadowOffset: { width: 0, height: -5 }, shadowOpacity: 0.07, shadowRadius: 10, elevation: 9 }),
   },
 
   navItem: {
@@ -2317,14 +2291,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#E35B3F',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#E35B3F',
-    shadowOffset: {
-      width: 0,
-      height: 3,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
-    elevation: 3,
+    ...(Platform.OS === 'web' ? { boxShadow: '0px 3px 5px rgba(227, 91, 63, 0.2)' } : { shadowColor: '#E35B3F', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.2, shadowRadius: 5, elevation: 3 }),
   },
 
   navText: {

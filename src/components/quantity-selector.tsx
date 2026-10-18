@@ -8,7 +8,7 @@ export function QuantitySelector({ product, onAdjust, children, compact = false,
   const readQuantity = () => shoppingState.getSnapshot().cart.find(item => item.product._id === String(product._id || product.id))?.quantity || 0;
   const quantity = useSyncExternalStore(shoppingState.subscribe, readQuantity, readQuantity);
   return <View testID={variant === 'offer' ? 'offer-cart-control' : 'quantity-slot'} style={[styles.slot, compact && styles.compact, grid && styles.grid, style]}>
-    <View pointerEvents={quantity ? 'none' : 'auto'} accessibilityElementsHidden={!!quantity} importantForAccessibility={quantity ? 'no-hide-descendants' : 'auto'} style={[styles.original, grid && styles.gridOriginal, !!quantity && styles.hidden]}>{children}</View>
+    <View accessibilityElementsHidden={!!quantity} importantForAccessibility={quantity ? 'no-hide-descendants' : 'auto'} style={[styles.original, grid && styles.gridOriginal, !!quantity && styles.hidden, { pointerEvents: quantity ? 'none' : 'auto' }]}>{children}</View>
     {!!quantity && <View style={[styles.row, variant === 'offer' && styles.offer, grid && styles.gridRow]} accessibilityLabel={`Quantity for ${product.name}`}>
     <Pressable hitSlop={grid ? 9 : undefined} accessibilityRole="button" accessibilityLabel={`Decrease ${product.name} quantity`} style={[styles.button, grid && styles.gridButton]}
       onPress={event => { event.stopPropagation(); onAdjust(-1); }}><Text style={[styles.symbol, grid && styles.gridSymbol]}>−</Text></Pressable>

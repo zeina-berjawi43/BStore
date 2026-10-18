@@ -59,7 +59,7 @@ test('one lightweight shine pauses on background/reduced motion, restarts on for
   class Value { setValue() {} interpolate() { return 0; } }
   const subscribe = (name, callback) => { listeners[name] = callback; return { remove: () => { removed++; } }; };
   const native = { Animated: { Value, View: 'Animated', delay: delay => { assert.equal(delay, 3500); }, timing: (_value, config) => { timings.push(config); }, sequence: () => {}, loop: () => ({ start: () => starts++, stop: () => stops++ }) },
-    View: 'View', StyleSheet: { create: styles => styles }, AppState: { currentState: 'active', addEventListener: subscribe },
+    View: 'View', StyleSheet: { create: styles => styles }, Platform: { OS: 'android' }, AppState: { currentState: 'active', addEventListener: subscribe },
     AccessibilityInfo: { isReduceMotionEnabled: async () => false, addEventListener: subscribe } };
   const exports = {};
   vm.runInNewContext(ts.transpileModule(source('components/offer-shine.tsx'), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.React } }).outputText,
