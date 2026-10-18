@@ -12,6 +12,6 @@ export default function Html({ children }: PropsWithChildren) {
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="BStore" />
     <ScrollViewStyleReset />
-    <style>{`body{background:#F7F3EC} :focus-visible{outline:2px solid #E35B3F;outline-offset:2px} input,textarea{min-width:0;max-width:100%;outline:none!important} input:focus-visible,textarea:focus-visible{filter:drop-shadow(0 0 3px #E35B3F)}`}</style>
+    <style>{`body{background:#F7F3EC} :focus-visible{outline:2px solid #E35B3F;outline-offset:2px} input,textarea{min-width:0;max-width:100%;border-color:transparent!important;outline:none!important;box-shadow:none!important;text-shadow:none!important;filter:none!important} input::placeholder,textarea::placeholder{box-shadow:none!important;text-shadow:none!important;filter:none!important} input:focus-visible,textarea:focus-visible{caret-color:#E35B3F}`}</style>
   </head><body>{children}</body></html>;
 }

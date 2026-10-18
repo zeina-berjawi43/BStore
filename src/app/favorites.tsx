@@ -1436,8 +1436,8 @@ const styles =
     // PRICE
     // =======================================================
 
-    priceActionsRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
-    priceArea: { flex: 1, minWidth: 0, justifyContent: 'center' },
+    priceActionsRow: { flexDirection: 'column', alignItems: 'flex-start', gap: 4, marginTop: 4 },
+    priceArea: { width: '100%', minWidth: 0, justifyContent: 'center' },
     discountPriceContainer: {
       height: 38, justifyContent: 'center',
 
