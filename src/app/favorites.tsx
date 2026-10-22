@@ -575,8 +575,6 @@ export default function Favorites() {
                   }
                 >
 
-<Pressable accessibilityRole="button" accessibilityLabel={`Remove ${product.name} from favorites`} style={styles.removeButton}
-  disabled={itemRemoving || itemAddingToCart} onPress={event => { event.stopPropagation(); if (!itemRemoving) void removeFavorite(product.id); }}><Ionicons name="close" size={21} color="#E35B3F" /></Pressable>
                   {/* =================================================
                       IMAGE
                   ================================================= */}
@@ -814,10 +812,23 @@ export default function Favorites() {
                         )}
 
                       </Pressable></QuantitySelector>
-
-
-
-
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`Remove ${product.name} from favorites`}
+                        accessibilityState={{ disabled: itemRemoving || itemAddingToCart }}
+                        disabled={itemRemoving || itemAddingToCart}
+                        style={({ pressed }) => [
+                          styles.removeButton,
+                          pressed && { backgroundColor: '#FFE0D4' },
+                          (itemRemoving || itemAddingToCart) && { opacity: 0.5 },
+                        ]}
+                        onPress={event => {
+                          event.stopPropagation();
+                          if (!itemRemoving) void removeFavorite(product.id);
+                        }}
+                      >
+                        <Ionicons name="heart" size={21} color="#E35B3F" />
+                      </Pressable>
                     </View>
                     </View>
 
@@ -1499,7 +1510,7 @@ const styles =
 
     favoriteQuantity: { width: 88 },
     actions: {
-      width: 88, flexShrink: 0,
+      width: 140, flexShrink: 0, gap: 8,
 
       flexDirection:
         'row',
@@ -1556,6 +1567,13 @@ const styles =
 
     },
 
-    removeButton: { ...shoppingCardLayout.remove },
+    removeButton: {
+      width: 44,
+      height: 44,
+      borderRadius: 11,
+      backgroundColor: '#FFF0E8',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
 
   });

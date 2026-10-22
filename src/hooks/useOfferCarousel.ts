@@ -10,7 +10,14 @@ export function useOfferCarousel(count: number, width: number, onIndexChange: (i
   useLayoutEffect(() => { onChange.current = onIndexChange; }, [onIndexChange]);
   const auto = useRef<ReturnType<typeof setTimeout> | null>(null);
   const settle = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const state = useRef({ focused: false, active: AppState.currentState === 'active', dragging: false, touching: false, moving: false, x: width });
+  const state = useRef({ focused: false, active: AppState.currentState === 'active', dragging: false, touching: false, moving: false, x: width, index: 0 });
+  const publishIndex = useCallback((page: number) => {
+    const next = count > 1 ? (page - 1 + count) % count : 0;
+    if (state.current.index === next) return;
+    state.current.index = next;
+    setIndex(next);
+    onChange.current(next);
+  }, [count]);
   const clearTimers = useCallback(() => {
     if (auto.current) clearTimeout(auto.current);
     if (settle.current) clearTimeout(settle.current);
@@ -27,9 +34,11 @@ export function useOfferCarousel(count: number, width: number, onIndexChange: (i
       scrollRef.current?.scrollTo({ x: width * (Math.round(state.current.x / width) + 1), animated: true });
     }, 3500);
   }, [count, width]);
-  const finish = useCallback(() => {
+  const finish = useCallback((event?: NativeSyntheticEvent<NativeScrollEvent>) => {
     const s = state.current;
     if (s.dragging || !s.focused || !s.active) return;
+    // The final native event can arrive before the last coalesced onScroll.
+    if (event) s.x = event.nativeEvent.contentOffset.x;
     if (settle.current) clearTimeout(settle.current);
     settle.current = null;
     const page = Math.max(0, Math.min(count + 1, Math.round(s.x / width)));
@@ -40,11 +49,12 @@ export function useOfferCarousel(count: number, width: number, onIndexChange: (i
       s.x = (next + 1) * width;
       scrollRef.current?.scrollTo({ x: s.x, animated: false });
     }
-    setIndex(next); onChange.current(next); restart();
-  }, [count, restart, width]);
+    publishIndex(page); restart();
+  }, [count, publishIndex, restart, width]);
   useLayoutEffect(() => {
     state.current.x = count > 1 ? width : 0;
     state.current.moving = false;
+    state.current.index = 0;
     scrollRef.current?.scrollTo({ x: state.current.x, animated: false });
     onChange.current(0); // Pages remounts when dimensions or item identities change.
     restart();
@@ -90,12 +100,15 @@ export function useOfferCarousel(count: number, width: number, onIndexChange: (i
     onTouchEnd: releaseTouch,
     onTouchCancel: releaseTouch,
     onScrollBeginDrag: () => { clearTimers(); state.current.dragging = true; state.current.moving = true; },
-    onScrollEndDrag: () => { state.current.dragging = false; scheduleFinish(); },
+    onScrollEndDrag: (event?: NativeSyntheticEvent<NativeScrollEvent>) => {
+      state.current.dragging = false;
+      if (event) state.current.x = event.nativeEvent.contentOffset.x;
+      scheduleFinish();
+    },
     onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       state.current.x = event.nativeEvent.contentOffset.x;
       const page = Math.max(0, Math.min(count + 1, Math.round(state.current.x / width)));
-      const next = count > 1 ? (page - 1 + count) % count : 0;
-      setIndex(next); onChange.current(next);
+      publishIndex(page);
       if (!state.current.dragging) scheduleFinish();
     },
     onMomentumScrollEnd: finish,

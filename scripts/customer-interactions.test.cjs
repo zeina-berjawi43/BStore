@@ -87,7 +87,7 @@ test('Loading still schedules startup completion and cancels its navigation when
   env.unmount(); assert.equal(timers.size, 0);
 });
 
-test('Top Selling renders old/current/percentage only for offers and Recently Added keeps its offer price', () => {
+test('Top Selling renders old/current/percentage only for offers; Recently Added keeps its name and discount without prices', () => {
   const file = source('app/index.tsx');
   const ast = ts.createSourceFile('index.tsx', file, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const pricing = execute(source('services/product-price.ts'));
@@ -99,7 +99,7 @@ test('Top Selling renders old/current/percentage only for offers and Recently Ad
     const fn = ast.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === name);
     components[name] = execute(fn.getText(ast) + '\nexports.component = ' + name, {
       require: () => ({ jsx, jsxs: jsx }), useRef: initial => ({ current: initial }), useState: initial => [typeof initial === 'function' ? initial() : initial], useEffect: () => {},
-      Animated: { Value: class { interpolate() { return 0; } } }, styles: {}, View: 'View', Text: 'Text', Pressable: 'Pressable', ProductImage: 'ProductImage', AddToCartButton: 'AddToCartButton', Ionicons: 'Icon',
+      Animated: { Value: class { interpolate() { return 0; } } }, styles: {}, View: 'View', Text: 'Text', Pressable: 'Pressable', ProductImage: 'ProductImage', AddToCartButton: 'AddToCartButton', ProductFavoriteHeart: 'ProductFavoriteHeart', Ionicons: 'Icon',
       getFinalPrice: pricing.getFinalPrice,
     }).component;
   }
@@ -110,7 +110,9 @@ test('Top Selling renders old/current/percentage only for offers and Recently Ad
     const normal = flatten(components.TopSellingProductRow({ ...props, product: { ...props.product, discount, discountedPrice: 10 } }));
     assert.ok(normal.includes('$10.00')); assert.ok(!normal.includes('OFF')); assert.ok(!normal.includes('$8.00'));
   }
-  assert.ok(flatten(components.RecentProduct(props)).includes('$8.00'));
+  const recent = flatten(components.RecentProduct(props));
+  assert.ok(recent.includes('A') && recent.includes('-20%'));
+  assert.ok(!recent.includes('$'), 'Recently Added no longer renders price labels');
 });
 
 test('back buttons and Android GO_BACK retain original Home key without adding a Loading route', () => {
@@ -200,6 +202,41 @@ test('single-item carousel never starts autoplay', () => {
       : { AppState: { currentState: 'active', addEventListener: () => ({ remove() {} }) } },
   });
   env.render(() => useOfferCarousel(1, 320, () => {})); env.unmount();
+});
+
+test('carousel dots use the final native swipe offset and publish only actual selection changes', () => {
+  const env = hooks(), changes = [], timers = new Map(), scrolls = []; let timer = 0;
+  env.react.useLayoutEffect = env.react.useEffect;
+  const { useOfferCarousel } = execute(source('hooks/useOfferCarousel.ts'), {
+    setTimeout: (fn, delay) => { timers.set(++timer, { fn, delay }); return timer; },
+    clearTimeout: id => timers.delete(id),
+    require: name => name === 'react' ? env.react : name === 'expo-router'
+      ? { useFocusEffect: fn => env.react.useEffect(fn, [fn]) }
+      : { AppState: { currentState: 'active', addEventListener: () => ({ remove() {} }) } },
+  });
+  const width = 320.25;
+  const render = () => env.render(() => useOfferCarousel(3, width, index => changes.push(index)));
+  let carousel = render();
+  carousel.scrollRef.current = { scrollTo: args => scrolls.push(args) };
+  const event = x => ({ nativeEvent: { contentOffset: { x } } });
+  carousel.handlers.onTouchStart(); carousel.handlers.onScrollBeginDrag();
+  for (const page of [1.1, 1.2, 1.3, 1.4]) carousel.handlers.onScroll(event(width * page));
+  carousel.handlers.onScrollEndDrag(event(width * 1.4)); carousel.handlers.onTouchEnd();
+  // Native momentum can finish before JS receives the last coalesced onScroll.
+  carousel.handlers.onMomentumScrollEnd(event(width * 2));
+  carousel = render(); assert.equal(carousel.index, 1);
+  assert.deepEqual(changes, [0, 1]);
+  for (let frame = 0; frame < 8; frame++) carousel.handlers.onScroll(event(width * 2));
+  assert.deepEqual(changes, [0, 1], 'unchanged frames must not rerender Home and its dots');
+  carousel.handlers.onTouchStart(); carousel.handlers.onScrollBeginDrag();
+  carousel.handlers.onScroll(event(width * 2.2));
+  carousel.handlers.onScrollEndDrag(event(width * 2.2)); carousel.handlers.onTouchEnd();
+  carousel.handlers.onMomentumScrollEnd(event(width * 4));
+  carousel = render(); assert.equal(carousel.index, 0);
+  assert.equal(scrolls.at(-1).x, width, 'last slide wraps to the first real page');
+  assert.deepEqual(changes, [0, 1, 0]);
+  assert.equal([...timers.values()].filter(t => t.delay === 3500).length, 1);
+  env.unmount(); assert.equal(timers.size, 0);
 });
 
 test('shared feedback replaces rapid messages, announces them, auto-dismisses, closes early and clears timers on unmount', () => {

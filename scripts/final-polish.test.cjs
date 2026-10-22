@@ -114,11 +114,11 @@ test('themed clear dialog cancels safely and invokes a destructive callback once
   }
 });
 
-test('Recently Added retains price and navigation without a cart action; detail button is pressed-only black/orange', () => {
+test('Recently Added retains navigation without prices or a cart action; detail button is pressed-only black/orange', () => {
   const text = source('app/index.tsx'), ast = ts.createSourceFile('index.tsx', text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const recent = ast.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'RecentProduct').getText(ast);
   assert.doesNotMatch(recent, /AddToCartButton|onAddToCart|pending/);
-  assert.match(recent, /onPress=\{onPress\}/); assert.match(recent, /getFinalPrice\(product\)/); assert.match(recent, /imageFrame=\{product.imageFrame\}/);
+  assert.match(recent, /onPress=\{onPress\}/); assert.doesNotMatch(recent, /getFinalPrice\(product\)|styles\.recentPrice/); assert.match(recent, /imageFrame=\{product.imageFrame\}/);
   const details = source('app/product-details.tsx');
   assert.match(details, /styles.cartButton, pressed && \{ backgroundColor: '#E35B3F' \}/);
   assert.match(details, /cartButton: \{[\s\S]*?backgroundColor:\s*'#171717'/);

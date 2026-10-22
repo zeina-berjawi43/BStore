@@ -64,7 +64,7 @@ export async function notificationDestination(data: Record<string, unknown>) {
   if (!user || String(user._id || user.id) !== data.userId) return null;
   if (data.type === 'offer') return { pathname: '/' as const };
   if (data.type === 'order' && typeof data.orderId === 'string' && /^[a-f0-9]{24}$/i.test(data.orderId)) {
-    return { pathname: '/order-details' as const, params: { orderId: data.orderId } };
+    return { pathname: '/orders' as const };
   }
   return null;
 }

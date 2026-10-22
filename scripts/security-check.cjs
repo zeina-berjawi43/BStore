@@ -76,19 +76,21 @@ test('shade failure never blocks routing; iOS and web do not invoke Android dism
   }
 });
 
-test('observed profile class changes invalidate full prices without replacing the navigation session', async () => {
+test('observed pricing scope changes invalidate full prices without replacing the navigation session', async () => {
   const { tokens, catalog } = setup(async () => reply(200, { products: [{ _id: 'p', name: 'Product', price: 10, discountedPrice: 8 }] }),
-    { accessToken: 'a', refreshToken: 'r', user: JSON.stringify({ id: 'A', priceClass: 'A' }) });
+    { accessToken: 'a', refreshToken: 'r', user: JSON.stringify({ id: 'A', pricingScope: 'scope-1' }) });
   await tokens.readTokens(); const session = tokens.getSessionSnapshot();
   await catalog.fetchCatalog('a'); assert.equal(catalog.peekCurrentCatalog()[0].price, 10);
-  await tokens.saveSessionUser('a', { id: 'A', priceClass: 'A', name: 'Updated' });
+  await tokens.saveSessionUser('a', { id: 'A', pricingScope: 'scope-1', name: 'Updated' });
   assert.equal(catalog.peekCurrentCatalog().length, 1);
-  await tokens.saveSessionUser('a', { id: 'A', priceClass: 'B' });
+  await tokens.saveSessionUser('a', { id: 'A', notificationsEnabled: false });
+  assert.equal(catalog.peekCurrentCatalog().length, 1, 'a partial preference update preserves the pricing scope');
+  await tokens.saveSessionUser('a', { id: 'A', pricingScope: 'scope-2' });
   assert.equal(catalog.peekCurrentCatalog().length, 0);
   assert.equal(tokens.getSessionSnapshot(), session);
-  await catalog.fetchCatalog('a'); await tokens.saveSessionUser('a', { id: 'A', priceClass: 'C' });
+  await catalog.fetchCatalog('a'); await tokens.saveSessionUser('a', { id: 'A', pricingScope: 'scope-3' });
   assert.equal(catalog.peekCurrentCatalog().length, 0);
-  await assert.rejects(tokens.saveSessionUser('old-account', { priceClass: 'A' }), /session changed/);
+  await assert.rejects(tokens.saveSessionUser('old-account', { pricingScope: 'scope-1' }), /session changed/);
 });
 
 test('restoration publishes a session once; refresh preserves navigation, logout and login replace it', async () => {
@@ -782,7 +784,7 @@ test('notification navigation rejects other accounts and arbitrary URLs', async 
   assert.equal(await push.notificationDestination({ type: 'order', userId: 'other', orderId: 'a'.repeat(24) }), null);
   assert.equal(await push.notificationDestination({ userId: 'user', url: 'https://evil.invalid' }), null);
   assert.equal(await push.notificationDestination({ type: 'order', userId: 'user', orderId: '../admin' }), null);
-  assert.equal((await push.notificationDestination({ type: 'order', userId: 'user', orderId: 'a'.repeat(24) })).pathname, '/order-details');
+  assert.equal((await push.notificationDestination({ type: 'order', userId: 'user', orderId: 'a'.repeat(24) })).pathname, '/orders');
 });
 test('switching accounts queues revocation of the previous device session', async () => {
   const { tokens } = setup(() => {}, { accessToken: 'old-access', refreshToken: 'old-session' });

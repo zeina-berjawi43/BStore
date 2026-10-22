@@ -88,7 +88,7 @@ test('Home web presentation uses current style APIs and keeps native animation d
   assert.match(source('components/product-feedback.tsx'), /useNativeDriver: Platform\.OS !== 'web'/);
 });
 
-test('Cart/Favorites share compact dimensions and accessible corner-X hit targets', () => {
+test('Cart/Favorites share compact dimensions and accessible remove controls', () => {
   const { shoppingCardLayout: layout } = execute(source('components/shopping-card-layout.ts'), {});
   assert.equal(layout.image.width, 96); assert.equal(layout.image.height, 96);
   assert.ok(layout.remove.width >= 44 && layout.remove.height >= 44);
@@ -96,6 +96,6 @@ test('Cart/Favorites share compact dimensions and accessible corner-X hit target
   for(const file of ['app/cart.tsx', 'app/favorites.tsx']) {
     const code = source(file); assert.match(code, /shoppingCardLayout.card/); assert.match(code, /shoppingCardLayout.image/);
     assert.match(code, /accessibilityLabel=\{`Remove \$\{product.name\} from (cart|favorites)`\}/);
-    assert.match(code, /name="close"/);
+    assert.match(code, file.endsWith('/cart.tsx') ? /name="close"/ : /name="heart"/);
   }
 });

@@ -10,7 +10,7 @@ import { StartupScreen } from '../components/startup-screen';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { dismissNotificationShade, installForegroundHandler, notificationDestination, syncPush } from '../services/pushService';
 import { getSessionSnapshot, onSessionChanged, readTokens, subscribeSession } from '../services/tokenStorage';
-import { orderNotificationState } from '../services/navigation';
+import { orderNotificationState, ordersNotificationState } from '../services/navigation';
 import { rememberLoginDestination, takeLoginDestination } from '../services/login-intent';
 import { cleanSessionNavigationState, guestRoutes, privateRoutes, publicRoutes } from '../services/sessionRoutes';
 
@@ -161,13 +161,13 @@ export default function RootLayout() {
           router.replace('/login');
           return;
         }
-        await Notifications.clearLastNotificationResponseAsync();
-        if (!active || revision !== getSessionSnapshot().revision) return;
         handled.current = id;
         pendingNotification.current = null;
-        if (destination?.pathname === '/order-details') {
-          navigationRef.resetRoot(orderNotificationState(destination.params.orderId));
+        if (destination?.pathname === '/orders') {
+          navigationRef.resetRoot(ordersNotificationState());
         } else if (destination) router.dismissTo('/');
+        // Notification cleanup must never prevent opening the requested screen.
+        await Notifications.clearLastNotificationResponseAsync().catch(() => {});
       } finally { processing = false; }
     };
     const last = pendingNotification.current || Notifications.getLastNotificationResponse();

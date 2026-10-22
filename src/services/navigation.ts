@@ -21,3 +21,8 @@ export function orderNotificationState(orderId: string) {
     { name: 'order-details', params: { orderId } },
   ] };
 }
+
+export function ordersNotificationState() {
+  // Omit route keys so each tap mounts Orders again and fetches current statuses.
+  return { index: 1, routes: [{ name: 'index' }, { name: 'orders' }] };
+}

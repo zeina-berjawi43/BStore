@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 
 import { Ionicons } from '@expo/vector-icons';
@@ -126,7 +127,8 @@ export default function Orders() {
     loading,
     setLoading
   ] =
-    useState(false);
+    useState(true);
+  const loadingRequest = useRef(false);
 
 
   /* =======================================================
@@ -136,10 +138,10 @@ export default function Orders() {
   const loadOrders =
     async () => {
 
-      if (loading) {
+      if (loadingRequest.current) {
         return;
       }
-
+      loadingRequest.current = true;
 
       try {
 
@@ -172,6 +174,7 @@ export default function Orders() {
             `${API_URL}/orders`,
             {
               method: 'GET',
+              cache: 'no-store',
 
               headers: {
 
@@ -252,7 +255,7 @@ export default function Orders() {
 
 
       } finally {
-
+        loadingRequest.current = false;
         setLoading(false);
 
       }
@@ -439,7 +442,12 @@ export default function Orders() {
             EMPTY ORDERS
         ================================================= */}
 
-        {orders.length === 0 ? (
+        {loading ? (
+          <View style={styles.emptyContainer}>
+            <ActivityIndicator size="large" color="#E35B3F" accessibilityLabel="Loading orders" />
+            <Text style={styles.emptyText}>Loading your orders…</Text>
+          </View>
+        ) : orders.length === 0 ? (
 
           <View
             style={

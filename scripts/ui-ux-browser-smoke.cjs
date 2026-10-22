@@ -239,11 +239,11 @@ const mock = () => {
     await evaluate(`window.ui('[aria-label="Go back"]').click()`);
     await until(`location.pathname==='/'`); await clickText('Favorites');
     await until(`location.pathname==='/favorites' && document.body.innerText.includes('2 favorites')`);
-    const favoriteCard=await evaluate(`(()=>{const x=window.ui('[aria-label="Remove Test Almonds from favorites"]'),r=x.getBoundingClientRect(),c=x.parentElement.getBoundingClientRect();return {height:c.height,width:c.width,hit:r.width,corner:Math.abs(r.right-c.right)<2&&Math.abs(r.top-c.top)<2};})()`);
-    assert.ok(favoriteCard.hit>=44&&favoriteCard.corner);assert.equal(favoriteCard.width,cartCard.width);
+    const favoriteCard=await evaluate(`(()=>{const x=window.ui('[aria-label="Remove Test Almonds from favorites"]'),r=x.getBoundingClientRect(),c=x.closest('[data-testid="favorite-product-card"]').getBoundingClientRect(),a=window.ui('[aria-label="Add Test Almonds to cart"]').getBoundingClientRect();return {height:c.height,width:c.width,hit:r.width,nextToCart:r.left>=a.right&&Math.abs((r.top+r.bottom)/2-(a.top+a.bottom)/2)<2,roundedSquare:r.width===r.height&&parseFloat(getComputedStyle(x).borderRadius)>0};})()`);
+    assert.ok(favoriteCard.hit>=44&&favoriteCard.nextToCart&&favoriteCard.roundedSquare);assert.equal(favoriteCard.width,cartCard.width);
     assert.equal(favoriteCard.height,cartCard.height);
     await screenshot('phase3-favorites');
-    checks.push('Cart/Favorites share responsive card width and accessible 44px corner X controls');
+    checks.push('Cart/Favorites share responsive card width; Favorites has a 44px rounded square heart beside Add to Cart');
     assert.equal(await evaluate(`!!window.ui('[aria-label="Open cart, 0 items"]')`), true);
     assert.equal(await evaluate(`/507f191e810c19729de860ea|507f1f77bcf86cd799439012/.test(document.body.innerText)`),false);
     await evaluate(`window.ui('[aria-label="Add Test Almonds to cart"]').click();window.ui('[aria-label="Add Test Almonds to cart"]').click()`);
