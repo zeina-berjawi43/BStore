@@ -1404,7 +1404,7 @@ const styles =
     // ACTIONS
     // =======================================================
 
-    favoriteQuantity: { width: 88 },
+    favoriteQuantity: { width: 88, alignSelf: 'center' },
     actions: {
       width: 140, flexShrink: 0, gap: 8,
 
