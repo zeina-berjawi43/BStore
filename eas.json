@@ -1,7 +1,7 @@
 {
   "cli": {
     "version": ">= 22.2.0",
-    "appVersionSource": "remote"
+    "appVersionSource": "local"
   },
   "build": {
     "development": {
@@ -9,6 +9,7 @@
       "distribution": "internal"
     },
     "preview": {
+      "credentialsSource": "local",
       "environment": "production",
       "developmentClient": false,
       "autoIncrement": false,
@@ -18,7 +19,9 @@
       }
     },
     "production": {
-      "autoIncrement": true,
+      "environment": "production",
+      "credentialsSource": "local",
+      "autoIncrement": false,
       "android": {
         "buildType": "app-bundle"
       }

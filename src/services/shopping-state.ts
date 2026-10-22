@@ -17,7 +17,7 @@ const empty = (): Data => ({ cart: [], favorites: [], minimum: Infinity });
 export function createShoppingState(deps: { send: (path: string, method?: string, body?: object) => Promise<any>; authenticated: () => boolean }) {
   let confirmed = empty(), operations: Operation[] = [], generation = 0, running = false;
   const intents = new Map<string, number>();
-  let loaded = false, loading: Promise<void> | null = null, mutationRevision = 0;
+  let loaded = false, favoritesLoaded = false, loading: Promise<void> | null = null, mutationRevision = 0;
   let cartLoading: Promise<void> | null = null;
   let cartError: Error | null = null;
   let uncertainCart = false;
@@ -33,7 +33,7 @@ export function createShoppingState(deps: { send: (path: string, method?: string
     uncertainCart = false; loaded = true;
   };
   const listeners = new Set<() => void>();
-  let snapshot = { ...empty(), ready: false, busy: false, pendingCart: new Set<string>(), pendingFavorites: new Set<string>(), cartCount: 0 };
+  let snapshot = { ...empty(), ready: false, favoritesReady: false, busy: false, pendingCart: new Set<string>(), pendingFavorites: new Set<string>(), cartCount: 0 };
   const apply = (data: Data, op: Operation): Data => {
     if (op.kind === 'clearCart') return { ...data, cart: [] };
     if (op.kind === 'clearFavorites') return { ...data, favorites: [] };
@@ -52,7 +52,7 @@ export function createShoppingState(deps: { send: (path: string, method?: string
   };
   const publish = () => {
     const data = operations.reduce(apply, confirmed);
-    snapshot = { ...data, ready: loaded, busy: operations.length > 0 || loading !== null,
+    snapshot = { ...data, ready: loaded, favoritesReady: favoritesLoaded, busy: operations.length > 0 || loading !== null,
       pendingCart: new Set(operations.filter(op => !['favorite', 'clearFavorites'].includes(op.kind)).map(op => op.id)),
       pendingFavorites: new Set(operations.filter(op => ['favorite', 'clearFavorites'].includes(op.kind)).map(op => op.id)),
       cartCount: data.cart.reduce((count, item) => count + item.quantity, 0) };
@@ -60,7 +60,7 @@ export function createShoppingState(deps: { send: (path: string, method?: string
   };
   const reset = () => {
     intents.clear(); failedCart.clear(); uncertainCart = false;
-    generation++; confirmed = empty(); loaded = false; loading = null; cartLoading = null; cartError = null;
+    generation++; confirmed = empty(); loaded = false; favoritesLoaded = false; loading = null; cartLoading = null; cartError = null;
     const previous = operations; operations = []; running = false; publish();
     previous.forEach(op => op.reject(Error('Your session changed.')));
   };
@@ -83,6 +83,7 @@ export function createShoppingState(deps: { send: (path: string, method?: string
     const favoriteWork = deps.send('/favorites').then(favorites => {
       if (version !== generation || (!initial && readRevision !== mutationRevision)) return;
       confirmed = { ...confirmed, favorites: (favorites.favorites || []).map((item: any) => item.product).filter((p: any) => p && typeof p === 'object') };
+      favoritesLoaded = true;
       publish();
     });
     const work = Promise.allSettled([cartWork, favoriteWork]).then(results => {

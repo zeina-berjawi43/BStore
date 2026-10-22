@@ -20,8 +20,6 @@ import {
   ScrollView,
 } from 'react-native';
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
 import { Ionicons } from '@expo/vector-icons';
 
 import {
@@ -31,11 +29,10 @@ import {
 
 import {
   useCallback,
-  useRef,
   useState,
 } from 'react';
 
-import { getValidAccessToken } from '../services/authService';
+import { getSessionSnapshot } from '../services/tokenStorage';
 
 
 // =========================================================
@@ -122,111 +119,12 @@ export default function Favorites() {
     .map(p => ({ ...p, id: String(p._id || p.id) }))
     .sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0) as FavoriteProduct[];
 
-  const [
-    ,
-    setIsLoggedIn,
-  ] = useState(false);
-
-
   const { showAlert, feedback } = shopping;
 
   const [
     initialLoadFinished,
     setInitialLoadFinished,
   ] = useState(false);
-
-  const loadRevision = useRef(0);
-  const accessTokenRef =
-    useRef<string | null>(null);
-
-
-  // =======================================================
-  // GET TOKEN
-  // =======================================================
-
-  const getAccessToken =
-    useCallback(
-      async () => {
-
-        try {
-
-          const token =
-            await getValidAccessToken();
-
-          accessTokenRef.current =
-            token;
-
-          return token;
-
-        } catch (error) {
-
-          if (__DEV__) { console.log(
-            'GET TOKEN ERROR:',
-            error instanceof Error ? error.name : 'Error'
-          ); }
-
-          throw error;
-
-        }
-
-      },
-      []
-    );
-
-
-  // =======================================================
-  // CHECK LOGIN
-  // =======================================================
-
-  const checkLogin =
-    useCallback(
-      async () => {
-
-        try {
-
-          const accessToken =
-            await getAccessToken();
-
-          const savedUser =
-            await AsyncStorage.getItem(
-              'user'
-            );
-
-          const loginStatus =
-            await AsyncStorage.getItem(
-              'isLoggedIn'
-            );
-
-          const loggedIn =
-            !!accessToken &&
-            (
-              loginStatus === 'true' ||
-              !!savedUser
-            );
-
-          setIsLoggedIn(
-            loggedIn
-          );
-
-          return loggedIn;
-
-        } catch (error) {
-
-          if (__DEV__) { console.log(
-            'CHECK LOGIN ERROR:',
-            error instanceof Error ? error.name : 'Error'
-          ); }
-
-          throw error;
-
-        }
-
-      },
-      [
-        getAccessToken,
-      ]
-    );
-
 
   // =======================================================
   // LOAD FAVORITES
@@ -251,8 +149,7 @@ export default function Favorites() {
 
 
 
-          const loggedIn =
-            await checkLogin();
+          const loggedIn = getSessionSnapshot().authenticated;
 
           if (
             !active
@@ -280,19 +177,17 @@ export default function Favorites() {
         };
 
 
-      void refresh().catch(() => { if (active) { setInitialLoadFinished(true); showAlert('Could not load favorites. Please reopen this page to retry.', 'Connection Error'); } });
+      void refresh().catch(() => { if (active) { setInitialLoadFinished(true); showAlert('Could not refresh favorites. Please reopen this page to retry.', 'Connection Error'); } });
 
 
       return () => {
 
         active =
           false;
-        loadRevision.current++;
 
       };
 
     }, [
-      checkLogin,
       loadFavorites,
       showAlert,
     ])
@@ -403,13 +298,13 @@ export default function Favorites() {
             My Favorites
           </Text>
 
-          <Text
+          {favorites.length > 0 && <Text
             style={
               styles.subtitle
             }
           >
             {favorites.length} {favorites.length === 1 ? 'favorite' : 'favorites'}
-          </Text>
+          </Text>}
 
         </View>
         <CartButton />
@@ -423,7 +318,8 @@ export default function Favorites() {
           CONTENT
       ================================================= */}
 
-      {!initialLoadFinished ? (
+      {/* Show this session's cached favorites while the focus refresh runs. */}
+      {!shopping.favoritesReady && favorites.length === 0 && !initialLoadFinished ? (
 
         <View
           style={
@@ -528,9 +424,6 @@ export default function Favorites() {
 
               const itemRemoving =
                 shopping.pendingFavorites.has(product.id);
-
-              const itemAddingToCart =
-                shopping.pendingCart.has(product.id);
 
               const originalPrice =
                 Number(
@@ -815,19 +708,22 @@ export default function Favorites() {
                       <Pressable
                         accessibilityRole="button"
                         accessibilityLabel={`Remove ${product.name} from favorites`}
-                        accessibilityState={{ disabled: itemRemoving || itemAddingToCart }}
-                        disabled={itemRemoving || itemAddingToCart}
-                        style={({ pressed }) => [
-                          styles.removeButton,
-                          pressed && { backgroundColor: '#FFE0D4' },
-                          (itemRemoving || itemAddingToCart) && { opacity: 0.5 },
-                        ]}
+                        accessibilityState={{ disabled: itemRemoving }}
+                        disabled={itemRemoving}
+                        style={styles.removeButton}
                         onPress={event => {
                           event.stopPropagation();
                           if (!itemRemoving) void removeFavorite(product.id);
                         }}
                       >
-                        <Ionicons name="heart" size={21} color="#E35B3F" />
+                        {({ pressed }) => (
+                          <View style={[
+                            styles.removeButtonFace,
+                            pressed && { backgroundColor: '#FFE0D4' },
+                          ]}>
+                            <Ionicons name="heart" size={18} color="#E35B3F" />
+                          </View>
+                        )}
                       </Pressable>
                     </View>
                     </View>
@@ -1570,7 +1466,14 @@ const styles =
     removeButton: {
       width: 44,
       height: 44,
-      borderRadius: 11,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    removeButtonFace: {
+      width: 34,
+      height: 34,
+      borderRadius: 10,
       backgroundColor: '#FFF0E8',
       alignItems: 'center',
       justifyContent: 'center',

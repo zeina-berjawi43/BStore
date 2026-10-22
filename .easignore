@@ -54,3 +54,11 @@ google-services.json
 !/google-services.json
 # Never upload service-account credentials.
 *firebase-adminsdk*.json
+
+# EAS transfers local signing credentials through its credential channel, not the source archive.
+/credentials.json
+/credentials/
+/android-diagnostic-backup/
+.comprehensive-audit/
+.splash-validation/
+*service-account*.json

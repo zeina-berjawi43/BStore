@@ -113,10 +113,10 @@ export default function Search() {
       {!!error && <Pressable onPress={() => void load(++epoch.current, true)} style={styles.errorBox} accessibilityRole="button">
         <Text style={styles.error}>{error} Tap to retry.</Text>
       </Pressable>}
-      <View style={styles.resultsHeader}>
+      {results.length > 0 && <View style={styles.resultsHeader}>
         <ProductCount count={results.length} title={false} />
 
-      </View>
+      </View>}
       <FlatList
         data={results} keyExtractor={item => item._id} numColumns={2}
         contentContainerStyle={styles.list} columnWrapperStyle={styles.row}

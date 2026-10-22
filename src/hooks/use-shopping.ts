@@ -51,7 +51,9 @@ export function useShopping() {
       const id = String(product._id || product.id);
       if (shoppingState.getSnapshot().pendingFavorites.has(id)) return Promise.resolve();
       const selected = !shoppingState.getSnapshot().favorites.some(p => String(p._id || p.id) === id);
-      return act(() => shoppingState.favorite(product, selected), selected ? 'Product has been added to your favorites.' : 'Product has been removed from your favorites.', selected ? 'Added to Favorites' : 'Removed from Favorites');
+      // The removed row is immediate feedback; avoid replaying success notices
+      // as a sequence of background removals finishes.
+      return act(() => shoppingState.favorite(product, selected), selected ? 'Product has been added to your favorites.' : undefined, selected ? 'Added to Favorites' : undefined);
     },
     remove: (id: string) => act(() => shoppingState.remove(id), undefined, undefined, undefined, id),
     quantity: (id: string, quantity: number) => act(() => shoppingState.quantity(id, quantity), undefined, undefined, undefined, id),

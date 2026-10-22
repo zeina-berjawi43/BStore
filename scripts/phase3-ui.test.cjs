@@ -1,9 +1,9 @@
 const test = require('node:test'), assert = require('node:assert/strict');
 const fs = require('node:fs'), vm = require('node:vm'), ts = require('typescript');
 const source = file => fs.readFileSync('src/' + file, 'utf8');
-function execute(code, context) {
+function execute(code, context, jsx = ts.JsxEmit.React) {
   const exports = {};
-  vm.runInNewContext(ts.transpileModule(code, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.React } }).outputText, { exports, __DEV__: false, ...context });
+  vm.runInNewContext(ts.transpileModule(code, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx } }).outputText, { exports, __DEV__: false, ...context });
   return exports;
 }
 function handler(name, context) {
@@ -97,5 +97,34 @@ test('Cart/Favorites share compact dimensions and accessible remove controls', (
     const code = source(file); assert.match(code, /shoppingCardLayout.card/); assert.match(code, /shoppingCardLayout.image/);
     assert.match(code, /accessibilityLabel=\{`Remove \$\{product.name\} from (cart|favorites)`\}/);
     assert.match(code, file.endsWith('/cart.tsx') ? /name="close"/ : /name="heart"/);
+  }
+});
+
+for (const cached of [false, true]) for (const count of [0, 1]) test(`Favorites first render shows ${count ? 'saved rows' : cached ? 'cached empty state' : 'loading'} without awaiting focus refresh (cached=${cached}, count=${count})`, () => {
+  const shopping = { favoritesReady: cached, favorites: count ? [{ _id: 'A', name: 'Saved product', image: '', price: 10 }] : [],
+    pendingFavorites: new Set(), pendingCart: new Set(['A']), showAlert() {} };
+  const element = (type, props) => ({ type, props });
+  const screen = execute(source('app/favorites.tsx'), { require: name => {
+    if (name === 'react') return { useCallback: fn => fn, useState: value => [value, () => {}] };
+    if (name === 'react/jsx-runtime') return { jsx: element, jsxs: element };
+    if (name === 'react-native') return { View: 'View', Text: 'Text', Pressable: 'Pressable', ScrollView: 'ScrollView', StyleSheet: { create: value => value } };
+    if (name === 'expo-router') return { router: {}, useFocusEffect() {} };
+    if (name === '../hooks/use-shopping') return { useShopping: () => shopping };
+    if (name === '../components/action-dialog') return { useActionDialog: () => ({}) };
+    if (name === '../services/product-price') return { getFinalPrice: () => 10 };
+    return new Proxy({}, { get: (_target, key) => key });
+  } }, ts.JsxEmit.ReactJSX).default();
+  const nodes = [];
+  const visit = node => {
+    if (Array.isArray(node)) return node.forEach(visit);
+    nodes.push(node);
+    if (node && typeof node === 'object') visit(node.props?.children);
+  };
+  visit(screen);
+  assert.equal(nodes.some(node => node?.props?.testID === 'favorite-product-card'), count > 0);
+  assert.equal(nodes.includes('No favorites yet'), cached && count === 0);
+  if (count) {
+    const remove = nodes.find(node => node?.props?.accessibilityLabel === 'Remove Saved product from favorites');
+    assert.equal(remove.props.disabled, false, 'an unrelated pending cart save must not block removal');
   }
 });

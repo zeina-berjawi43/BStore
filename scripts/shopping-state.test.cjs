@@ -3,6 +3,46 @@ const { fixture, product, deferred, flush, createShoppingState } = require('./sh
 const item = (id, quantity = 1) => ({ product: product(id), quantity, price: 999 });
 const ids = values => Array.from(values, p => p._id || p.id);
 
+for (const favorites of [[], [product('A')]]) test(`favorites become ready before a slow cart, including ${favorites.length ? 'saved products' : 'an empty list'}`, async () => {
+  const cart = deferred();
+  const state = createShoppingState({ authenticated: () => true, send: async url =>
+    url === '/cart' ? cart.promise : { favorites: favorites.map(product => ({ product })) } });
+  const refresh = state.refresh(); await flush();
+  assert.equal(state.getSnapshot().favoritesReady, true);
+  assert.equal(state.getSnapshot().ready, false);
+  assert.deepEqual(ids(state.getSnapshot().favorites), ids(favorites));
+  cart.resolve({ cart: { items: [] } }); await refresh;
+});
+
+test('favorites cache survives a failed background refresh and resets before another session loads', async () => {
+  let fail = false;
+  const state = createShoppingState({ authenticated: () => true, send: async url => {
+    if (url === '/cart') return { cart: { items: [] } };
+    if (fail) throw Error('offline');
+    return { favorites: [{ product: product('A') }] };
+  } });
+  await state.refresh(); fail = true;
+  const refresh = state.refresh(true);
+  assert.equal(state.getSnapshot().favoritesReady, true);
+  assert.deepEqual(ids(state.getSnapshot().favorites), ['A']);
+  await assert.rejects(refresh, /offline/);
+  assert.equal(state.getSnapshot().favoritesReady, true);
+  assert.deepEqual(ids(state.getSnapshot().favorites), ['A']);
+  state.reset();
+  assert.equal(state.getSnapshot().favoritesReady, false);
+  assert.equal(state.getSnapshot().favorites.length, 0);
+});
+
+test('a previous session cannot restore favorites readiness through a late response', async () => {
+  const favorites = deferred();
+  const state = createShoppingState({ authenticated: () => true, send: async url =>
+    url === '/cart' ? { cart: { items: [] } } : favorites.promise });
+  const refresh = state.refresh(); state.reset();
+  favorites.resolve({ favorites: [{ product: product('A') }] }); await refresh;
+  assert.equal(state.getSnapshot().favoritesReady, false);
+  assert.equal(state.getSnapshot().favorites.length, 0);
+});
+
 test('rapid 0→1→2→1→0→1 preserves first re-add and final server quantity without losing taps', async () => {
   const gate = deferred(); let server = 0, writes = 0;
   const state = createShoppingState({ authenticated: () => true, send: async (url, method, body) => {
@@ -60,6 +100,24 @@ function shoppingHook(state, session = { authenticated: true, revision: 1 }) {
     { exports, Error, require: name => dependencies[name] });
   return { hook: exports.useShopping(), messages, pendingMessages, navigations, unmount: () => cleanups.forEach(fn => fn?.()) };
 }
+
+for (const fail of [false, true]) test(`rapid favorite removals update every row before saving, suppress success notices and ${fail ? 'restore only a failed row' : 'stay removed'}`, async () => {
+  const first = deferred(), second = deferred();
+  const { state } = fixture({ favorites: [product('A'), product('B')], send: (_url, _method, body) => body.productId === 'A' ? first.promise : second.promise });
+  await state.refresh(); const { hook, messages, pendingMessages } = shoppingHook(state);
+  const removeA = hook.toggle(product('A')), removeB = hook.toggle(product('B'));
+  assert.equal(state.getSnapshot().favorites.length, 0);
+  assert.equal(messages.length, 0); assert.equal(pendingMessages.length, 0);
+  await flush();
+  if (fail) first.reject(Object.assign(Error('Could not remove A'), { status: 400 }));
+  else first.resolve({});
+  await removeA; await flush();
+  assert.deepEqual(ids(state.getSnapshot().favorites), fail ? ['A'] : []);
+  second.resolve({}); await removeB; await flush();
+  assert.deepEqual(ids(state.getSnapshot().favorites), fail ? ['A'] : []);
+  assert.equal(messages.length, fail ? 1 : 0);
+  if (fail) assert.equal(messages[0][1], 'Could not save');
+});
 
 test('actual shared hook waits for confirmation and restores state with one error on failure', async () => {
   const gate = deferred(), { state } = fixture({ send: () => gate.promise }); await state.refresh();

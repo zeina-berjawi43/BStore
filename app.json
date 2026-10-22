@@ -51,7 +51,8 @@
           }
         }
       ],
-      "./plugins/with-optimized-proguard.cjs"
+      "./plugins/with-optimized-proguard.cjs",
+      "./plugins/with-android-release.cjs"
     ],
     "experiments": {
       "typedRoutes": true,

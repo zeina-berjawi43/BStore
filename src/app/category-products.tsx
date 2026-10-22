@@ -295,7 +295,7 @@ export function CategoryProductsScreen({ category, offersOnly = false }: { categ
         {/* =================================================
             RESULTS
         ================================================= */}
-        <ProductCount count={filteredProducts.length} title={!offersOnly} />
+        {(!offersOnly || filteredProducts.length > 0) && <ProductCount count={filteredProducts.length} title={!offersOnly} />}
         {/* =================================================
             LOADING PRODUCTS
         ================================================= */}
