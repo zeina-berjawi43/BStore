@@ -29,10 +29,7 @@ import {
 
 import {
   useCallback,
-  useState,
 } from 'react';
-
-import { getSessionSnapshot } from '../services/tokenStorage';
 
 
 // =========================================================
@@ -119,19 +116,14 @@ export default function Favorites() {
     .map(p => ({ ...p, id: String(p._id || p.id) }))
     .sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0) as FavoriteProduct[];
 
-  const { showAlert, feedback } = shopping;
-
-  const [
-    initialLoadFinished,
-    setInitialLoadFinished,
-  ] = useState(false);
+  const { feedback } = shopping;
 
   // =======================================================
   // LOAD FAVORITES
   // =======================================================
 
   const loadFavorites =
-    useCallback(async () => { await shoppingState.refresh(true); }, []);
+    useCallback(async () => { await shoppingState.refresh(true, 'favorites').catch(() => {}); }, []);
 
 
   // =======================================================
@@ -140,57 +132,8 @@ export default function Favorites() {
 
   useFocusEffect(
     useCallback(() => {
-
-      let active =
-        true;
-
-      const refresh =
-        async () => {
-
-
-
-          const loggedIn = getSessionSnapshot().authenticated;
-
-          if (
-            !active
-          ) {
-
-            return;
-
-          }
-
-          if (
-            loggedIn
-          ) {
-
-            await loadFavorites();
-            if (active) setInitialLoadFinished(true);
-
-          } else {
-
-            setInitialLoadFinished(
-              true
-            );
-
-          }
-
-        };
-
-
-      void refresh().catch(() => { if (active) { setInitialLoadFinished(true); showAlert('Could not refresh favorites. Please reopen this page to retry.', 'Connection Error'); } });
-
-
-      return () => {
-
-        active =
-          false;
-
-      };
-
-    }, [
-      loadFavorites,
-      showAlert,
-    ])
+      void loadFavorites();
+    }, [loadFavorites])
   );
 
 
@@ -313,19 +256,28 @@ export default function Favorites() {
       {favorites.length > 0 && <Pressable accessibilityRole="button" onPress={() => confirmShoppingClear('Favorites', shopping.clearFavorites, actionAlert)}
         style={{ alignSelf: 'flex-end', padding: 12 }}><Text style={{ color: '#E35B3F', fontWeight: '700' }}>Clear Favorites</Text></Pressable>}
 
+      {shopping.favoritesError && <View style={{ padding: 16 }} accessibilityLiveRegion="polite">
+        <Text style={{ color: '#686158' }}>{shopping.favoritesError}</Text>
+        <Pressable accessibilityRole="button" accessibilityLabel="Retry loading favorites" onPress={() => void loadFavorites()} style={{ paddingVertical: 12 }}>
+          <Text style={{ color: '#E35B3F', fontWeight: '700' }}>Retry</Text>
+        </Pressable>
+      </View>}
+
 
       {/* =================================================
           CONTENT
       ================================================= */}
 
       {/* Show this session's cached favorites while the focus refresh runs. */}
-      {!shopping.favoritesReady && favorites.length === 0 && !initialLoadFinished ? (
+      {!shopping.favoritesReady && favorites.length === 0 ? (
 
         <View
           style={
             styles.initialLoadSpace
           }
-        />
+        >
+          {!shopping.favoritesError && <Text style={{ color: '#686158', padding: 24 }} accessibilityLiveRegion="polite">Loading favorites...</Text>}
+        </View>
 
       ) : favorites.length === 0 ? (
 

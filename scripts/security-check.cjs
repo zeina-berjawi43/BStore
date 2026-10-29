@@ -332,9 +332,9 @@ test('cart checkout uncertain writes wait for reconciliation and failed readback
     if (++reads > 1) return read.promise;
     return { cart: { items: [cartRow(10)] }, minimumOrderValue: 100 };
   } });
-  await state.refresh(); await assert.rejects(state.quantity('A', 11), /timed out/); await cartFixture.flush();
+  await state.refresh(); const write = state.quantity('A', 11), failed = assert.rejects(write, /timed out/); await cartFixture.flush();
   const { handler, pushes, alerts } = checkoutHandler(state); const checkout = handler(); await cartFixture.flush(); assert.equal(pushes.length, 0);
-  read.reject(Error('offline')); await checkout; assert.equal(pushes.length, 0); assert.equal(alerts.length, 1);
+  read.reject(Error('offline')); await Promise.all([failed, checkout]); assert.equal(pushes.length, 0); assert.equal(alerts.length, 1);
   await handler(); assert.equal(pushes.length, 0);
 });
 

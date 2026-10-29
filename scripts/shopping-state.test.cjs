@@ -101,6 +101,52 @@ function shoppingHook(state, session = { authenticated: true, revision: 1 }) {
   return { hook: exports.useShopping(), messages, pendingMessages, navigations, unmount: () => cleanups.forEach(fn => fn?.()) };
 }
 
+test('an early heart tap waits for saved favorites, removes an existing favorite and suppresses duplicate taps', async () => {
+  const read = deferred(), calls = [];
+  const state = createShoppingState({ authenticated: () => true, send: async (url, method) => {
+    if (url === '/cart') return { cart: { items: [] } };
+    if (!method) return read.promise;
+    calls.push(url); return {};
+  } });
+  const { hook, messages } = shoppingHook(state);
+  const first = hook.toggle(product('A')), duplicate = hook.toggle(product('A'));
+  await flush(); assert.equal(calls.length, 0);
+  read.resolve({ favorites: [{ product: product('A') }] });
+  await Promise.all([first, duplicate]);
+  assert.deepEqual(calls, ['/favorites/remove']);
+  assert.equal(state.getSnapshot().favorites.length, 0);
+  assert.equal(messages.length, 0);
+});
+
+test('an early favorite tap reports load failure without falsely confirming a save', async () => {
+  let writes = 0;
+  const state = createShoppingState({ authenticated: () => true, send: async (url, method) => {
+    if (method) writes++;
+    if (url === '/cart') return { cart: { items: [] } };
+    throw Error('Favorites offline');
+  } });
+  const { hook, messages } = shoppingHook(state);
+  await hook.toggle(product('A'));
+  assert.equal(writes, 0);
+  assert.equal(state.getSnapshot().favoritesReady, false);
+  assert.equal(messages.length, 1);
+  assert.equal(messages[0][1], 'Could not save');
+});
+
+test('a heart tap waiting for hydration cannot be replayed in a replacement session', async () => {
+  const read = deferred(), session = { authenticated: true, revision: 1 }; let writes = 0;
+  const state = createShoppingState({ authenticated: () => true, send: async (url, method) => {
+    if (method) writes++;
+    return url === '/cart' ? { cart: { items: [] } } : read.promise;
+  } });
+  const { hook, messages } = shoppingHook(state, session);
+  const toggle = hook.toggle(product('A'));
+  session.revision++; state.reset();
+  read.resolve({ favorites: [] }); await toggle;
+  assert.equal(writes, 0); assert.equal(messages.length, 0);
+  assert.equal(state.getSnapshot().favoritesReady, false);
+});
+
 for (const fail of [false, true]) test(`rapid favorite removals update every row before saving, suppress success notices and ${fail ? 'restore only a failed row' : 'stay removed'}`, async () => {
   const first = deferred(), second = deferred();
   const { state } = fixture({ favorites: [product('A'), product('B')], send: (_url, _method, body) => body.productId === 'A' ? first.promise : second.promise });

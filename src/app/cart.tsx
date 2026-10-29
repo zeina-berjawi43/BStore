@@ -205,7 +205,7 @@ export default function Cart() {
   const formatPrice = useCallback((price: number) => '$' + (Number(price) || 0).toFixed(2), []);
   const formatPrice2 = useCallback((price: number) => '$' + (Number(price) || 0).toFixed(0), []);
 
-  const loadCart = useCallback(async () => { try { await shoppingState.refresh(true); } catch (error) { actionAlert('Cart unavailable', error instanceof Error ? error.message : 'Please retry.'); } }, [actionAlert]);
+  const loadCart = useCallback(async () => { await shoppingState.refresh(true, 'cart').catch(() => {}); }, []);
 
   useFocusEffect(useCallback(() => {
     void loadCart();
@@ -390,11 +390,22 @@ export default function Cart() {
       {cart.length > 0 && <Pressable accessibilityRole="button" onPress={() => confirmShoppingClear('Cart', shopping.clearCart, actionAlert)}
         style={{ alignSelf: 'flex-end', padding: 12 }}><Text style={{ color: '#E35B3F', fontWeight: '700' }}>Clear Cart</Text></Pressable>}
 
+      {shopping.cartError && <View style={{ padding: 16 }} accessibilityLiveRegion="polite">
+        <Text style={{ color: '#686158' }}>{shopping.cartError}</Text>
+        <Pressable accessibilityRole="button" accessibilityLabel="Retry loading cart" onPress={() => void loadCart()} style={{ paddingVertical: 12 }}>
+          <Text style={{ color: '#E35B3F', fontWeight: '700' }}>Retry</Text>
+        </Pressable>
+      </View>}
+
       {/* ====================================================
           EMPTY CART
       ==================================================== */}
 
-      {hasLoadedOnce &&
+      {!hasLoadedOnce && cart.length === 0 ? (
+        <View style={{ padding: 24 }}>
+          {!shopping.cartError && <Text style={{ color: '#686158' }} accessibilityLiveRegion="polite">Loading cart...</Text>}
+        </View>
+      ) : hasLoadedOnce &&
       cart.length === 0 ? (
 
         <View

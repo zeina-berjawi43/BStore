@@ -457,7 +457,7 @@ export default function ProductDetails() {
   };
 
 
-  const loadFavoriteStatus = async () => { await shopping.refresh(); };
+  const loadFavoriteStatus = async () => { await shopping.refresh(false, 'favorites').catch(() => {}); };
 
 
   /* =======================================================
@@ -778,6 +778,9 @@ export default function ProductDetails() {
           ================================================= */}
 
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${isFavorite ? 'Remove' : 'Add'} ${product.name} ${isFavorite ? 'from' : 'to'} favorites`}
+            accessibilityState={{ selected: isFavorite, disabled: updatingFavorite }}
             style={
               styles.favoriteButton
             }

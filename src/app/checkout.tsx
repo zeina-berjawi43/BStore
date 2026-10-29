@@ -5,6 +5,7 @@ import { request } from '../services/request';
 import { cartTotal, currentCartPrices } from '../services/cartPricing';
 import { deliverySummary, DeliveryRules } from '../services/delivery-pricing';
 import { getCheckoutAttempt } from '../services/checkoutAttempt';
+import { shoppingState } from '../services/shopping-state';
 import {
   View,
   Text,
@@ -783,6 +784,8 @@ export default function Checkout() {
 
         setCart([]);
 
+        // Checkout clears the server cart; update shared badges and quantity controls too.
+        void shoppingState.refresh(true, 'cart').catch(() => {});
 
         actionAlert(
           "Order Placed",

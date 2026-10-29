@@ -165,26 +165,27 @@ test('Account Logout opens a confirmation without auth changes; the existing gua
 
 test('successful checkout keeps one request/payload/cleanup and routes to Orders only through themed acknowledgment', async () => {
   const cart = [{ product: { _id: '507f1f77bcf86cd799439011' }, quantity: 2, price: 8 }];
-  let notice, finish, cleaned, cleared; const requests = [], routes = [], orderInFlight = { current: false };
+  let notice, finish, cleaned, cleared; const requests = [], routes = [], refreshes = [], orderInFlight = { current: false };
   const place = handler('app/checkout.tsx', 'placeOrder', { cart, user: { _id: 'customer', phone: '71000000', address: ' Beirut ' }, displayName: 'Maya', placingOrder: false, orderInFlight, cartRevision: 'revision', API_URL: 'https://fixture.test',
     delivery: { allowed: true, total: 16 },
     setPlacingOrder: () => {}, getAccessToken: async () => 'fixture', getCheckoutAttempt: async () => ({ key: 'same-attempt', storageKey: 'attempt-key' }),
     request: async (url, init) => { requests.push({ url, init }); await new Promise(resolve => { finish = resolve; }); return { status: 201, ok: true }; },
     readJsonResponse: async () => ({ order: { _id: 'order' } }), AsyncStorage: { multiRemove: async keys => { cleaned = Array.from(keys); } }, setCart: value => { cleared = Array.from(value); },
+    shoppingState: { refresh: async (...args) => { refreshes.push(args); throw Error('refresh offline'); } },
     actionAlert: (...args) => { notice = args; }, router: { replace: route => routes.push(route) }, Alert: { alert: () => assert.fail('Raw success alert') } });
   const first = place(); await place(); await new Promise(resolve => setImmediate(resolve)); assert.equal(requests.length, 1);
   finish(); await first; assert.deepEqual(JSON.parse(requests[0].init.body), { idempotencyKey: 'same-attempt', expectedTotal: 16, shippingAddress: 'Beirut' });
   assert.deepEqual(cleaned, ['attempt-key', 'cart']); assert.deepEqual(cleared, []); assert.deepEqual(routes, []);
+  assert.deepEqual(refreshes, [[true, 'cart']]);
   assert.equal(notice[0], 'Order Placed'); notice[2][0].onPress(); assert.deepEqual(routes, ['/orders']);
 });
 
 test('actual Favorites card omits both reference IDs from text while retaining keys and cart/remove/details IDs; pending cart stays black', () => {
   const product = { _id: '507f1f77bcf86cd799439011', id: '507f1f77bcf86cd799439011', name: 'Almonds', brand: '507f191e810c19729de860ea', category: '507f1f77bcf86cd799439012', price: 10, discountedPrice: 8, discount: 20, availability: true };
-  const shopping = { favorites: [product], pendingCart: new Set(), pendingFavorites: new Set(), add: value => { added = value; }, toggle: value => { removed = value; } };
+  const shopping = { favoritesReady: true, favorites: [product], pendingCart: new Set(), pendingFavorites: new Set(), add: value => { added = value; }, toggle: value => { removed = value; } };
   let added, removed, destination;
   const render = fixture('app/favorites.tsx', 'Favorites', { useShopping: () => shopping, useActionDialog: () => ({ dialog: null }),
-    useState: initial => [initial === false ? true : initial, () => {}],
-    favoriteReferenceLabel: fixture('app/favorites.tsx', 'favoriteReferenceLabel'), useFocusEffect: () => {}, goBackOrHome: () => {},
+    useFocusEffect: () => {}, goBackOrHome: () => {}, ProductImage: 'ProductImage',
     router: { push: value => { destination = value; } }, View: 'View', Text: 'Text', Pressable: 'Pressable', ScrollView: 'ScrollView', CartButton: 'CartButton', Ionicons: 'Icon',
     styles: { addToCartButton: { backgroundColor: '#171717' }, productCard: {} }, getFinalPrice: () => 8, formatPrice: value => '$' + value.toFixed(2) });
   let tree = render();
@@ -193,7 +194,8 @@ test('actual Favorites card omits both reference IDs from text while retaining k
   const card = nodes(tree, node => node.props?.key === product._id)[0]; assert.ok(card); card.props.onPress(); assert.equal(destination.params.id, product._id);
   const button = nodes(tree, node => node.props?.accessibilityLabel === 'Add Almonds to cart')[0]; button.props.onPress({ stopPropagation() {} }); assert.equal(added.id, product._id);
   const remove = nodes(card, node => node.props?.accessibilityLabel === 'Remove Almonds from favorites')[0];
-  assert.equal(nodes(remove, node => node.type === 'Icon')[0].props.name, 'close');
+  const removeFace = remove.props.children[0]({ pressed: false });
+  assert.equal(nodes(removeFace, node => node.type === 'Icon')[0].props.name, 'heart');
   remove.props.onPress({ stopPropagation() {} }); assert.equal(removed, product);
   shopping.pendingCart.add(product._id); tree = render();
   const pending = nodes(tree, node => node.props?.accessibilityLabel === 'Add Almonds to cart')[0];

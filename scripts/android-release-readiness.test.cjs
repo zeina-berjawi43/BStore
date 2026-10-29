@@ -96,7 +96,7 @@ test('native release preparation is idempotent, uses existing signing inputs and
   const first = await f.prepare(root);
   assert.equal(first.nativeProjectPresent, true);
   const gradle = f.files.get(path.join(root, 'android', 'app', 'build.gradle')).toString();
-  assert.match(gradle, /versionCode 12/);
+  assert.match(gradle, new RegExp(`versionCode ${config.android.versionCode}\\b`));
   assert.match(gradle, /proguard-android-optimize\.txt/);
   assert.ok(gradle.includes('// Preserve unrelated application wiring.'));
   assert.ok(gradle.lastIndexOf('android.buildTypes.release.signingConfig = bstoreSigning') > gradle.indexOf('signingConfig signingConfigs.debug'));
@@ -121,7 +121,7 @@ test('preflight refuses debug certificates, expired certificates and invalid pri
 test('fresh EAS native generation is supported without an existing Android directory', async () => {
   const f = fixture({ native: false });
   assert.equal((await f.prepare(root)).nativeProjectPresent, false);
-  assert.equal(f.check(root).versionCode, 12);
+  assert.equal(f.check(root).versionCode, config.android.versionCode);
   const native = releasePlugin(config);
   const result = await native.mods.android.appBuildGradle({ modResults: { language: 'groovy', contents: appGradle } });
   assert.match(result.modResults.contents, /bstoreRelease/);

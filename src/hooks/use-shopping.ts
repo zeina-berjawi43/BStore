@@ -47,7 +47,13 @@ export function useShopping() {
       let intent = 0;
       return act(() => { const work = shoppingState.adjust(product, 1); intent = shoppingState.intentVersion(id); return work; }, `${product.name} has been added to your cart.`, 'Added to Cart', () => shoppingState.intentVersion(id) === intent && (shoppingState.getSnapshot().cart.find(item => item.product._id === id)?.quantity || 0) > 0, id);
     },
-    toggle: (product: ShoppingProduct) => {
+    toggle: async (product: ShoppingProduct) => {
+      const revision = getSessionSnapshot().revision;
+      if (getSessionSnapshot().authenticated && !shoppingState.getSnapshot().favoritesReady) {
+        // Decide add versus remove only after this customer's saved hearts are known.
+        await act(() => shoppingState.refresh(false, 'favorites'));
+        if (revision !== getSessionSnapshot().revision || !shoppingState.getSnapshot().favoritesReady) return;
+      }
       const id = String(product._id || product.id);
       if (shoppingState.getSnapshot().pendingFavorites.has(id)) return Promise.resolve();
       const selected = !shoppingState.getSnapshot().favorites.some(p => String(p._id || p.id) === id);

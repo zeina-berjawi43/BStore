@@ -34,7 +34,7 @@ export default function Search() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const favoriteIds = new Set(shopping.favorites.map(p => String(p._id || p.id)));
-  const favoritesReady = shopping.ready;
+  const favoritesReady = shopping.favoritesReady;
   const pending = new Set([...shopping.pendingCart].map(id => `cart:${id}`).concat([...shopping.pendingFavorites].map(id => `favorite:${id}`)));
   const { feedback } = shopping;
   const epoch = useRef(0);
