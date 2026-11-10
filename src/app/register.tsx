@@ -11,6 +11,7 @@ import {
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
+import { PHONE_NUMBER_LENGTH, phoneNumberError, sanitizePhoneInput } from '../services/phone-number';
 
 import {
   registerUser,
@@ -42,7 +43,7 @@ export default function Register() {
 
     const cleanFirstName = firstName.trim();
     const cleanLastName = lastName.trim();
-    const cleanPhone = phone.trim();
+    const cleanPhone = phone;
     const cleanAddress = address.trim();
 
     if (!cleanFirstName) {
@@ -55,15 +56,9 @@ export default function Register() {
       return;
     }
 
-    if (!cleanPhone) {
-      setError('Please enter your phone number.');
-      return;
-    }
-
-    const phoneRegex = /^[0-9+\-\s()]{7,20}$/;
-
-    if (!phoneRegex.test(cleanPhone)) {
-      setError('Please enter a valid phone number.');
+    const phoneError = phoneNumberError(cleanPhone);
+    if (phoneError) {
+      setError(phoneError);
       return;
     }
 
@@ -221,10 +216,11 @@ export default function Register() {
             placeholderTextColor="#9A9186"
             value={phone}
             onChangeText={(text) => {
-              setPhone(text);
+              setPhone(sanitizePhoneInput(text));
               setError('');
             }}
-            keyboardType="phone-pad"
+            keyboardType="number-pad"
+            maxLength={PHONE_NUMBER_LENGTH}
             autoCapitalize="none"
             autoCorrect={false}
             autoComplete="tel"

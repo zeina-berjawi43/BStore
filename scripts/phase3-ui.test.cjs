@@ -3,7 +3,7 @@ const fs = require('node:fs'), vm = require('node:vm'), ts = require('typescript
 const source = file => fs.readFileSync('src/' + file, 'utf8');
 function execute(code, context, jsx = ts.JsxEmit.React) {
   const exports = {};
-  vm.runInNewContext(ts.transpileModule(code, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx } }).outputText, { exports, __DEV__: false, ...context });
+  vm.runInNewContext(ts.transpileModule(code, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx } }).outputText, { exports, __DEV__: false, isDemoMode: () => false, DEMO_PRICE: 'X$', DEMO_ORDER_MESSAGE: 'Demo Mode', ...context });
   return exports;
 }
 function handler(name, context) {
@@ -112,6 +112,7 @@ for (const cached of [false, true]) for (const count of [0, 1]) test(`Favorites 
     if (name === '../hooks/use-shopping') return { useShopping: () => shopping };
     if (name === '../components/action-dialog') return { useActionDialog: () => ({}) };
     if (name === '../services/product-price') return { getFinalPrice: () => 10 };
+    if (name === '../services/demo-mode') return { isDemoMode: () => false, DEMO_PRICE: 'X$' };
     return new Proxy({}, { get: (_target, key) => key });
   } }, ts.JsxEmit.ReactJSX).default();
   const nodes = [];

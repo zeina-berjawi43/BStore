@@ -13,6 +13,7 @@ import {
 import { useState } from 'react';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { PHONE_NUMBER_LENGTH, phoneNumberError, sanitizePhoneInput } from '../services/phone-number';
 
 import {
   requestPasswordReset,
@@ -33,17 +34,10 @@ export default function ForgotPassword() {
 
     setError('');
 
-    const cleanPhone = phone.trim();
-
-    if (!cleanPhone) {
-      setError('Please enter your phone number.');
-      return;
-    }
-
-    const phoneRegex = /^[0-9+\-\s()]{7,20}$/;
-
-    if (!phoneRegex.test(cleanPhone)) {
-      setError('Please enter a valid phone number.');
+    const cleanPhone = phone;
+    const phoneError = phoneNumberError(cleanPhone);
+    if (phoneError) {
+      setError(phoneError);
       return;
     }
 
@@ -155,12 +149,13 @@ export default function ForgotPassword() {
               style={styles.input}
               value={phone}
               onChangeText={(value) => {
-                setPhone(value);
+                setPhone(sanitizePhoneInput(value));
                 setError('');
               }}
               placeholder="Enter your phone number"
               placeholderTextColor="#A49B91"
-              keyboardType="phone-pad"
+              keyboardType="number-pad"
+              maxLength={PHONE_NUMBER_LENGTH}
               autoCapitalize="none"
               autoCorrect={false}
               autoComplete="tel"

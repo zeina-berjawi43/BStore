@@ -163,13 +163,22 @@ export const saveSessionUser = (expectedAccessToken: string, user: object): Prom
   }
   const previous = await AsyncStorage.getItem('user');
   const previousUser = previous ? JSON.parse(previous) : null;
+  // Partial profiles (e.g. profile-edit responses) carry neither field; only the full
+  // /users/me profile (always with pricingScope) may change the DEMO state.
+  const incoming = user as { pricingScope?: string; demoMode?: unknown };
+  if (previousUser?.demoMode === true && incoming.pricingScope === undefined && incoming.demoMode === undefined) {
+    user = { ...user, demoMode: true };
+  }
   if (previousUser?.pricingScope && !(user as { pricingScope?: string }).pricingScope) {
     user = { ...user, pricingScope: previousUser.pricingScope };
   }
   await AsyncStorage.setItem('user', JSON.stringify(user));
   cachedUser = scopedProfile(user, current);
   const priceClass = (value: object) => (value as { pricingScope?: string }).pricingScope;
-  if (previous && priceClass(JSON.parse(previous)) !== undefined && priceClass(user) !== undefined && priceClass(JSON.parse(previous)) !== priceClass(user)) pricingListeners.forEach(listener => listener());
+  // An admin switching DEMO on/off is also a pricing change, even if the cached profile had no scope yet.
+  const demo = (value: object) => (value as { demoMode?: unknown }).demoMode === true;
+  if (previous && ((priceClass(JSON.parse(previous)) !== undefined && priceClass(user) !== undefined && priceClass(JSON.parse(previous)) !== priceClass(user))
+    || demo(JSON.parse(previous)) !== demo(user))) pricingListeners.forEach(listener => listener());
 });
 
 async function clear(): Promise<void> {

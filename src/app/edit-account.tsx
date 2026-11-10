@@ -1,6 +1,7 @@
 import { useActionDialog } from '../components/action-dialog';
 import { updateTokens, saveSessionUser } from '../services/tokenStorage';
 import { request } from '../services/request';
+import { PHONE_NUMBER_LENGTH, phoneNumberError, requirePhoneNumber, sanitizePhoneInput } from '../services/phone-number';
 import {
   View,
   Text,
@@ -314,6 +315,8 @@ export default function EditAccount() {
       newPhone: string,
     ) => {
 
+      requirePhoneNumber(newPhone);
+
       const response =
         await request(
           `${API_URL}/auth/request-change-phone`,
@@ -400,6 +403,13 @@ export default function EditAccount() {
           'Please enter your phone number.'
         );
 
+        return;
+      }
+
+      // Do not rewrite an unchanged server value while saving other profile fields.
+      const phoneError = phoneNumberError(phone);
+      if (phoneError && phone !== originalPhone) {
+        actionAlert('Invalid Phone Number', phoneError);
         return;
       }
 
@@ -1181,10 +1191,9 @@ export default function EditAccount() {
               placeholder="Phone Number"
               placeholderTextColor="#9A9186"
               value={phone}
-              onChangeText={
-                setPhone
-              }
-              keyboardType="phone-pad"
+              onChangeText={value => setPhone(sanitizePhoneInput(value))}
+              keyboardType="number-pad"
+              maxLength={PHONE_NUMBER_LENGTH}
               autoCapitalize="none"
               autoCorrect={false}
               editable={

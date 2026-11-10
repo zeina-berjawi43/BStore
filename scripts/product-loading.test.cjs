@@ -12,7 +12,7 @@ function catalog(disk = new Map()) {
   const calls = [], exports = {}; let changed;
   vm.runInNewContext(ts.transpileModule(source('services/catalogService.ts'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, {
     exports, require: name => name.includes('async-storage') ? { getItem: async key => disk.get(key) || null, setItem: async (key, value) => disk.set(key, value) }
-      : name === './resource-cache' ? resource : name === './authService' ? { API_URL: 'https://test' } : name === './tokenStorage' ? { onSessionChanged: fn => { changed = fn; } }
+      : name === './resource-cache' ? resource : name === './authService' ? { API_URL: 'https://test' } : name === './tokenStorage' ? { onSessionChanged: fn => { changed = fn; } } : name === './demo-mode' ? { syncDemoMode: () => {} }
       : { request: (url, options) => { const gate = deferred(); calls.push({ url, options, ...gate }); return gate.promise; } },
   });
   return { api: exports, calls, disk, changed: () => changed() };

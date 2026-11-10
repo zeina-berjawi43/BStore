@@ -3,6 +3,7 @@ import { ProductImage } from '../components/product-image';
 import { ImageFrame } from '../services/image-frame';
 import { request } from '../services/request';
 import { cartTotal, currentCartPrices } from '../services/cartPricing';
+import { DEMO_ORDER_MESSAGE, DEMO_PRICE, isDemoMode } from '../services/demo-mode';
 import { deliverySummary, DeliveryRules } from '../services/delivery-pricing';
 import { getCheckoutAttempt } from '../services/checkoutAttempt';
 import { shoppingState } from '../services/shopping-state';
@@ -348,7 +349,7 @@ export default function Checkout() {
         ); }
 
 
-        setCart(currentCartPrices(items));
+        setCart(currentCartPrices(items, data.demoMode === true));
         setDeliveryRules(data.pricing?.deliveryRules);
         setMinimumOrder(data.minimumOrderValue ?? Infinity);
         setCartRevision(cartData.updatedAt ? `${cartData._id}:${cartData.updatedAt}` : undefined);
@@ -469,11 +470,14 @@ export default function Checkout() {
 
   const totalPrice =
     cartTotal(cart);
-  const delivery = deliverySummary(totalPrice, deliveryRules, minimumOrder);
+  const demo = isDemoMode();
+  // DEMO: no amounts exist client-side; every amount renders as the X$ placeholder.
+  const delivery = deliverySummary(totalPrice, demo ? undefined : deliveryRules, demo ? 0 : minimumOrder);
+  const money = (amount: number) => demo ? DEMO_PRICE : `$${amount.toFixed(2)}`;
 
 
   const formattedTotal =
-    delivery.total.toFixed(2);
+    money(delivery.total);
 
 
   // ==========================================================
@@ -493,6 +497,8 @@ export default function Checkout() {
   // ==========================================================
 
   const placeOrder = async () => {
+    // DEMO accounts stop here; the backend also rejects their orders (403).
+    if (isDemoMode()) { actionAlert('Demo Mode', DEMO_ORDER_MESSAGE); return; }
 
     if (__DEV__) { console.log(
       "================================"
@@ -1459,10 +1465,9 @@ export default function Checkout() {
                             styles.unitPrice
                           }
                         >
-                          $
-                          {Number(
+                          {money(Number(
                             item.price
-                          ).toFixed(2)}
+                          ))}
                           {" "}each
                         </Text>
 
@@ -1476,8 +1481,7 @@ export default function Checkout() {
                         styles.itemTotal
                       }
                     >
-                      $
-                      {itemTotal.toFixed(2)}
+                      {money(itemTotal)}
                     </Text>
 
                   </View>
@@ -1529,7 +1533,7 @@ export default function Checkout() {
               styles.totalValue
             }
           >
-            ${formattedTotal}
+            {formattedTotal}
           </Text>
 
         </View>
@@ -1647,7 +1651,7 @@ export default function Checkout() {
                 styles.bottomTotalValue
               }
             >
-              ${formattedTotal}
+              {formattedTotal}
             </Text>
 
           </View>

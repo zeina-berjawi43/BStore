@@ -58,6 +58,14 @@ export async function request(
       }
     };
     return response;
+  } catch (error) {
+    // Native fetch can expose Java DNS exceptions directly to every screen.
+    // Keep the request failed and leave credentials intact; a user can retry
+    // after connectivity recovers without automatically repeating a write.
+    if (error instanceof Error && /UnknownHostException|Unable to resolve host|No address associated with hostname/i.test(error.message)) {
+      throw new Error('Cannot connect to BStore. Check your internet connection and try again. If the problem continues, try another network.');
+    }
+    throw error;
   } finally {
     clearTimeout(timer);
     signal?.removeEventListener('abort', cancel);

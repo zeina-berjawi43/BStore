@@ -6,6 +6,7 @@ import { CartButton } from '../components/cart-button';
 
 import { goBackOrHome } from '../services/navigation';
 import { getFinalPrice } from '../services/product-price';
+import { DEMO_PRICE, isDemoMode } from '../services/demo-mode';
 import { AddToCartButton } from '../components/add-to-cart-button';
 import { ProductImage } from '../components/product-image';
 import { ImageFrame } from '../services/image-frame';
@@ -103,6 +104,7 @@ const getImageUrl = (
 const formatPrice = (
   price: number | undefined
 ): string => {
+  if (isDemoMode()) return DEMO_PRICE;
   if (
     price === undefined ||
     price === null ||
@@ -547,8 +549,8 @@ const CatalogCard = memo(function CatalogCard({ columns, product, favorite, pend
                         }
                       >
                         {isLoggedIn ? (
-                          product.price !==
-                          undefined ? (
+                          (product.price !==
+                          undefined || isDemoMode()) ? (
                             hasDiscount ? (
                               <View
                                 style={

@@ -13,6 +13,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import { rememberLoginDestination } from '../services/login-intent';
+import { PHONE_NUMBER_LENGTH, phoneNumberError, sanitizePhoneInput } from '../services/phone-number';
 
 import {
   loginUser,
@@ -52,24 +53,13 @@ export default function Login() {
     setPasswordError('');
     setGeneralError('');
 
-    const cleanPhone = phone.trim();
-
-    const phoneRegex =
-      /^[0-9+\-\s()]{7,20}$/;
+    const cleanPhone = phone;
 
     let hasError = false;
 
-    if (!cleanPhone) {
-      setPhoneError(
-        'Please enter your phone number.'
-      );
-
-      hasError = true;
-    } else if (!phoneRegex.test(cleanPhone)) {
-      setPhoneError(
-        'Please enter a valid phone number.'
-      );
-
+    const phoneError = phoneNumberError(cleanPhone);
+    if (phoneError) {
+      setPhoneError(phoneError);
       hasError = true;
     }
 
@@ -165,11 +155,12 @@ export default function Login() {
             placeholderTextColor="#9A9186"
             value={phone}
             onChangeText={(text) => {
-              setPhone(text);
+              setPhone(sanitizePhoneInput(text));
               setPhoneError('');
               setGeneralError('');
             }}
-            keyboardType="phone-pad"
+            keyboardType="number-pad"
+            maxLength={PHONE_NUMBER_LENGTH}
             autoCapitalize="none"
             autoCorrect={false}
             autoComplete="tel"

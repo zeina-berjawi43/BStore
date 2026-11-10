@@ -10,6 +10,7 @@ import { CartButton } from '../components/cart-button';
 import { AddToCartButton } from '../components/add-to-cart-button';
 import { goBackOrHome } from '../services/navigation';
 import { getFinalPrice } from '../services/product-price';
+import { DEMO_PRICE, isDemoMode } from '../services/demo-mode';
 import { ProductImage } from '../components/product-image';
 import { ImageFrame } from '../services/image-frame';
 
@@ -106,6 +107,7 @@ const getImageUrl = (
 const formatPrice = (
   price: number | undefined
 ): string => {
+  if (isDemoMode()) return DEMO_PRICE;
   if (
     price === undefined ||
     price === null ||
@@ -156,7 +158,7 @@ export function CategoryProductsScreen({ category, offersOnly = false }: { categ
      ADD TO CART
   ======================================================= */
   const addToCart = (product: Product) => {
-    if (getSessionSnapshot().authenticated && product.price === undefined) { showAlert('Please wait for current product prices to load.'); return Promise.resolve(); }
+    if (getSessionSnapshot().authenticated && product.price === undefined && !isDemoMode()) { showAlert('Please wait for current product prices to load.'); return Promise.resolve(); }
     return shopping.add(product);
   };
   /* =======================================================
@@ -522,8 +524,8 @@ const CatalogCard = memo(function CatalogCard({ columns, product, favorite, pend
                         }
                       >
                         {isLoggedIn ? (
-                          product.price !==
-                          undefined ? (
+                          (product.price !==
+                          undefined || isDemoMode()) ? (
                             hasDiscount ? (
                               <View
                                 style={

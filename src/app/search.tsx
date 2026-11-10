@@ -8,6 +8,7 @@ import { CartButton } from '../components/cart-button';
 
 import { AddToCartButton } from '../components/add-to-cart-button';
 import { getFinalPrice } from '../services/product-price';
+import { DEMO_PRICE, isDemoMode } from '../services/demo-mode';
 import { ProductImage } from '../components/product-image';
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -84,7 +85,7 @@ export default function Search() {
   ), [products, query]);
 
   const changeProduct = (product: CatalogProduct, action: 'cart' | 'favorite') => {
-    if (action === 'cart' && getSessionSnapshot().authenticated && product.price === undefined) {
+    if (action === 'cart' && getSessionSnapshot().authenticated && product.price === undefined && !isDemoMode()) {
       shopping.showAlert('Please wait for current product prices to load.'); return Promise.resolve();
     }
     return action === 'cart' ? shopping.add(product) : shopping.toggle(product);
@@ -153,9 +154,9 @@ export default function Search() {
                   <Text style={styles.secondary} numberOfLines={1}>{label(item.brand) || label(item.category)}</Text>
               <View style={styles.addButtonContainer}>
                 <View style={styles.priceGroup}>
-                  {hasPrice ? <View style={styles.prices}>
-                    {onSale && <Text style={styles.oldPrice} >${price.toFixed(2)}</Text>}
-                    <Text style={[styles.price, onSale && styles.salePrice]} >${finalPrice.toFixed(2)}</Text>
+                  {hasPrice || isDemoMode() ? <View style={styles.prices}>
+                    {onSale && <Text style={styles.oldPrice} >{isDemoMode() ? DEMO_PRICE : `$${price.toFixed(2)}`}</Text>}
+                    <Text style={[styles.price, onSale && styles.salePrice]} >{isDemoMode() ? DEMO_PRICE : `$${finalPrice.toFixed(2)}`}</Text>
                   </View> : <Text style={styles.secondary}>Open for price details</Text>}
                 </View>
                 <AddToCartButton product={item} onAdjust={delta => void shopping.adjust(item, delta)} name={item.name} pending={cartBusy} unavailable={!available}

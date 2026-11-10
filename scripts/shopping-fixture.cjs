@@ -10,6 +10,7 @@ const session = { authenticated: true, revision: 1 };
 const { createShoppingState } = load('services/shopping-state.ts', {
   './authService': {}, './request': {}, './tokenStorage': { getSessionSnapshot: () => session, subscribeSession: () => {}, onPricingChanged: () => {} },
   './cartPricing': load('services/cartPricing.ts'), './product-price': load('services/product-price.ts'),
+  './demo-mode': { syncDemoMode: () => {} },
 });
 const product = id => ({ _id: id, id, name: id, price: 12, discountedPrice: 10, imageFrame: { zoom: 2, x: .5, y: -.5 } });
 const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; };

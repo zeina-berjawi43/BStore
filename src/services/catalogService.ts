@@ -4,6 +4,7 @@ import { API_URL } from './authService';
 import { request } from './request';
 import { reconcileItems } from './resource-cache';
 import { onSessionChanged, onPricingChanged } from './tokenStorage';
+import { syncDemoMode } from './demo-mode';
 
 export type CatalogProduct = {
   _id: string;
@@ -95,6 +96,7 @@ export async function fetchCatalog(token: string | null, force = false): Promise
     }, 8000);
     const data = await response.json();
     if (!response.ok) throw new Error(data?.message || 'Could not load products. Please try again.');
+    if (token) syncDemoMode(data);
     const next = normalize(Array.isArray(data) ? data : data.products);
     const products = reconcileItems(snapshot?.token === token ? snapshot.products : undefined, token ? next : publicOnly(next).map((item, i) => ({ ...item, availability: next[i].availability })));
     if (revision === generation) {
@@ -138,6 +140,7 @@ export async function fetchProductSection(section: ProductSection, token: string
     const response = await request(`${API_URL}/products/${section}`, { headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) } }, 8000);
     const data = await response.json();
     if (!response.ok) throw new Error('Could not load products. Please try again.');
+    if (token) syncDemoMode(data);
     const next = normalize(section === 'top-selling' && Array.isArray(data.products) ? data.products.map((item: any) => item?.product) : data.products);
     const products = reconcileItems(saved?.token === token ? saved.products : undefined, token ? next : publicOnly(next).map((item, i) => ({ ...item, availability: next[i].availability })));
     if (revision === generation) {

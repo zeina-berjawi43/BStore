@@ -9,6 +9,7 @@ import { ProductImage } from '../components/product-image';
 import { ImageFrame } from '../services/image-frame';
 
 import { cartTotal } from '../services/cartPricing';
+import { DEMO_PRICE, isDemoMode } from '../services/demo-mode';
 import { getSessionSnapshot } from '../services/tokenStorage';
 import { deliverySummary } from '../services/delivery-pricing';
 import {
@@ -202,8 +203,9 @@ export default function Cart() {
 
 
   const loadRevision = useRef(0);
-  const formatPrice = useCallback((price: number) => '$' + (Number(price) || 0).toFixed(2), []);
-  const formatPrice2 = useCallback((price: number) => '$' + (Number(price) || 0).toFixed(0), []);
+  const demo = isDemoMode();
+  const formatPrice = useCallback((price: number) => demo ? DEMO_PRICE : '$' + (Number(price) || 0).toFixed(2), [demo]);
+  const formatPrice2 = useCallback((price: number) => demo ? DEMO_PRICE : '$' + (Number(price) || 0).toFixed(0), [demo]);
 
   const loadCart = useCallback(async () => { await shoppingState.refresh(true, 'cart').catch(() => {}); }, []);
 
@@ -250,7 +252,8 @@ export default function Cart() {
 
   const total =
     cartTotal(cart);
-  const delivery = deliverySummary(total, shopping.deliveryRules, MINIMUM_ORDER);
+  // DEMO carts have no amounts: no minimum/delivery progress, checkout screen stays reachable.
+  const delivery = deliverySummary(total, demo ? undefined : shopping.deliveryRules, demo ? 0 : MINIMUM_ORDER);
   const showClassC = delivery.classC && getSessionSnapshot().authenticated;
   const progress = showClassC ? <View style={styles.progressBox}>
     <View style={styles.progressLabels}><Text style={styles.progressLabel}>$0</Text><Text style={styles.progressLabel}>Minimum {formatPrice2(shopping.deliveryRules!.minimumCheckoutAmount)}</Text><Text style={styles.progressLabel}>Free Delivery {formatPrice2(shopping.deliveryRules!.freeDeliveryThreshold ?? shopping.deliveryRules!.minimumCheckoutAmount)}</Text></View>
@@ -297,7 +300,7 @@ export default function Cart() {
         await shoppingState.synchronizeCart();
         const latest = shoppingState.getSnapshot();
         if (revision !== getSessionSnapshot().revision || latest.pendingCart.size) return;
-        const eligibility = deliverySummary(cartTotal(latest.cart), latest.deliveryRules, latest.minimum);
+        const eligibility = deliverySummary(cartTotal(latest.cart), isDemoMode() ? undefined : latest.deliveryRules, isDemoMode() ? 0 : latest.minimum);
         if (!latest.cart.length || !eligibility.allowed) {
           actionAlert('Checkout unavailable', eligibility.message);
           return;

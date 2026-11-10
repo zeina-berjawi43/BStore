@@ -15,6 +15,7 @@ import {
 
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
+import { phoneNumberError } from '../services/phone-number';
 
 import {
   verifyRegistrationOTP,
@@ -94,6 +95,9 @@ export default function VerifyOTP() {
       return;
     }
 
+    const phoneError = phoneNumberError(phone);
+    if (phoneError) { setError(phoneError); return; }
+
     const cleanOTP = otp.trim();
 
     if (!/^\d{6}$/.test(cleanOTP)) {
@@ -148,6 +152,9 @@ export default function VerifyOTP() {
       );
       return;
     }
+
+    const phoneError = phoneNumberError(phone);
+    if (phoneError) { setError(phoneError); return; }
 
     // Never pass a password through navigation params.
     // The user enters it again here when resending.

@@ -19,7 +19,7 @@ function fixture() {
   const request = async url => { calls.push(url); if (fail) throw Error('offline'); return { ok: true, json: async () => url.includes('/products') ? { products } : { categories: url.includes('/other/') ? [{ _id: 'other', name: 'Other department' }] : [{ _id: 'shampoo', name: 'Shampoo' }, { _id: 'hair', name: 'Hair Care' }] } }; };
   const resources = load('services/resource-cache.ts');
   const auth = { API_URL: 'https://test', getValidAccessToken: async () => token };
-  const catalog = load('services/catalogService.ts', { './resource-cache': resources, './authService': auth, './tokenStorage': tokens, './request': { request },
+  const catalog = load('services/catalogService.ts', { './resource-cache': resources, './authService': auth, './tokenStorage': tokens, './request': { request }, './demo-mode': { syncDemoMode: () => {} },
     '@react-native-async-storage/async-storage': { getItem: async () => null, setItem: async () => {} } });
   const react = {
     useState(initial) { const i = cursor++; if (!(i in slots)) slots[i] = typeof initial === 'function' ? initial() : initial; return [slots[i], value => { slots[i] = typeof value === 'function' ? value(slots[i]) : value; }]; },

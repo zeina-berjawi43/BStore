@@ -10,7 +10,7 @@ function fixture(file, name, context = {}) {
   const useState = initial => { const i = cursor++; if (!(i in slots)) slots[i] = typeof initial === 'function' ? initial() : initial; return [slots[i], value => { slots[i] = typeof value === 'function' ? value(slots[i]) : value; }]; };
   const exports = {};
   vm.runInNewContext(ts.transpileModule(fn.getText(ast) + '\nexports.fn = ' + name, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.React } }).outputText,
-    { exports, QuantitySelector: "QuantitySelector", React: { createElement: element }, useState, useEffect: fn => fn(), useCallback: fn => fn, useRef: value => { const i = cursor++; return slots[i] ||= { current: value }; }, ...context });
+    { exports, QuantitySelector: "QuantitySelector", React: { createElement: element }, useState, useEffect: fn => fn(), useCallback: fn => fn, useRef: value => { const i = cursor++; return slots[i] ||= { current: value }; }, isDemoMode: () => false, DEMO_PRICE: 'X$', DEMO_ORDER_MESSAGE: 'Demo Mode', ...context });
   return props => { cursor = 0; return exports.fn(props); };
 }
 function nodes(tree, predicate) {
@@ -24,21 +24,23 @@ function handler(file, name, context) {
   function walk(node) { if (ts.isVariableDeclaration(node) && node.name.getText(ast) === name) code = node.initializer.getText(ast); ts.forEachChild(node, walk); }
   walk(ast); assert.ok(code, name);
   const exports = {};
-  vm.runInNewContext(ts.transpileModule('exports.fn = ' + code, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, { exports, __DEV__: false, ...context });
+  vm.runInNewContext(ts.transpileModule('exports.fn = ' + code, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, { exports, __DEV__: false, isDemoMode: () => false, DEMO_PRICE: 'X$', DEMO_ORDER_MESSAGE: 'Demo Mode', ...context });
   return exports.fn;
 }
 
 test('Orders failure uses themed feedback and settles loading without changing its request', async () => {
-  let message, loading; const requests = [];
-  const load = handler('app/orders.tsx', 'loadOrders', { loading: false, setLoading: value => { loading = value; }, setOrders: () => {}, getValidAccessToken: async () => 'fixture', API_URL: 'https://fixture.test',
+  let message, loading; const requests = [], loadingRequest = { current: false };
+  const load = handler('app/orders.tsx', 'loadOrders', { loadingRequest, setLoading: value => { loading = value; }, setOrders: () => {}, getValidAccessToken: async () => 'fixture', API_URL: 'https://fixture.test',
     request: async (url, init) => { requests.push({ url, init }); return { ok: false, status: 503, json: async () => ({ message: 'Try again later' }) }; }, actionAlert: (...args) => { message = args; } });
   await load(); assert.equal(loading, false); assert.equal(requests[0].url, 'https://fixture.test/orders'); assert.equal(requests[0].init.method, 'GET');
+  assert.equal(loadingRequest.current, false); assert.equal(requests.length, 1);
   assert.deepEqual(Array.from(message), ['Orders unavailable', 'Try again later']);
 });
 
 test('Edit Account success navigates only after acknowledgment; verification cancel retains the old phone and needs confirmation', async () => {
   let notice, back = 0, phone, verifying; const calls = [];
   const context = { name: 'Maya Haddad', email: '', address: 'New address', phone: '71000000', originalPhone: '71000000', saving: false, verifyingPhone: false,
+    phoneNumberError: () => null,
     getValidAccessToken: async () => 'fixture', setSaving: () => {}, setPhone: value => { phone = value; }, router: { back: () => back++ }, actionAlert: (...args) => { notice = args; },
     saveProfileInformation: async (...args) => { calls.push(args); return { response: { ok: true, status: 200 }, data: {} }; } };
   await handler('app/edit-account.tsx', 'saveChanges', context)();
@@ -127,8 +129,24 @@ test('Recently Added retains navigation without prices or a cart action; detail 
 
 test('Offers See All opens the dedicated route without imperative Home scrolling', () => {
   const text = source('app/index.tsx');
-  assert.match(text, /router\.push\('\/offers'\)/);
-  assert.match(text, /See All/);
+  const ast = ts.createSourceFile('index.tsx', text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let button;
+  function walk(node) {
+    if (ts.isJsxText(node) && /^see all$/i.test(node.text.trim())) {
+      let parent = node.parent;
+      while (parent && !(ts.isJsxElement(parent) && parent.openingElement.tagName.getText(ast) === 'Pressable')) parent = parent.parent;
+      button = parent;
+    }
+    ts.forEachChild(node, walk);
+  }
+  walk(ast); assert.ok(button, 'The visible See All label must belong to a button');
+  const onPress = button.openingElement.attributes.properties.find(prop => prop.name?.getText(ast) === 'onPress');
+  assert.ok(onPress?.initializer && ts.isJsxExpression(onPress.initializer));
+  const exports = {}, routes = [];
+  vm.runInNewContext(ts.transpileModule('exports.press = ' + onPress.initializer.expression.getText(ast), {
+    compilerOptions: { target: ts.ScriptTarget.ES2022 },
+  }).outputText, { exports, router: { push: route => routes.push(route) } });
+  exports.press(); assert.deepEqual(routes, ['/offers']);
   assert.doesNotMatch(text, /offersSectionY|scrollToOffers/);
 });
 
@@ -210,7 +228,7 @@ test('Top Selling keeps the badge design at a 6px top inset for single/double-di
   const position = vm.runInNewContext('(' + text.match(/topSellingDiscountPosition: (\{[^}]+\})/)[1] + ')');
   assert.equal(position.top, 6); assert.equal(position.bottom, 'auto');
   const render = fixture('app/index.tsx', 'TopSellingProductRow', { useEffect: () => {},
-    Animated: { View: 'Animated', Value: class { interpolate() { return 0; } } }, View: 'View', Text: 'Text', Pressable: 'Pressable', ProductImage: 'ProductImage', Ionicons: 'Icon', AddToCartButton: 'AddToCartButton',
+    Animated: { View: 'Animated', Value: class { interpolate() { return 0; } } }, View: 'View', Text: 'Text', Pressable: 'Pressable', ProductImage: 'ProductImage', Ionicons: 'Icon', AddToCartButton: 'AddToCartButton', ProductFavoriteHeart: 'ProductFavoriteHeart',
     styles: { topSellingDiscountPosition: position }, getFinalPrice: product => product.discountedPrice });
   for (const discount of [0, 5, 20]) {
     const tree = render({ product: { id: 'A', name: 'A', price: 10, discount, discountedPrice: 10 * (1 - discount / 100) }, isLoggedIn: true });

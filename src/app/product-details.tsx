@@ -5,6 +5,7 @@ import { useShopping } from '../hooks/use-shopping';
 
 import { CartButton } from '../components/cart-button';
 import { getFinalPrice } from "../services/product-price";
+import { DEMO_PRICE, isDemoMode } from '../services/demo-mode';
 
 import { ProductImage } from '../components/product-image';
 import { ImageFrame } from '../services/image-frame';
@@ -280,6 +281,7 @@ const getBrandName = (
 const formatPrice = (
   amount: number
 ): string => {
+  if (isDemoMode()) return DEMO_PRICE;
 
   const safeAmount =
     Number(
@@ -973,7 +975,7 @@ export default function ProductDetails() {
 
           {isLoggedIn ? (
 
-            product.price !== undefined ? (
+            (product.price !== undefined || isDemoMode()) ? (
 
               <View
                 style={

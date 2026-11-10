@@ -3,6 +3,7 @@ import { request } from './request';
 import { getSessionSnapshot, subscribeSession, onPricingChanged } from './tokenStorage';
 import { currentCartPrices } from './cartPricing';
 import { getFinalPrice } from './product-price';
+import { syncDemoMode } from './demo-mode';
 import type { DeliveryRules } from './delivery-pricing';
 
 export type ShoppingProduct = { _id?: string; id?: string; name: string; discountedPrice?: number; price?: number; availability?: boolean; [key: string]: any };
@@ -33,7 +34,7 @@ export function createShoppingState(deps: { send: (path: string, method?: string
     : (confirmed.cart.find(item => item.product._id === id)?.quantity || 0) === quantity;
   const acceptCart = (data: any) => {
     if (!hasCart(data)) throw Error('Could not verify your cart. Please try again.');
-    confirmed = { ...confirmed, cart: currentCartPrices(data.cart?.items || []), minimum: data.minimumOrderValue ?? confirmed.minimum,
+    confirmed = { ...confirmed, cart: currentCartPrices(data.cart?.items || [], data.demoMode === true), minimum: data.minimumOrderValue ?? confirmed.minimum,
       deliveryRules: data.pricing?.deliveryRules ?? confirmed.deliveryRules };
     for (const [id, failure] of failedCart) if (matches(id, failure.quantity)) failedCart.delete(id);
     cartError = failedCart.values().next().value?.error || null;
@@ -264,6 +265,7 @@ export const shoppingState = createShoppingState({ authenticated: () => getSessi
     const response = await request(`${API_URL}${path}`, { method, headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, ...(body ? { body: JSON.stringify(body) } : {}) });
     const data = await response.json();
     if (!response.ok) throw Object.assign(Error(data.message || 'Could not save your change. Please try again.'), { status: response.status });
+    syncDemoMode(data);
     return data;
   } });
 let revision = getSessionSnapshot().revision;

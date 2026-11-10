@@ -18,6 +18,7 @@ import {
 } from 'expo-router';
 
 import { Ionicons } from '@expo/vector-icons';
+import { phoneNumberError } from '../services/phone-number';
 
 import {
   resetPassword,
@@ -66,7 +67,9 @@ export default function ResetPassword() {
   }, [resendSeconds]);
 
   const handleResend = async () => {
-    if (!phone || loading || resending || resendSeconds > 0) return;
+    if (loading || resending || resendSeconds > 0) return;
+    const phoneError = phoneNumberError(phone);
+    if (phoneError) { setError(phoneError); return; }
     setError('');
     setResendMessage('');
     try {
@@ -98,6 +101,9 @@ export default function ResetPassword() {
       );
       return;
     }
+
+    const phoneError = phoneNumberError(phone);
+    if (phoneError) { setError(phoneError); return; }
 
     const cleanOTP = otp.trim();
 

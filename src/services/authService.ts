@@ -1,6 +1,7 @@
 import { request } from './request';
 import { readTokens, updateTokens, clearTokens, applyRefresh, acknowledgeLogout, saveSessionUser, readSessionUser, getSessionSnapshot } from './tokenStorage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { requirePhoneNumber } from './phone-number';
 
 const API_URL = 'https://mystore-backend-u6ey.onrender.com';
 
@@ -203,6 +204,7 @@ export const registerUser = async ({
   password: string;
   confirmPassword: string;
 }): Promise<AuthResponse> => {
+  requirePhoneNumber(phone.trim());
   return authPost('register', {
     firstName: firstName.trim(),
     lastName: lastName.trim(),

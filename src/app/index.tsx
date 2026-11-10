@@ -13,6 +13,7 @@ import { PagedCarousel } from '../components/paged-carousel';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StartupScreen } from '../components/startup-screen';
 import { getFinalPrice } from '../services/product-price';
+import { DEMO_PRICE, isDemoMode } from '../services/demo-mode';
 import { ProductImage } from '../components/product-image';
 import { ImageFrame } from '../services/image-frame';
 
@@ -365,7 +366,7 @@ export default function Index() {
   };
 
   const addToCart = (product: Product, _cartPrice?: number) => {
-    if (getSessionSnapshot().authenticated && product.price === undefined) { showAlert('Please wait for current product prices to load.'); return Promise.resolve(); }
+    if (getSessionSnapshot().authenticated && product.price === undefined && !isDemoMode()) { showAlert('Please wait for current product prices to load.'); return Promise.resolve(); }
     return shopping.add(product);
   };
 
@@ -897,8 +898,8 @@ export default function Index() {
                   }
                 </Text>
 
-                {activeOffer.price !==
-                undefined ? (
+                {(activeOffer.price !==
+                undefined || isDemoMode()) ? (
                   <View
                     style={
                       styles.offerPriceRow
@@ -909,10 +910,9 @@ export default function Index() {
                         styles.offerOldPrice
                       }
                     >
-                      $
-                      {Number(
+                      {isDemoMode() ? DEMO_PRICE : `$${Number(
                         activeOffer.price
-                      ).toFixed(2)}
+                      ).toFixed(2)}`}
                     </Text>
 
                     <Text
@@ -920,8 +920,7 @@ export default function Index() {
                         styles.offerNewPrice
                       }
                     >
-                      $
-                      {getFinalPrice(activeOffer).toFixed(2)}
+                      {isDemoMode() ? DEMO_PRICE : `$${getFinalPrice(activeOffer).toFixed(2)}`}
                     </Text>
                   </View>
                 ) : (
@@ -1419,14 +1418,14 @@ function TopSellingProductRow({
             }
           >
             {isLoggedIn &&
-            product.price !==
-              undefined ? (
+            (product.price !==
+              undefined || isDemoMode()) ? (
               <View style={styles.topSellingPrices}>
                 {onSale && <Text style={styles.topSellingOldPrice} >
-                  ${Number(product.price).toFixed(2)}
+                  {isDemoMode() ? DEMO_PRICE : `$${Number(product.price).toFixed(2)}`}
                 </Text>}
                 <Text style={[styles.topSellingPrice, !isAvailable && styles.unavailableTopSellingPrice]} >
-                  ${finalPrice.toFixed(2)}
+                  {isDemoMode() ? DEMO_PRICE : `$${finalPrice.toFixed(2)}`}
                 </Text>
               </View>
             ) : (

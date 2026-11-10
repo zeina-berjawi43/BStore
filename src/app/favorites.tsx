@@ -7,6 +7,7 @@ import { shoppingState } from '../services/shopping-state';
 import { CartButton } from '../components/cart-button';
 
 import { getFinalPrice } from '../services/product-price';
+import { DEMO_PRICE, isDemoMode } from '../services/demo-mode';
 
 import { goBackOrHome, startShopping } from '../services/navigation';
 import { ProductImage } from '../components/product-image';
@@ -79,6 +80,7 @@ type FavoriteProduct = {
 const formatPrice = (
   price: number
 ) => {
+  if (isDemoMode()) return DEMO_PRICE;
 
   const safePrice =
     Number(price) || 0;
@@ -528,8 +530,8 @@ export default function Favorites() {
 
                     <View style={styles.priceActionsRow}>
                     <View style={styles.priceArea}>
-                    {product.price !==
-                    undefined ? (
+                    {(product.price !==
+                    undefined || isDemoMode()) ? (
 
                       hasDiscount ? (
 
