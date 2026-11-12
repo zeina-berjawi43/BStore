@@ -15,6 +15,7 @@ import { PHONE_NUMBER_LENGTH, phoneNumberError, sanitizePhoneInput } from '../se
 
 import {
   registerUser,
+  type PurchaseUsage,
 } from '../services/authService';
 
 export default function Register() {
@@ -24,6 +25,7 @@ export default function Register() {
   const [address, setAddress] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [purchaseUsage, setPurchaseUsage] = useState<PurchaseUsage | ''>('');
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] =
@@ -84,6 +86,11 @@ export default function Register() {
       return;
     }
 
+    if (purchaseUsage !== 'personal_home' && purchaseUsage !== 'mini_market_supermarket') {
+      setError('يرجى تحديد طبيعة استخدامكم للمشتريات');
+      return;
+    }
+
     try {
       setLoading(true);
 
@@ -94,6 +101,7 @@ export default function Register() {
         address: cleanAddress,
         password,
         confirmPassword,
+        purchaseUsage,
       });
 
       setPassword('');
@@ -351,6 +359,38 @@ export default function Register() {
             </Pressable>
           </View>
 
+          <View
+            accessibilityRole="radiogroup"
+            accessibilityLabel="ما هي طبيعة استخدامكم للمشتريات؟"
+            style={styles.usageQuestion}
+          >
+            <Text style={[styles.label, styles.arabicText]}>
+              ما هي طبيعة استخدامكم للمشتريات؟
+            </Text>
+            {([
+              ['personal_home', 'استهلاك شخصي ومنزلي'],
+              ['mini_market_supermarket', 'ميني ماركت / سوبر ماركت'],
+            ] as const).map(([value, label]) => (
+              <Pressable
+                key={value}
+                accessibilityRole="radio"
+                accessibilityLabel={label}
+                aria-checked={purchaseUsage === value}
+                disabled={loading}
+                onPress={() => {
+                  setPurchaseUsage(value);
+                  setError('');
+                }}
+                style={styles.usageOption}
+              >
+                <View style={[styles.radio, purchaseUsage === value && styles.radioSelected]}>
+                  {purchaseUsage === value ? <View style={styles.radioDot} /> : null}
+                </View>
+                <Text style={[styles.usageLabel, styles.arabicText]}>{label}</Text>
+              </Pressable>
+            ))}
+          </View>
+
           {/* ERROR */}
 
           {error ? (
@@ -361,7 +401,7 @@ export default function Register() {
                 color="#D93025"
               />
 
-              <Text style={styles.errorText}>
+              <Text style={[styles.errorText, error === 'يرجى تحديد طبيعة استخدامكم للمشتريات' && styles.arabicText]}>
                 {error}
               </Text>
             </View>
@@ -592,6 +632,51 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     marginBottom: 12,
     gap: 8,
+  },
+
+  usageQuestion: {
+    marginBottom: 14,
+  },
+
+  arabicText: {
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+
+  usageOption: {
+    direction: 'ltr',
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    minHeight: 48,
+    paddingVertical: 10,
+    gap: 10,
+  },
+
+  usageLabel: {
+    flex: 1,
+    fontSize: 14,
+    color: '#24221E',
+  },
+
+  radio: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: '#817B71',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  radioSelected: {
+    borderColor: '#E35B3F',
+  },
+
+  radioDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#E35B3F',
   },
 
   errorText: {

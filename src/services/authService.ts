@@ -189,6 +189,8 @@ const authPost = async (
 // REGISTRATION
 // ============================================================
 
+export type PurchaseUsage = 'personal_home' | 'mini_market_supermarket';
+
 export const registerUser = async ({
   firstName,
   lastName,
@@ -196,6 +198,7 @@ export const registerUser = async ({
   address,
   password,
   confirmPassword,
+  purchaseUsage,
 }: {
   firstName: string;
   lastName: string;
@@ -203,8 +206,12 @@ export const registerUser = async ({
   address: string;
   password: string;
   confirmPassword: string;
+  purchaseUsage: PurchaseUsage;
 }): Promise<AuthResponse> => {
   requirePhoneNumber(phone.trim());
+  if (purchaseUsage !== 'personal_home' && purchaseUsage !== 'mini_market_supermarket') {
+    throw new Error('يرجى تحديد طبيعة استخدامكم للمشتريات');
+  }
   return authPost('register', {
     firstName: firstName.trim(),
     lastName: lastName.trim(),
@@ -212,6 +219,7 @@ export const registerUser = async ({
     address: address.trim(),
     password,
     confirmPassword,
+    purchaseUsage,
   });
 };
 

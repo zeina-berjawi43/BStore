@@ -68,6 +68,7 @@ for (const platform of ['android', 'web']) for (const [file, action] of [
     const calls = [], errors = [], routes = [];
     const submit = handler(file, action, {
       loading: false, phone: value, firstName: 'Test', lastName: 'Customer', address: 'Fixture address',
+      purchaseUsage: 'personal_home',
       password: 'fixture-password', confirmPassword: 'fixture-password', rememberMe: false, Platform: { OS: platform },
       setError: text => { if (text) errors.push(text); }, setPhoneError: text => { if (text) errors.push(text); },
       setPasswordError() {}, setGeneralError() {}, setLoading() {}, setPassword() {}, setConfirmPassword() {},

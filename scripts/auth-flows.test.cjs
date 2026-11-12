@@ -70,13 +70,29 @@ function fixture(platform) {
   return { auth, tokens, calls, replies, reply, expectRequest, request: load(path.join(root, 'request.ts')).request };
 }
 
-const registration = () => ({ firstName: ' Test ', lastName: ' Customer ', phone: ' 71000000 ', address: ' Fixture address ', password: 'fixture-password-only', confirmPassword: 'fixture-password-only' });
+const registration = () => ({ firstName: ' Test ', lastName: ' Customer ', phone: ' 71000000 ', address: ' Fixture address ', password: 'fixture-password-only', confirmPassword: 'fixture-password-only', purchaseUsage: 'personal_home' });
 const registrationReply = { message: 'Registration successful. Your verification request is waiting for approval.', requiresPhoneVerification: true, verificationStatus: 'pending' };
 const resetReply = { message: 'If this phone number has a verified account, a password reset request has been created.' };
 const dnsFailure = () => Error('fetch failed: java.net.UnknownHostException: Unable to resolve host "mystore-backend-u6ey.onrender.com": No address associated with hostname');
 const connectionMessage = 'Cannot connect to BStore. Check your internet connection and try again. If the problem continues, try another network.';
 
 for (const platform of ['android', 'web']) {
+  test(`${platform}: registration rejects unanswered/invalid usage without HTTP and forwards only the explicit answer`, async () => {
+    const f = fixture(platform);
+    for (const purchaseUsage of [undefined, null, '', 'C-D', 'B-D', 'PERSONAL_HOME', ' personal_home', [], {}, true, 1]) {
+      await assert.rejects(f.auth.registerUser({ ...registration(), purchaseUsage }), /يرجى تحديد طبيعة استخدامكم للمشتريات/);
+    }
+    assert.equal(f.calls.length, 0);
+    for (const purchaseUsage of ['personal_home', 'mini_market_supermarket']) {
+      f.reply(201, registrationReply);
+      await f.auth.registerUser({ ...registration(), purchaseUsage, priceClass: 'A', role: 'admin' });
+      const body = JSON.parse(f.calls.at(-1).options.body);
+      assert.equal(body.purchaseUsage, purchaseUsage);
+      assert.equal(body.priceClass, undefined);
+      assert.equal(body.role, undefined);
+    }
+  });
+
   test(`${platform}: registration validates an eight-digit phone before any HTTP request`, async () => {
     const f = fixture(platform);
     for (const value of ['', '1234567', '123456789', '12ab5678', '1234+678', '1234 678', '١٢٣٤٥٦٧٨']) {
