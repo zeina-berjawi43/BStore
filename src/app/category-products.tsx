@@ -146,12 +146,12 @@ export default function CategoryProducts() {
   return <CategoryProductsScreen key={category} category={category} />;
 }
 
-export function CategoryProductsScreen({ category, offersOnly = false }: { category: string; offersOnly?: boolean }) {
+export function CategoryProductsScreen({ category, offersOnly = false, brand }: { category: string; offersOnly?: boolean; brand?: { id: string; name: string } }) {
   const { width } = useWindowDimensions();
   const columns = Platform.OS === 'web' ? (width >= 1024 ? 4 : width >= 768 ? 3 : 2) : 2;
   const shopping = useShopping();
   const { subCategories, selectedSubCategory, setSelectedSubCategory, loadingProducts,
-    loadingSubCategories, productsError, filteredProducts, isLoggedIn, retry } = useCatalogScreen(undefined, offersOnly ? 'ALL' : category, offersOnly);
+    loadingSubCategories, productsError, filteredProducts, isLoggedIn, retry } = useCatalogScreen(undefined, offersOnly || brand ? 'ALL' : category, offersOnly, brand?.id);
   const favorites = useMemo(() => new Set(shopping.favorites.map(p => String(p._id || p.id))), [shopping.favorites]);
   const { showAlert, feedback } = shopping;
   /* =======================================================
@@ -180,7 +180,9 @@ export function CategoryProductsScreen({ category, offersOnly = false }: { categ
      PAGE TITLE
   ======================================================= */
   const pageTitle =
-    category.toUpperCase() ===
+    brand
+      ? brand.name || 'Brand'
+      : category.toUpperCase() ===
     'ALL'
       ? 'All Products'
       : category;
@@ -363,7 +365,7 @@ export function CategoryProductsScreen({ category, offersOnly = false }: { categ
               }
             >
               {loadingProducts || productsError ? 'Please try again shortly.' : selectedSubCategory === 'ALL'
-                ? 'There are no products in this category yet.'
+                ? brand ? 'There are no products for this brand yet.' : 'There are no products in this category yet.'
                 : 'There are no products in this subcategory yet.'}
             </Text>
           </View>)}

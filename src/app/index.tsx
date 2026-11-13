@@ -21,6 +21,8 @@ import { ImageFrame } from '../services/image-frame';
 import { View, Text, StyleSheet, Pressable, ScrollView, Animated, RefreshControl, ActivityIndicator, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { HomeImage } from '../components/home-image';
+import { BrandCarousel } from '../components/brand-carousel';
+import type { HomeItem } from '../services/homeSectionsService';
 import { useHomeSection } from '../hooks/use-home-section';
 import { fetchCatalog, readPublicCatalog, readProductSection, fetchProductSection, peekPricedSection } from '../services/catalogService';
 
@@ -146,6 +148,12 @@ export default function Index() {
 
   const { items: departments, loading: departmentsLoading, error: departmentsError,
     hydrated: departmentsHydrated, refresh: loadDepartments } = useHomeSection('departments');
+
+  // Optional section: never blocks startup; hidden while empty, loading or failed.
+  const { items: homeBrands, refresh: loadBrands } = useHomeSection('brands');
+  const openBrand = useCallback((brand: HomeItem) => {
+    router.push({ pathname: '/brand-products', params: { id: brand.id, name: brand.name } });
+  }, []);
 
   const cartCount = shopping.cartCount;
   const favorites = shopping.favorites.map(p => ({ ...p, id: String(p._id || p.id), category: typeof p.category === 'object' ? p.category?.name || '' : p.category || '', brand: typeof p.brand === 'object' ? p.brand?.name || '' : p.brand || '' })) as Product[];
@@ -281,6 +289,8 @@ export default function Index() {
       }
       // Public sections can load without waiting for a token refresh.
       const requests: Promise<unknown>[] = [loadSlideshow(force), loadDepartments(force)];
+      // Not added to the success check: a brands failure must not affect Home refresh state.
+      void loadBrands(force)?.catch(() => {});
       const { token, loggedIn, failed } = await loadData();
       if (failed || generation !== homeGenerationRef.current) return false;
       accessTokenRef.current = token;
@@ -537,6 +547,16 @@ export default function Index() {
             ) : null}
           </View>
         </View>
+
+        {homeBrands.length > 0 && <View testID="home-brands" style={styles.homeSection}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionTitleRow}>
+              <View style={styles.sectionAccent} />
+              <Text style={styles.sectionTitle}>Shop by Brands</Text>
+            </View>
+          </View>
+          <BrandCarousel brands={homeBrands} onOpen={openBrand} />
+        </View>}
 
         <View testID="home-categories" style={styles.homeSection}>
         {/* MAIN DEPARTMENTS */}

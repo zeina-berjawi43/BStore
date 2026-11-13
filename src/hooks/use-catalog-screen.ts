@@ -21,7 +21,15 @@ export function selectCatalog(products: CatalogProduct[], subCategories: Categor
   }).sort((a, b) => getFinalPrice(b) - getFinalPrice(a));
 }
 
-export function useCatalogScreen(departmentId?: string, legacyName?: string, offersOnly = false) {
+const productBrandId = (product: CatalogProduct) => typeof product.brand === 'object' ? product.brand?._id : product.brand;
+const productCategoryId = (product: CatalogProduct) => typeof product.category === 'object' ? product.category?._id : product.category;
+
+// Products of one brand from the existing catalog (same visibility and pricing rules).
+export function selectBrandProducts(products: CatalogProduct[], brandId?: string) {
+  return brandId === undefined ? products : products.filter(product => !!brandId && productBrandId(product) === brandId);
+}
+
+export function useCatalogScreen(departmentId?: string, legacyName?: string, offersOnly = false, brandId?: string) {
   const session = useSyncExternalStore(subscribeSession, getSessionSnapshot, getSessionSnapshot);
   const path = departmentId ? `/departments/${encodeURIComponent(departmentId)}/categories` : '/categories';
   const [products, setProducts] = useState<CatalogProduct[]>(() => offersOnly ? [] : peekCurrentCatalog());
@@ -81,10 +89,12 @@ export function useCatalogScreen(departmentId?: string, legacyName?: string, off
     const tick = setInterval(() => { if (AppState.currentState === 'active' && (Platform.OS !== 'web' || document.visibilityState === 'visible')) void refresh(); }, 60_000);
     return () => { active = false; operation.current++; foreground.remove(); clearInterval(tick); };
   }, [path, offersOnly]));
-  const visibleCategories = useMemo(() => offersOnly ? subCategories.filter(category => products.some(product => (typeof product.category === 'object' ? product.category?._id : product.category) === category._id)) : legacyName && legacyName.toUpperCase() !== 'ALL'
+  const scoped = useMemo(() => selectBrandProducts(products, brandId), [products, brandId]);
+  const scopedTabs = offersOnly || brandId !== undefined;
+  const visibleCategories = useMemo(() => scopedTabs ? subCategories.filter(category => scoped.some(product => productCategoryId(product) === category._id)) : legacyName && legacyName.toUpperCase() !== 'ALL'
     ? subCategories.filter(item => typeof item.department === 'object' && item.department?.name?.toLowerCase().trim() === legacyName.toLowerCase().trim())
-    : subCategories, [subCategories, legacyName, offersOnly, products]);
-  const filteredProducts = useMemo(() => selectCatalog(products, visibleCategories, selectedSubCategory, offersOnly || (!departmentId && legacyName?.toUpperCase() === 'ALL')), [products, visibleCategories, selectedSubCategory, departmentId, legacyName, offersOnly]);
+    : subCategories, [subCategories, legacyName, scopedTabs, scoped]);
+  const filteredProducts = useMemo(() => selectCatalog(scoped, visibleCategories, selectedSubCategory, scopedTabs || (!departmentId && legacyName?.toUpperCase() === 'ALL')), [scoped, visibleCategories, selectedSubCategory, departmentId, legacyName, scopedTabs]);
   return { products, subCategories: visibleCategories, selectedSubCategory, setSelectedSubCategory, loadingProducts, loadingSubCategories,
     productsError, filteredProducts, isLoggedIn: session.authenticated, retry: () => { void refreshRef.current(true); } };
 }

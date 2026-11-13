@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { request } from './request';
 
 const API_URL = 'https://mystore-backend-u6ey.onrender.com';
-export type HomeSection = 'slides' | 'departments';
+export type HomeSection = 'slides' | 'departments' | 'brands';
 export type HomeItem = { id: string; name: string; image: string; imageKey?: string; order: number; active: boolean };
 const snapshots = new Map<HomeSection, HomeItem[]>();
 const refreshedAt = new Map<HomeSection, number>();
@@ -33,7 +33,7 @@ function normalize(section: HomeSection, data: unknown, fetchedAt: number): Home
     const item = raw as Record<string, unknown>;
     const id = item._id ?? item.id;
     if (typeof id !== 'string' || !id.trim()) throw new Error('Invalid Home identifier');
-    if (section === 'departments' && (typeof item.name !== 'string' || !item.name.trim())) {
+    if (section !== 'slides' && (typeof item.name !== 'string' || !item.name.trim())) {
       throw new Error('Invalid Home name');
     }
     let image = imageUrl(item.image);
@@ -53,8 +53,9 @@ function normalize(section: HomeSection, data: unknown, fetchedAt: number): Home
     if (!Number.isFinite(order)) throw new Error('Invalid Home order');
     return { id, name: typeof item.name === 'string' ? item.name : '', image, imageKey,
       order, active: true };
-  }).filter(item => item.active && (section !== 'slides' || !!item.image))
-    .sort((a, b) => a.order - b.order || (section === 'departments' ? a.name.localeCompare(b.name) : 0));
+  }).filter(item => item.active && (section === 'departments' || !!item.image))
+    // Brands: deterministic order, then name, then id (stable for equal values).
+    .sort((a, b) => a.order - b.order || (section === 'slides' ? 0 : a.name.localeCompare(b.name) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)));
 }
 
 export async function readHomeSection(section: HomeSection): Promise<HomeItem[] | null> {
@@ -82,7 +83,7 @@ export async function refreshHomeSection(section: HomeSection, force = true): Pr
   const revision = (revisions.get(section) || 0) + 1;
   revisions.set(section, revision);
   const operation = (async () => {
-    const endpoint = section === 'slides' ? 'slideshows' : 'departments';
+    const endpoint = section === 'slides' ? 'slideshows' : section === 'brands' ? 'brands/home' : 'departments';
     const response = await request(`${API_URL}/${endpoint}`, { headers: { Accept: 'application/json' } });
     if (!response.ok) throw new Error('Home content unavailable');
     const now = Date.now();

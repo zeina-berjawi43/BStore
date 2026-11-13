@@ -32,7 +32,7 @@ test('Home aggregate refresh reports partial failure and waits for every section
   const slow = new Promise(resolve => { finish = resolve; });
   const ref = value => ({ current: value });
   const load = handler('loadHome', { homeGenerationRef: ref(0), homeLoadedRef: ref(true), accessTokenRef: ref('A'), sectionsRef: ref(null),
-    loadSlideshow: async () => false, loadDepartments: () => slow, loadData: async () => ({ token: 'A', loggedIn: true }),
+    loadSlideshow: async () => false, loadDepartments: () => slow, loadBrands: async () => { throw Error('brands offline'); }, loadData: async () => ({ token: 'A', loggedIn: true }),
     peekPricedSection: () => [], setIsLoggedIn() {}, loadProducts: async () => true, loadOffers: async () => true, loadTopSelling: async () => true,
     loadCartCount: async () => { throw Error('cart offline'); }, loadFavorites: async () => {}, setInitialLoading() {} });
   const result = load(true).then(value => { completed = true; return value; });
