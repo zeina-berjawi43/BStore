@@ -254,7 +254,7 @@ function checkoutHandler(state, extra = {}) {
   const pushes = [], alerts = [], context = {
     shoppingState: state, checkoutInFlight: { current: false }, setCheckingOut: () => {},
     getSessionSnapshot: () => ({ revision: 1 }), editingQuantity: { current: null }, quantityDraft: { current: {} },
-    cartTotal: cartPrice, deliverySummary: deliveryProjection,
+    cartTotal: cartPrice, deliverySummary: deliveryProjection, isDemoMode: () => false,
     actionAlert: (...args) => alerts.push(args), router: { push: value => pushes.push(value) }, ...extra,
   };
   return { handler: screenFunction('cart.tsx', 'handleCheckout', context), pushes, alerts };

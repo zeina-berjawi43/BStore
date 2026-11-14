@@ -118,10 +118,14 @@ const buildImageUrl = (image: any): string => {
 
 export default function Index() {
   const { width: windowWidth } = useWindowDimensions();
-  // Keep every existing Home section at its established width. Only the Brand
-  // strip reaches the window edges, beyond the centered content and its gutters.
-  const brandBleed = 18 + (Platform.OS === 'web' ? Math.max(0, windowWidth - 1120) / 2 : 0);
-  const slideshowFit = Platform.OS === 'web' && windowWidth >= 1024 ? 'contain' : 'cover';
+  const isDesktopWeb = Platform.OS === 'web' && windowWidth >= 1024;
+  // Desktop Brands use the existing Categories container. Preserve the approved
+  // edge-to-edge strip on mobile Web and every native layout.
+  const brandBleed = isDesktopWeb ? 0 : 18 + (Platform.OS === 'web' ? Math.max(0, windowWidth - 1120) / 2 : 0);
+  // Current slide ratios are 1.50, 1.79 and 2.05. A compact 720x360 desktop
+  // frame contains them without the large side gaps of the 1120x218 banner.
+  const slideshowHeight = isDesktopWeb ? 360 : 218;
+  const slideshowFit = isDesktopWeb ? 'contain' : 'cover';
   const insets = useSafeAreaInsets();
   const shopping = useShopping();
   const { showAlert, feedback } = shopping;
@@ -462,12 +466,12 @@ export default function Index() {
 
         <View
           style={
-            styles.sliderWrapper
+            isDesktopWeb ? [styles.sliderWrapper, styles.desktopSliderWrapper] : styles.sliderWrapper
           }
           testID="home-slideshow"
         >
           <View
-            style={styles.slider}
+            style={isDesktopWeb ? [styles.slider, { height: slideshowHeight }] : styles.slider}
           >
             {slidesLoading && slides.length === 0 ? (
               <View
@@ -517,9 +521,10 @@ export default function Index() {
                 </Pressable>}
               </View>
             ) : (
-              <PagedCarousel items={slides} itemKey={slide => slide.id} height={218} resetKey={slideResetKey}
+              <PagedCarousel items={slides} itemKey={slide => slide.id} height={slideshowHeight} resetKey={slideResetKey}
                 onIndexChange={setCurrentSlide}
-                renderItem={slide => <HomeImage uri={slide.image} cacheKey={slide.imageKey} style={styles.slideImage} contentFit={slideshowFit} />} />
+                renderItem={slide => <HomeImage uri={slide.image} cacheKey={slide.imageKey}
+                  style={isDesktopWeb ? [styles.slideImage, { height: slideshowHeight }] : styles.slideImage} contentFit={slideshowFit} />} />
             )}
 
             {slides.length > 1 &&
@@ -1680,6 +1685,13 @@ const styles = StyleSheet.create({
   sliderWrapper: {
     marginHorizontal: -18,
     marginBottom: 25,
+  },
+
+  desktopSliderWrapper: {
+    marginHorizontal: 0,
+    width: '100%',
+    maxWidth: 720,
+    alignSelf: 'center',
   },
 
   slider: {

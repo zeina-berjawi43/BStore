@@ -12,6 +12,29 @@ function load(file, requireMock) {
   return exports;
 }
 
+test('Home layout refinements apply exclusively to Web widths of 1024px and above', () => {
+  const file = ts.createSourceFile('index.tsx', source('app/index.tsx'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const names = ['isDesktopWeb', 'brandBleed', 'slideshowHeight', 'slideshowFit'];
+  const declarations = [];
+  function visit(node) {
+    if (ts.isVariableDeclaration(node) && names.includes(node.name.getText(file))) declarations.push(node.getText(file));
+    ts.forEachChild(node, visit);
+  }
+  visit(file);
+  assert.equal(declarations.length, names.length);
+  const geometry = (os, width) => JSON.parse(vm.runInNewContext(
+    declarations.map(value => `const ${value};`).join('\n') + `JSON.stringify({${names.join(',')}})`,
+    { Platform: { OS: os }, windowWidth: width }));
+  const mobile = { isDesktopWeb: false, brandBleed: 18, slideshowHeight: 218, slideshowFit: 'cover' };
+  for (const os of ['android', 'ios']) for (const width of [320, 375, 412, 1024, 1280, 1440, 1920]) {
+    assert.deepEqual(geometry(os, width), mobile, `${os} ${width}px retains native geometry`);
+  }
+  for (const width of [320, 375, 412, 768, 1023]) assert.deepEqual(geometry('web', width), mobile);
+  for (const width of [1024, 1280, 1440, 1920]) assert.deepEqual(geometry('web', width), {
+    isDesktopWeb: true, brandBleed: 0, slideshowHeight: 360, slideshowFit: 'contain',
+  });
+});
+
 test('brands Home section: public endpoint, image required, deterministic order, cached for cold start', async () => {
   const disk = new Map(); const urls = [];
   const storage = { getItem: async key => disk.get(key) || null, setItem: async (key, value) => { disk.set(key, value); } };
