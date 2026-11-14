@@ -1,25 +1,32 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, AppState, Platform, Pressable, ScrollView, StyleSheet, Text, View,
+import { AccessibilityInfo, AppState, Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions,
   type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
-import { Image } from 'expo-image';
 import { useFocusEffect } from 'expo-router';
 import type { HomeItem } from '../services/homeSectionsService';
+import { HomeImage } from './home-image';
 
-// Fixed geometry keeps every circle, gap and label identical and lets the
-// loop width be computed exactly (no measuring, no drift between copies).
-export const BRAND_CIRCLE = 76;
-export const BRAND_ITEM_WIDTH = 88;
-export const BRAND_GAP = 14;
-const STEP = BRAND_ITEM_WIDTH + BRAND_GAP;
 const SPEED = 26; // px per second: calm, readable
 const RESUME_AFTER_MS = 2500;
+// Circle diameter follows the screen width: about 3 circles on a phone, capped on tablets/desktop web.
+export const BRAND_MIN_CIRCLE = 96;
+export const BRAND_MAX_CIRCLE = 136;
+// Logos without saved framing are contained in the inscribed square of the circle.
+export const BRAND_LOGO_INSET = 0.7;
+
+/** Responsive geometry. Every circle and gap is identical, so the loop width stays exact. */
+export function brandMetrics(windowWidth: number) {
+  const width = Number.isFinite(windowWidth) && windowWidth > 0 ? windowWidth : 390;
+  const circle = Math.min(BRAND_MAX_CIRCLE, Math.max(BRAND_MIN_CIRCLE, Math.round(width * 0.26)));
+  const gap = Math.round(circle * 0.15);
+  return { circle, gap, step: circle + gap };
+}
 
 /** Pure loop maths, exported for tests. */
-export function brandLoop(count: number, viewport: number) {
-  const span = count * STEP; // width of one full copy
+export function brandLoop(count: number, viewport: number, step: number, gap: number) {
+  const span = count * step; // width of one full copy
   // Loop only when one copy overflows the viewport; otherwise duplicates
   // would be visible side by side, so the row stays static instead.
-  const loops = count > 1 && viewport > 0 && span - BRAND_GAP > viewport;
+  const loops = count > 1 && viewport > 0 && span - gap > viewport;
   return { span, loops, copies: loops ? 3 : 1 };
 }
 
@@ -33,11 +40,24 @@ export function wrapOffset(x: number, span: number) {
 
 type Props = { brands: HomeItem[]; onOpen: (brand: HomeItem) => void };
 
+export function BrandCarouselSkeleton() {
+  const { width } = useWindowDimensions();
+  const { circle, gap, step } = brandMetrics(width);
+  const count = Math.max(3, Math.ceil(Math.min(width || 390, 1200) / step));
+  return <View testID="brand-carousel-skeleton" accessibilityRole="progressbar" accessibilityLabel="Loading brands"
+    pointerEvents="none" style={[styles.skeletonRow, { gap }]}>
+    {Array.from({ length: count }, (_, index) => <View key={index}
+      style={{ width: circle, height: circle, borderRadius: circle / 2, backgroundColor: '#EEE5D8' }} />)}
+  </View>;
+}
+
 export const BrandCarousel = memo(function BrandCarousel({ brands, onOpen }: Props) {
   const [viewport, setViewport] = useState(0);
   const [reducedMotion, setReducedMotion] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
-  const { span, loops, copies } = brandLoop(brands.length, viewport);
+  const { width: windowWidth } = useWindowDimensions();
+  const { circle, gap, step } = brandMetrics(windowWidth);
+  const { span, loops, copies } = brandLoop(brands.length, viewport, step, gap);
   const motion = loops && !reducedMotion;
 
   const state = useRef({ x: 0, focused: false, active: AppState.currentState === 'active', visible: true,
@@ -164,44 +184,36 @@ export const BrandCarousel = memo(function BrandCarousel({ brands, onOpen }: Pro
     <ScrollView ref={scrollRef} horizontal showsHorizontalScrollIndicator={false}
       // Native horizontal scrolling owns the gesture; vertical page scrolling is unaffected.
       directionalLockEnabled nestedScrollEnabled scrollEventThrottle={32} decelerationRate="normal"
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, { gap }]}
       {...handlers}>
-      {rows.map(({ key, brand, copy }) => <BrandItem key={key} brand={brand} onOpen={onOpen}
+      {rows.map(({ key, brand, copy }) => <BrandItem key={key} brand={brand} onOpen={onOpen} size={circle}
         onPressIn={pause} onPressOut={release} hidden={copy !== primaryCopy} />)}
     </ScrollView>
   </View>;
 });
 
-const BrandItem = memo(function BrandItem({ brand, onOpen, onPressIn, onPressOut, hidden }: {
-  brand: HomeItem; onOpen: (brand: HomeItem) => void; onPressIn: () => void; onPressOut: () => void; hidden: boolean;
+const BrandItem = memo(function BrandItem({ brand, onOpen, onPressIn, onPressOut, hidden, size }: {
+  brand: HomeItem; onOpen: (brand: HomeItem) => void; onPressIn: () => void; onPressOut: () => void; hidden: boolean; size: number;
 }) {
-  const [failed, setFailed] = useState(false);
-  useEffect(() => { setFailed(false); }, [brand.imageKey, brand.image]);
-  const initial = brand.name.trim().charAt(0).toUpperCase();
+  const logo = Math.round(size * BRAND_LOGO_INSET);
+  // Image only: the name stays available to screen readers and touch accessibility.
   return <Pressable onPress={() => onOpen(brand)} onPressIn={onPressIn} onPressOut={onPressOut}
     accessibilityRole="button" accessibilityLabel={`Shop ${brand.name}`}
     // Loop copies are visual only; screen readers see each brand once.
     accessibilityElementsHidden={hidden} importantForAccessibility={hidden ? 'no-hide-descendants' : 'auto'}
     aria-hidden={hidden || undefined} focusable={!hidden}
-    style={({ pressed }) => [styles.item, pressed && styles.pressed]}>
-    <View style={styles.circle}>
-      {brand.image && !failed ? <Image source={{ uri: brand.image, cacheKey: brand.imageKey || brand.image }}
-        recyclingKey={brand.imageKey || brand.image} style={styles.logo} contentFit="contain"
-        cachePolicy="memory-disk" transition={150} accessible={false} onError={() => setFailed(true)} />
-        : <Text style={styles.initial}>{initial}</Text>}
+    style={({ pressed }) => [{ width: size, height: size }, pressed && styles.pressed]}>
+    <View style={[styles.circle, { width: size, height: size, borderRadius: size / 2 }]}>
+      <HomeImage uri={brand.image} cacheKey={brand.imageKey || brand.image} style={StyleSheet.absoluteFill}
+        brand={{ logoSize: logo, imageFrame: brand.imageFrame }} />
     </View>
-    <Text style={styles.name} numberOfLines={1}>{brand.name}</Text>
   </Pressable>;
 });
 
 const styles = StyleSheet.create({
-  content: { paddingVertical: 2, gap: BRAND_GAP },
-  item: { width: BRAND_ITEM_WIDTH, alignItems: 'center' },
+  content: { paddingVertical: 2 },
+  skeletonRow: { flexDirection: 'row', overflow: 'hidden', paddingVertical: 2 },
   pressed: { opacity: 0.75 },
-  circle: { width: BRAND_CIRCLE, height: BRAND_CIRCLE, borderRadius: BRAND_CIRCLE / 2, backgroundColor: '#FFFFFF',
-    borderWidth: 1, borderColor: '#EFE6DA', overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
-  // Inscribed square (~0.7 x diameter): any logo shape is contained, never stretched or clipped.
-  logo: { width: Math.round(BRAND_CIRCLE * 0.7), height: Math.round(BRAND_CIRCLE * 0.7) },
-  initial: { fontSize: 26, fontWeight: '900', color: '#E35B3F' },
-  name: { marginTop: 7, width: '100%', textAlign: 'center', fontSize: 12, fontWeight: '800', color: '#171717' },
+  circle: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#EFE6DA', overflow: 'hidden',
+    alignItems: 'center', justifyContent: 'center' },
 });

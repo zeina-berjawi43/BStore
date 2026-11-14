@@ -1,9 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { request } from './request';
+import { validFrame, type ImageFrame } from './image-frame';
 
 const API_URL = 'https://mystore-backend-u6ey.onrender.com';
 export type HomeSection = 'slides' | 'departments' | 'brands';
-export type HomeItem = { id: string; name: string; image: string; imageKey?: string; order: number; active: boolean };
+export type HomeItem = { id: string; name: string; image: string; imageKey?: string; order: number; active: boolean; imageFrame?: ImageFrame };
 const snapshots = new Map<HomeSection, HomeItem[]>();
 const refreshedAt = new Map<HomeSection, number>();
 const revisions = new Map<HomeSection, number>();
@@ -11,6 +12,7 @@ const writes = new Map<HomeSection, Promise<void>>();
 const pending = new Map<HomeSection, Promise<HomeItem[]>>();
 const key = (section: HomeSection) => `homeSections:v1:${section}`;
 const FRESH_MS = 60_000;
+let brandRetryAt = 0;
 
 function imageUrl(image: unknown): string {
   if (image && typeof image === 'object') {
@@ -28,7 +30,8 @@ function imageUrl(image: unknown): string {
 
 function normalize(section: HomeSection, data: unknown, fetchedAt: number): HomeItem[] {
   if (!Array.isArray(data)) throw new Error('Invalid Home response');
-  return data.filter(raw => !(raw && typeof raw === 'object' && raw.active === false)).map((raw: unknown) => {
+  return data.filter(raw => !(raw && typeof raw === 'object' &&
+    (raw.active === false || (section === 'brands' && raw.showOnHome === false)))).map((raw: unknown) => {
     if (!raw || typeof raw !== 'object') throw new Error('Invalid Home item');
     const item = raw as Record<string, unknown>;
     const id = item._id ?? item.id;
@@ -51,11 +54,18 @@ function normalize(section: HomeSection, data: unknown, fetchedAt: number): Home
     }
     const order = Number(item.order) || (section === 'slides' ? 1 : 0);
     if (!Number.isFinite(order)) throw new Error('Invalid Home order');
+    // Brands only: optional saved framing (same contract as products); invalid = original logo.
+    const frame = item.imageFrame;
+    const imageFrame = section === 'brands' && validFrame(frame) ? { zoom: frame.zoom, x: frame.x, y: frame.y } : undefined;
     return { id, name: typeof item.name === 'string' ? item.name : '', image, imageKey,
-      order, active: true };
+      order, active: true, ...(imageFrame ? { imageFrame } : {}) };
   }).filter(item => item.active && (section === 'departments' || !!item.image))
     // Brands: deterministic order, then name, then id (stable for equal values).
     .sort((a, b) => a.order - b.order || (section === 'slides' ? 0 : a.name.localeCompare(b.name) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)));
+}
+
+export function peekHomeSection(section: HomeSection): HomeItem[] | null {
+  return snapshots.get(section) ?? null;
 }
 
 export async function readHomeSection(section: HomeSection): Promise<HomeItem[] | null> {
@@ -69,17 +79,28 @@ export async function readHomeSection(section: HomeSection): Promise<HomeItem[] 
           typeof item.name === 'string' && typeof item.image === 'string' &&
           Number.isFinite(item.order) && item.active === true &&
           (item.imageKey === undefined || typeof item.imageKey === 'string'))) return null;
+    // Hydrate only public Brand metadata, never arbitrary fields from persisted JSON.
+    const items = section === 'brands' ? parsed.items
+      .filter((item: HomeItem & { showOnHome?: boolean }) => item.id.trim() && item.name.trim() && item.image.trim() && item.showOnHome !== false)
+      .map((item: HomeItem): HomeItem => ({ id: item.id, name: item.name, image: item.image,
+        imageKey: item.imageKey, order: item.order, active: true,
+        ...(validFrame(item.imageFrame) ? { imageFrame: {
+          zoom: item.imageFrame.zoom, x: item.imageFrame.x, y: item.imageFrame.y } } : {}) })) : parsed.items;
     // A pending refresh must not prevent cold-start hydration. A completed refresh wins.
-    if (!snapshots.has(section)) snapshots.set(section, parsed.items);
+    if (!snapshots.has(section)) snapshots.set(section, items);
     return snapshots.get(section) ?? null;
   } catch { return null; }
 }
 
 export async function refreshHomeSection(section: HomeSection, force = true): Promise<HomeItem[]> {
   const cached = snapshots.get(section);
+  // A focus event must join an explicit refresh, even while the old snapshot is fresh.
+  if (section === 'brands' && pending.has(section)) return pending.get(section)!;
   if (!force && cached && Date.now() - (refreshedAt.get(section) || 0) < FRESH_MS) return cached;
   const inFlight = pending.get(section);
   if (inFlight) return inFlight;
+  // Retry on a later focus or explicit pull-to-refresh, never on a timer or every remount.
+  if (section === 'brands' && !force && Date.now() < brandRetryAt) throw new Error('Home content unavailable');
   const revision = (revisions.get(section) || 0) + 1;
   revisions.set(section, revision);
   const operation = (async () => {
@@ -92,13 +113,17 @@ export async function refreshHomeSection(section: HomeSection, force = true): Pr
     if (revision !== revisions.get(section)) return snapshots.get(section) ?? items;
     snapshots.set(section, items);
     refreshedAt.set(section, now);
+    if (section === 'brands') brandRetryAt = 0;
     // Serialize disk writes so an older successful response cannot finish last.
     const write = (writes.get(section) ?? Promise.resolve()).then(() =>
       AsyncStorage.setItem(key(section), JSON.stringify({ version: 1, items }))).catch(() => {});
     writes.set(section, write);
     void write.finally(() => { if (writes.get(section) === write) writes.delete(section); });
     return items;
-  })().finally(() => { if (pending.get(section) === operation) pending.delete(section); });
+  })().catch(error => {
+    if (section === 'brands') brandRetryAt = Date.now() + FRESH_MS;
+    throw error;
+  }).finally(() => { if (pending.get(section) === operation) pending.delete(section); });
   pending.set(section, operation);
   return operation;
 }

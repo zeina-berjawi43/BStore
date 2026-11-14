@@ -34,6 +34,7 @@ const mock = () => {
   const logo = id => `http://127.0.0.1:4176/logo/${id}`;
   const names = ['Nivea', 'Dove', 'Lindt', 'Nestle', 'Ariel', 'Lipton', 'Pringles', 'Garnier', 'Colgate', 'Kinder'];
   const brands = zero ? [] : names.map((name, i) => ({ _id: 'b' + i, name, image: logo((i === 3 ? 'broken' : i === 1 ? 'wide' : 'sq') + i), order: i, updatedAt: '2026-11-01' }));
+  if (brands[0]) brands[0].imageFrame = { zoom: 2, x: 0.5, y: -0.5 };
   const products = Array.from({ length: 40 }, (_, i) => ({ _id: 'P' + i, name: 'Product ' + i, discount: 0, availability: i % 7 !== 0,
     image: logo('sq-p' + i), category: { _id: i % 2 ? 'hair' : 'shampoo', name: i % 2 ? 'Hair Care' : 'Shampoo' },
     brand: { _id: 'b' + (i % 4), name: names[i % 4] } }));
@@ -44,7 +45,12 @@ const mock = () => {
     if (!url.includes('mystore-backend')) return originalFetch(input, options);
     const route = new URL(url).pathname; window.requests.push(route);
     let data = {};
-    if (route === '/brands/home') data = { brands };
+    if (route === '/brands/home') {
+      let outcome = 'success';
+      if (location.search.includes('brandState=slow')) outcome = await new Promise(resolve => { window.releaseBrands = resolve; });
+      if (outcome === 'fail') throw Error('Private Render/DNS failure');
+      data = { brands: outcome === 'empty' ? [] : brands };
+    }
     else if (route === '/products') data = { products };
     else if (route === '/products/top-selling') data = { products: [] };
     else if (route === '/products/offers') data = { products: [] };
@@ -79,22 +85,25 @@ const mock = () => {
     await send('Emulation.setTouchEmulationEnabled', { enabled: true });
     await send('Page.addScriptToEvaluateOnNewDocument', { source: '(' + mock.toString() + ')()' });
     await send('Page.navigate', { url: `http://127.0.0.1:${PORT}/` });
-    await until(`!!document.querySelector('[data-testid="home-brands"]') && document.body.innerText.includes('Shop by Categories')`);
+    await until(`!!document.querySelector('[data-testid="brand-carousel"]') && document.body.innerText.includes('Shop by Categories')`);
 
     // Position: immediately before Categories.
     const order = await evaluate(`(() => { const b = document.querySelector('[data-testid="home-brands"]'), c = document.querySelector('[data-testid="home-categories"]'); return { follows: b.nextElementSibling === c, title: b.innerText.startsWith('Shop by Brands') }; })()`);
     assert.deepEqual(order, { follows: true, title: true }); checks.push('Shop by Brands is the section immediately before Categories');
 
-    // Circles: equal sizes, round, labels centered; loop copies hidden from assistive tech.
+    // Circles: responsive sizes, image-only; loop copies hidden from assistive tech.
     const geometry = await evaluate(`(() => { const items = [...document.querySelectorAll('[data-testid="brand-carousel"] [role="button"]')];
       const circles = items.map(i => i.firstElementChild.getBoundingClientRect());
       const visible = items.filter(i => i.getAttribute('aria-hidden') !== 'true').map(i => i.getAttribute('aria-label'));
       return { count: items.length, sizes: [...new Set(circles.map(r => Math.round(r.width) + 'x' + Math.round(r.height)))],
         radius: getComputedStyle(items[0].firstElementChild).borderRadius, visible }; })()`);
     assert.equal(geometry.count, 30, '10 brands x 3 loop copies');
-    assert.deepEqual(geometry.sizes, ['76x76']); assert.equal(geometry.radius, '38px');
+    assert.deepEqual(geometry.sizes, ['107x107']); assert.equal(geometry.radius, '53.5px');
     assert.equal(geometry.visible.length, 10); assert.equal(geometry.visible[0], 'Shop Nivea');
-    checks.push('10 brands in order, identical 76px circles, screen readers see each brand once');
+    assert.equal(await evaluate(`document.querySelector('[data-testid="home-brands"]').innerText.includes('Nivea')`), false);
+    await until(`(() => { const item = document.querySelector('[aria-label="Shop Nivea"]'); const img = item?.querySelector('img');
+      if (!img?.naturalWidth) return false; for (let node = img; node && node !== item; node = node.parentElement) if (getComputedStyle(node).opacity === '0') return false; return true; })()`);
+    checks.push('107px image-only circles, framed logo displayed, accessible names kept without visible labels');
     await wait(1200); checks.push('screenshot: ' + await shot('home-brands'));
 
     // Automatic movement.
@@ -119,16 +128,16 @@ const mock = () => {
     checks.push('pauses on touch, manual swipe works, stays paused for the idle interval, resumes smoothly');
 
     // Loop wrap stays within the middle copy (no blank edge, no visible jump).
-    const span = 10 * (88 + 14);
+    const span = 10 * (107 + 16);
     await evaluate(`${scroller}.scrollLeft = ${2 * span - 30}`);
     await wait(2600); await wait(1500);
     const wrapped = await left();
     assert.ok(wrapped >= span - 5 && wrapped < 2 * span, `wrapped into middle copy (${wrapped})`);
     checks.push('seamless wrap keeps the offset inside the middle copy');
 
-    // Broken logo falls back to the brand initial without breaking layout.
-    const fallback = await evaluate(`[...document.querySelectorAll('[aria-label="Shop Nestle"]')].every(i => i.firstElementChild.innerText.trim() === 'N' && Math.round(i.firstElementChild.getBoundingClientRect().width) === 76)`);
-    assert.ok(fallback); checks.push('failed logo shows initial fallback in the same circle');
+    // Broken logos use the shared neutral fallback, never a broken img or empty circle.
+    const fallback = await evaluate(`[...document.querySelectorAll('[aria-label="Shop Nestle"]')].every(i => !i.querySelector('img') && i.querySelector('[aria-label="Image placeholder"]') && Math.round(i.firstElementChild.getBoundingClientRect().width) === 107)`);
+    assert.ok(fallback); checks.push('failed logo shows a neutral fallback in the same circle');
 
     // Tap a brand -> existing product list filtered by that brand, guest sees no prices.
     await evaluate(`document.querySelector('[aria-label="Shop Dove"]:not([aria-hidden="true"])').click()`);
@@ -152,6 +161,41 @@ const mock = () => {
     await wait(800);
     assert.equal(await evaluate(`!!document.querySelector('[data-testid="home-brands"]')`), false);
     checks.push('zero brands: section hidden, Categories still shown');
+
+    // Cold slow/failing response: Home remains usable and the skeleton disappears on failure.
+    await evaluate('localStorage.clear(); true');
+    await send('Page.navigate', { url: `http://127.0.0.1:${PORT}/?brandState=slow` });
+    await until(`!!document.querySelector('[data-testid="brand-carousel-skeleton"]') && document.body.innerText.includes('Shop by Categories') && typeof window.releaseBrands === 'function'`);
+    const skeleton = await evaluate(`(() => { const row = document.querySelector('[data-testid="brand-carousel-skeleton"]'); return [...row.children].every(c => c.getBoundingClientRect().width === 107 && c.getBoundingClientRect().height === 107); })()`);
+    assert.ok(skeleton);
+    assert.equal(await evaluate(`window.requests.filter(r => r === '/brands/home').length`), 1);
+    await evaluate(`window.releaseBrands('fail'); true`);
+    await until(`!document.querySelector('[data-testid="home-brands"]')`);
+    assert.equal(await evaluate(`document.body.innerText.includes('Private Render/DNS failure')`), false);
+    checks.push('cold slow request shows matching circles without blocking Home; cold failure hides quietly');
+
+    // Populate the real disk cache, then reload into a slow request.
+    await send('Page.navigate', { url: `http://127.0.0.1:${PORT}/` });
+    await until(`!!document.querySelector('[data-testid="brand-carousel"]') && !!localStorage.getItem('homeSections:v1:brands')`);
+    const cachedKey = await evaluate(`JSON.parse(localStorage.getItem('homeSections:v1:brands')).items[0].imageKey`);
+    await send('Page.navigate', { url: `http://127.0.0.1:${PORT}/?brandState=slow` });
+    await until(`!!document.querySelector('[data-testid="brand-carousel"]') && typeof window.releaseBrands === 'function'`);
+    assert.equal(await evaluate(`!!document.querySelector('[data-testid="brand-carousel-skeleton"]')`), false);
+    assert.equal(await evaluate(`JSON.parse(localStorage.getItem('homeSections:v1:brands')).items[0].imageKey`), cachedKey);
+    await evaluate(`window.releaseBrands('fail'); true`);
+    await wait(300);
+    assert.ok(await evaluate(`!!document.querySelector('[data-testid="brand-carousel"]')`));
+    await evaluate(`document.querySelector('[aria-label="Shop Dove"]:not([aria-hidden="true"])').click()`);
+    await until(`location.pathname === '/brand-products'`); await evaluate('history.back()');
+    await until(`location.pathname === '/' && !!document.querySelector('[data-testid="brand-carousel"]')`);
+    assert.equal(await evaluate(`window.requests.filter(r => r === '/brands/home').length`), 1, 'failed focus request is cooled down');
+    checks.push('warm disk cache paints during slow refresh, survives failure, and returning Home does not retry');
+
+    await send('Page.navigate', { url: `http://127.0.0.1:${PORT}/?brandState=slow` });
+    await until(`!!document.querySelector('[data-testid="brand-carousel"]') && typeof window.releaseBrands === 'function'`);
+    await evaluate(`window.releaseBrands('empty'); true`);
+    await until(`!document.querySelector('[data-testid="home-brands"]') && JSON.parse(localStorage.getItem('homeSections:v1:brands')).items.length === 0`);
+    checks.push('successful Admin removal hides warm Brands and replaces their disk cache with an empty list');
 
     assert.deepEqual(errors, [], 'no uncaught page errors');
     console.log('PASS\n- ' + checks.join('\n- '));

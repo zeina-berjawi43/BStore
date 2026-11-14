@@ -21,7 +21,7 @@ import { ImageFrame } from '../services/image-frame';
 import { View, Text, StyleSheet, Pressable, ScrollView, Animated, RefreshControl, ActivityIndicator, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { HomeImage } from '../components/home-image';
-import { BrandCarousel } from '../components/brand-carousel';
+import { BrandCarousel, BrandCarouselSkeleton } from '../components/brand-carousel';
 import type { HomeItem } from '../services/homeSectionsService';
 import { useHomeSection } from '../hooks/use-home-section';
 import { fetchCatalog, readPublicCatalog, readProductSection, fetchProductSection, peekPricedSection } from '../services/catalogService';
@@ -149,8 +149,8 @@ export default function Index() {
   const { items: departments, loading: departmentsLoading, error: departmentsError,
     hydrated: departmentsHydrated, refresh: loadDepartments } = useHomeSection('departments');
 
-  // Optional section: never blocks startup; hidden while empty, loading or failed.
-  const { items: homeBrands, refresh: loadBrands } = useHomeSection('brands');
+  // Optional section: cached content or a quiet first-visit placeholder; never blocks Home.
+  const { items: homeBrands, loading: brandsLoading, error: brandsError, refresh: loadBrands } = useHomeSection('brands');
   const openBrand = useCallback((brand: HomeItem) => {
     router.push({ pathname: '/brand-products', params: { id: brand.id, name: brand.name } });
   }, []);
@@ -548,14 +548,14 @@ export default function Index() {
           </View>
         </View>
 
-        {homeBrands.length > 0 && <View testID="home-brands" style={styles.homeSection}>
+        {(homeBrands.length > 0 || (brandsLoading && !brandsError)) && <View testID="home-brands" style={styles.homeSection}>
           <View style={styles.sectionHeader}>
             <View style={styles.sectionTitleRow}>
               <View style={styles.sectionAccent} />
               <Text style={styles.sectionTitle}>Shop by Brands</Text>
             </View>
           </View>
-          <BrandCarousel brands={homeBrands} onOpen={openBrand} />
+          {homeBrands.length > 0 ? <BrandCarousel brands={homeBrands} onOpen={openBrand} /> : <BrandCarouselSkeleton />}
         </View>}
 
         <View testID="home-categories" style={styles.homeSection}>

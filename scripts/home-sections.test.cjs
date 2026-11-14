@@ -14,7 +14,9 @@ function load(file, requireMock) {
 function service(disk = new Map(), options = {}) {
   const calls = [];
   const storage = { getItem: options.getItem || (async key => disk.get(key) || null), setItem: options.setItem || (async (key, value) => disk.set(key, value)) };
-  const api = load('services/homeSectionsService.ts', name => name.includes('async-storage') ? storage : { request: () => { const call = deferred(); calls.push(call); return call.promise; } });
+  const api = load('services/homeSectionsService.ts', name => name.includes('async-storage') ? storage :
+    name === './image-frame' ? load('services/image-frame.ts', () => ({})) :
+      { request: () => { const call = deferred(); calls.push(call); return call.promise; } });
   return { ...api, calls, disk };
 }
 const response = (section, items) => ({ ok: true, json: async () => ({ [section]: items }) });
@@ -31,7 +33,7 @@ function hooks() {
   react.useLayoutEffect = react.useEffect;
   return { react, render: fn => { cursor = 0; const result = fn(); effects.splice(0).forEach(fn => fn()); return result; }, unmount: () => slots.forEach(slot => slot?.cleanup?.()) };
 }
-for (const section of ['slides', 'departments']) {
+for (const section of ['slides', 'departments', 'brands']) {
   test(`${section}: cold-start persistence, failed/malformed refresh preservation, Admin updates and removals`, async () => {
     const api = service();
     assert.equal(await api.readHomeSection(section), null);
@@ -118,11 +120,11 @@ test('signed external image URLs stay intact while their cache revision changes'
   }
   assert.notEqual(keys[0], keys[1]);
 });
-for (const cached of [null, [{ id: 'cached' }]]) {
-  test(`hook: ${cached ? 'cached slow refresh' : 'first-launch placeholder'} and friendly failure`, async () => {
+for (const section of ['slides', 'brands']) for (const cached of [null, [{ id: 'cached' }]]) {
+  test(`hook ${section}: ${cached ? 'cached slow refresh' : 'first-launch placeholder'} and friendly failure`, async () => {
     const env = hooks(); const read = deferred(); const refresh = deferred();
-    const { useHomeSection } = load('hooks/use-home-section.ts', name => name === 'react' ? env.react : { readHomeSection: () => read.promise, refreshHomeSection: () => refresh.promise });
-    const render = () => env.render(() => useHomeSection('slides'));
+    const { useHomeSection } = load('hooks/use-home-section.ts', name => name === 'react' ? env.react : { peekHomeSection: () => null, readHomeSection: () => read.promise, refreshHomeSection: () => refresh.promise });
+    const render = () => env.render(() => useHomeSection(section));
     let state = render(); assert.equal(state.loading, true);
     const pending = state.refresh(); read.resolve(cached); await flush(); state = render();
     assert.equal(state.hydrated, true); assert.equal(state.loading, cached === null);
@@ -168,4 +170,127 @@ test('unchanged image URLs receive bounded renewal keys without invalidating eve
     }
     assert.equal(keys[0], keys[1]); assert.notEqual(keys[1], keys[2]);
   } finally { Date.now = original; }
+});
+
+test('Brands: memory cache paints synchronously and a successful empty refresh removes cached content', async () => {
+  const api = service();
+  const initial = api.refreshHomeSection('brands'); api.calls[0].resolve(response('brands', [item('A')]));
+  await initial;
+  const env = hooks();
+  const { useHomeSection } = load('hooks/use-home-section.ts', name => name === 'react' ? env.react : api);
+  const render = () => env.render(() => useHomeSection('brands'));
+  let state = render();
+  assert.equal(state.items[0].id, 'A'); assert.equal(state.loading, false);
+  const slow = state.refresh(true); state = render();
+  assert.equal(state.items[0].id, 'A'); assert.equal(state.loading, false);
+  api.calls[1].resolve(response('brands', [])); await slow; await flush();
+  state = render(); assert.equal(state.items.length, 0); assert.equal(state.error, '');
+  assert.equal((await service(api.disk).readHomeSection('brands')).length, 0, 'empty success replaces disk cache');
+});
+
+test('Brands: slow refresh allows disk hydration, but late disk data cannot resurrect removed Brands', async () => {
+  const disk = new Map([['homeSections:v1:brands', JSON.stringify({ version: 1, items: [
+    { id: 'cached', name: 'Cached', image: 'https://cdn.example/logo.png', imageKey: 'stable-image', active: true, order: 0 },
+  ] })]]);
+  const api = service(disk);
+  const refresh = api.refreshHomeSection('brands', false);
+  assert.equal((await api.readHomeSection('brands'))[0].imageKey, 'stable-image');
+  api.calls[0].resolve(response('brands', [])); await refresh;
+  const late = deferred(); const other = service(disk, { getItem: () => late.promise });
+  const read = other.readHomeSection('brands'); const removal = other.refreshHomeSection('brands');
+  other.calls[0].resolve(response('brands', [])); await removal;
+  late.resolve(JSON.stringify({ version: 1, items: [
+    { id: 'obsolete', name: 'Old', image: 'old.png', active: true, order: 0 },
+  ] }));
+  assert.equal((await read).length, 0);
+});
+
+test('Brands: failures retain cache, cooldown prevents repeated focus requests, explicit retry can recover', async () => {
+  const originalNow = Date.now; let now = 1000; Date.now = () => now;
+  try {
+    for (const warm of [false, true]) {
+      const api = service();
+      if (warm) { const initial = api.refreshHomeSection('brands'); api.calls[0].resolve(response('brands', [item('A')])); await initial; }
+      now += 60_001;
+      const failed = api.refreshHomeSection('brands', false);
+      api.calls.at(-1).reject(new Error('private Render/DNS error')); await assert.rejects(failed);
+      assert.equal((await api.readHomeSection('brands'))?.length ?? 0, warm ? 1 : 0);
+      const count = api.calls.length;
+      for (let n = 0; n < 3; n++) await assert.rejects(api.refreshHomeSection('brands', false));
+      assert.equal(api.calls.length, count, 'no automatic retry loop');
+      const explicit = api.refreshHomeSection('brands', true);
+      const focus = api.refreshHomeSection('brands', false);
+      assert.equal(api.calls.length, count + 1, 'focus shares explicit retry');
+      api.calls.at(-1).resolve(response('brands', [item('recovered')]));
+      assert.equal((await explicit)[0].id, 'recovered'); assert.equal((await focus)[0].id, 'recovered');
+      await api.refreshHomeSection('brands', false); assert.equal(api.calls.length, count + 1, 'fresh success is reused');
+      now += 60_001;
+      const later = api.refreshHomeSection('brands', false); api.calls.at(-1).resolve(response('brands', [])); await later;
+      assert.equal(api.peekHomeSection('brands').length, 0);
+    }
+    const cold = service(); const failed = cold.refreshHomeSection('brands', false);
+    cold.calls[0].reject(Error('offline')); await assert.rejects(failed);
+    now += 60_001;
+    const retry = cold.refreshHomeSection('brands', false);
+    assert.equal(cold.calls.length, 2); cold.calls[1].resolve(response('brands', [])); await retry;
+  } finally { Date.now = originalNow; }
+});
+
+test('Brands: focus joins a pending forced visibility refresh even while the old snapshot is fresh', async () => {
+  const api = service(); const initial = api.refreshHomeSection('brands');
+  api.calls[0].resolve(response('brands', [item('A')])); await initial;
+  const forced = api.refreshHomeSection('brands', true); const focus = api.refreshHomeSection('brands', false);
+  assert.equal(api.calls.length, 2);
+  api.calls[1].resolve(response('brands', []));
+  assert.equal((await forced).length, 0); assert.equal((await focus).length, 0);
+});
+
+test('Brands: API and disk caches keep only public metadata, framing and enabled visibility', async () => {
+  const frame = { zoom: 2, x: 0.5, y: -0.5 };
+  const api = service(); const refresh = api.refreshHomeSection('brands');
+  api.calls[0].resolve(response('brands', [item('A', { imageFrame: frame, price: 50, products: [{ price: 20 }] }),
+    item('disabled', { showOnHome: false })]));
+  const items = await refresh; await flush();
+  assert.equal(items.length, 1); assert.deepEqual({ ...items[0].imageFrame }, frame);
+  assert.doesNotMatch(api.disk.get('homeSections:v1:brands'), /price|products/);
+  const cached = JSON.parse(api.disk.get('homeSections:v1:brands'));
+  cached.items[0].price = 99; cached.items[0].accountId = 'private';
+  cached.items.push({ ...cached.items[0], id: 'hidden', showOnHome: false });
+  cached.items.push({ ...cached.items[0], id: '' });
+  api.disk.set('homeSections:v1:brands', JSON.stringify(cached));
+  const restored = await service(api.disk).readHomeSection('brands');
+  assert.equal(restored.length, 1); assert.equal(restored[0].imageKey, items[0].imageKey);
+  assert.equal('price' in restored[0], false); assert.equal('accountId' in restored[0], false);
+});
+
+test('Brand images retain the displayed image and crop until replacement displays; broken images never loop', () => {
+  const env = hooks(); const jsx = (type, props, key) => ({ type, props, key });
+  const { HomeImage } = load('components/home-image.tsx', name => name === 'react' ? env.react :
+    name === 'react/jsx-runtime' ? { jsx, jsxs: jsx } : name === 'expo-image' ? { Image: 'Image' } :
+    name === 'react-native' ? { View: 'View', StyleSheet: { create: value => value, absoluteFill: {} } } :
+    name === './product-image' ? { ProductImage: 'ProductImage' } :
+    name === '../services/image-frame' ? load('services/image-frame.ts', () => ({})) : { Ionicons: 'Icon' });
+  const frame = { zoom: 2, x: 0.5, y: -0.5 };
+  const render = (uri, imageFrame) => env.render(() => HomeImage({ uri, style: {}, brand: { logoSize: 75, imageFrame } }));
+  const images = tree => tree.props.children[1];
+  let tree = render('old', frame); assert.ok(tree.props.children[0]);
+  const old = images(tree)[0]; assert.equal(old.type, 'ProductImage'); old.props.onDisplay();
+  tree = render('new'); assert.equal(images(tree).length, 2);
+  assert.deepEqual(images(tree)[0].props.imageFrame, frame, 'displayed crop belongs to old image');
+  const next = images(tree)[1]; assert.equal(next.props.contentFit, 'contain');
+  assert.equal(next.props.cachePolicy, 'memory-disk'); assert.equal(next.props.source.cacheKey, 'new');
+  next.props.onError(); tree = render('new'); assert.equal(images(tree).length, 1);
+  next.props.onDisplay(); tree = render('new');
+  assert.equal(images(tree)[0].props.source.uri, 'old', 'late display after an error cannot replace usable content');
+  tree = render('broken'); images(tree).at(-1).props.onError(); tree = render('broken');
+  assert.equal(images(tree).some(image => image.props.source.uri === 'broken'), false);
+  const cold = hooks();
+  // Separate component instance: an initial error replaces the skeleton with a neutral icon.
+  const coldImage = load('components/home-image.tsx', name => name === 'react' ? cold.react :
+    name === 'react/jsx-runtime' ? { jsx, jsxs: jsx } : name === 'expo-image' ? { Image: 'Image' } :
+    name === 'react-native' ? { View: 'View', StyleSheet: { create: value => value, absoluteFill: {} } } :
+    name === '../services/image-frame' ? load('services/image-frame.ts', () => ({})) : { Ionicons: 'Icon' });
+  const coldRender = () => cold.render(() => coldImage.HomeImage({ uri: 'broken', style: {}, brand: { logoSize: 75 } }));
+  tree = coldRender(); images(tree)[0].props.onError(); tree = coldRender();
+  assert.equal(images(tree).length, 0); assert.equal(tree.props.children[0].props.children.props.name, 'image-outline');
 });

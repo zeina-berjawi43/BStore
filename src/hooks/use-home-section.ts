@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { readHomeSection, refreshHomeSection, type HomeItem, type HomeSection } from '../services/homeSectionsService';
+import { peekHomeSection, readHomeSection, refreshHomeSection, type HomeItem, type HomeSection } from '../services/homeSectionsService';
 
 export function useHomeSection(section: HomeSection) {
-  const [items, setItems] = useState<HomeItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cached = section === 'brands' ? peekHomeSection(section) : null;
+  const [items, setItems] = useState<HomeItem[]>(cached ?? []);
+  const [loading, setLoading] = useState(cached === null);
   const [error, setError] = useState('');
-  const [hydrated, setHydrated] = useState(false);
+  const [hydrated, setHydrated] = useState(cached !== null);
   const revision = useRef(0);
   const fresh = useRef(false);
   const mounted = useRef(true);
