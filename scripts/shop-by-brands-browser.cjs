@@ -56,7 +56,10 @@ const mock = () => {
     else if (route === '/products/offers') data = { products: [] };
     else if (route === '/departments') data = { departments: [{ _id: 'dept', name: 'Personal Care', active: true }] };
     else if (route === '/categories') data = { categories: [{ _id: 'shampoo', name: 'Shampoo', department: 'dept' }, { _id: 'hair', name: 'Hair Care', department: 'dept' }] };
-    else if (route === '/slideshows') data = { slides: [] };
+    else if (route === '/slideshows') data = { slides: [
+      { _id: 'slide-1', image: logo('wide-slide'), active: true, order: 1 },
+      { _id: 'slide-2', image: logo('wide-slide-2'), active: true, order: 2 },
+    ] };
     return new Response(JSON.stringify(data), { status: 200, headers: { 'Content-Type': 'application/json' } });
   };
 };
@@ -90,6 +93,35 @@ const mock = () => {
     // Position: immediately before Categories.
     const order = await evaluate(`(() => { const b = document.querySelector('[data-testid="home-brands"]'), c = document.querySelector('[data-testid="home-categories"]'); return { follows: b.nextElementSibling === c, title: b.innerText.startsWith('Shop by Brands') }; })()`);
     assert.deepEqual(order, { follows: true, title: true }); checks.push('Shop by Brands is the section immediately before Categories');
+
+    // Only the Brand strip escapes the Home gutters and desktop content cap.
+    // Slideshow height and every other section retain their existing geometry.
+    for (const width of [320, 412, 768, 1024, 1280, 1440, 1920]) {
+      await send('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: true });
+      await until(`Math.abs(document.querySelector('[data-testid="brand-carousel"]').getBoundingClientRect().width - ${width}) < 1`);
+      await until(`document.querySelector('[data-testid="home-slideshow"] img')?.naturalWidth > 0`);
+      await until(`getComputedStyle(document.querySelector('[data-testid="home-slideshow"] img')).objectFit === '${width >= 1024 ? 'contain' : 'cover'}'`);
+      const metrics = await evaluate(`(() => {
+        const bounds = selector => { const r = document.querySelector(selector).getBoundingClientRect(); return { left: r.left, right: r.right, width: r.width, height: r.height }; };
+        const slide = document.querySelector('[data-testid="home-slideshow"]');
+        return { brand: bounds('[data-testid="brand-carousel"]'), categories: bounds('[data-testid="home-categories"]'),
+          slide: bounds('[data-testid="home-slideshow"]'), fit: getComputedStyle(slide.querySelector('img')).objectFit,
+          dots: slide.firstElementChild.lastElementChild.children.length, overflow: document.documentElement.scrollWidth > innerWidth };
+      })()`);
+      assert.ok(Math.abs(metrics.brand.left) < 1 && Math.abs(metrics.brand.right - width) < 1, JSON.stringify(metrics));
+      const contentWidth = Math.min(width, 1120), inset = (width - contentWidth) / 2;
+      assert.ok(Math.abs(metrics.categories.left - inset - 18) < 1);
+      assert.ok(Math.abs(metrics.categories.width - contentWidth + 36) < 1);
+      assert.ok(Math.abs(metrics.slide.left - inset) < 1 && Math.abs(metrics.slide.width - contentWidth) < 1);
+      assert.equal(metrics.slide.height, 218);
+      assert.equal(metrics.fit, width >= 1024 ? 'contain' : 'cover');
+      assert.equal(metrics.dots, 2, 'slideshow indicators remain present');
+      assert.equal(metrics.overflow, false, 'full bleed must not create page-level horizontal scrolling');
+    }
+    await send('Emulation.setDeviceMetricsOverride', { width: 412, height: 900, deviceScaleFactor: 2, mobile: true });
+    await until(`Math.abs(document.querySelector('[data-testid="brand-carousel"]').getBoundingClientRect().width - 412) < 1`);
+    await until(`Math.round(document.querySelector('[data-testid="brand-carousel"] [role="button"]').getBoundingClientRect().width) === 107`);
+    checks.push('320/412/768/1024/1280/1440/1920px: Brand strip reaches both edges; other sections keep their widths; desktop slides contain, mobile stays cover at 218px');
 
     // Circles: responsive sizes, image-only; loop copies hidden from assistive tech.
     const geometry = await evaluate(`(() => { const items = [...document.querySelectorAll('[data-testid="brand-carousel"] [role="button"]')];
@@ -136,8 +168,14 @@ const mock = () => {
     checks.push('seamless wrap keeps the offset inside the middle copy');
 
     // Broken logos use the shared neutral fallback, never a broken img or empty circle.
-    const fallback = await evaluate(`[...document.querySelectorAll('[aria-label="Shop Nestle"]')].every(i => !i.querySelector('img') && i.querySelector('[aria-label="Image placeholder"]') && Math.round(i.firstElementChild.getBoundingClientRect().width) === 107)`);
-    assert.ok(fallback); checks.push('failed logo shows a neutral fallback in the same circle');
+    // Offscreen loop copies may defer their image load after a viewport resize.
+    // Check the primary copy, which is the actual interactive carousel content.
+    const fallback = await evaluate(`(() => {
+      const item = document.querySelector('[aria-label="Shop Nestle"]:not([aria-hidden="true"])');
+      return item && { image: !!item.querySelector('img'), placeholder: !!item.querySelector('[aria-label="Image placeholder"]'), size: Math.round(item.firstElementChild.getBoundingClientRect().width) };
+    })()`);
+    assert.ok(fallback && !fallback.image && fallback.placeholder && fallback.size === 107, JSON.stringify(fallback));
+    checks.push('failed logo shows a neutral fallback in the same circle');
 
     // Tap a brand -> existing product list filtered by that brand, guest sees no prices.
     await evaluate(`document.querySelector('[aria-label="Shop Dove"]:not([aria-hidden="true"])').click()`);

@@ -53,17 +53,17 @@ test('brand geometry: larger responsive circles, static when brands fit, seamles
   for (const width of [320, 360, 393, 412, 430, 600, 768, 1024, 1440]) {
     const m = metrics(width);
     assert.ok(m.circle >= 96 && m.circle <= 136 && Number.isInteger(m.circle) && m.gap > 0, String(width));
-    // With the Home 18px gutters at least ~2.5 circles stay visible on phones.
-    if (width <= 430) assert.ok((width - 36) / m.step >= 2.5, 'phone shows several brands: ' + width);
+    // The full-width strip keeps several circles visible on phones.
+    if (width <= 430) assert.ok(width / m.step >= 2.5, 'phone shows several brands: ' + width);
   }
   const { step, gap } = metrics(412);
   const brandLoop = (count, viewport) => ({ ...carousel.brandLoop(count, viewport, step, gap) });
-  assert.deepEqual(brandLoop(0, 376), { span: 0, loops: false, copies: 1 });
-  assert.equal(brandLoop(1, 376).loops, false);
-  assert.equal(brandLoop(3, 376).loops, false, 'three brands fit a phone: no duplicates on screen');
-  assert.equal(brandLoop(4, 376).loops, true);
+  assert.deepEqual(brandLoop(0, 412), { span: 0, loops: false, copies: 1 });
+  assert.equal(brandLoop(1, 412).loops, false);
+  assert.equal(brandLoop(3, 412).loops, false, 'three brands fit a phone: no duplicates on screen');
+  assert.equal(brandLoop(4, 412).loops, true);
   assert.equal(brandLoop(4, 0).loops, false, 'not measured yet');
-  const many = brandLoop(10, 376);
+  const many = brandLoop(10, 412);
   assert.deepEqual(many, { span: 10 * step, loops: true, copies: 3 });
   for (const x of [0, 5, many.span - 1, many.span, 1.5 * many.span, 2 * many.span, 2 * many.span + 7, 3 * many.span]) {
     const wrapped = wrapOffset(x, many.span);
@@ -72,7 +72,7 @@ test('brand geometry: larger responsive circles, static when brands fit, seamles
   }
   // Middle copy plus a full viewport always fits inside rendered content (no blank edge).
   for (const width of [320, 412, 768, 1440]) for (const count of [2, 5, 40]) {
-    const m = metrics(width), viewport = Math.min(width, 1200) - 36;
+    const m = metrics(width), viewport = width;
     const loop = carousel.brandLoop(count, viewport, m.step, m.gap);
     if (loop.loops) assert.ok(2 * loop.span + viewport <= 3 * loop.span - m.gap);
   }
@@ -158,6 +158,7 @@ test('Brand skeleton follows the same responsive circles without starting carous
     assert.equal(skeleton.props.style[0].overflow, 'hidden');
     assert.equal(skeleton.props.style[1].gap, metrics.gap);
     assert.ok(skeleton.props.children.length >= 3);
+    assert.ok(skeleton.props.children.length * metrics.step >= width, 'skeleton fills the full viewport');
     for (const child of skeleton.props.children) {
       assert.equal(child.props.style.width, metrics.circle);
       assert.equal(child.props.style.height, metrics.circle);
@@ -193,7 +194,7 @@ test('actual Home Brand slot shows a cold skeleton, keeps warm content on failur
   ]) {
     const exports = {};
     vm.runInNewContext(output, { exports, homeBrands: items, brandsLoading: loading, brandsError: error,
-      styles: {}, View: 'View', Text: 'Text', BrandCarousel: 'Carousel', BrandCarouselSkeleton: 'Skeleton', openBrand() {},
+      styles: {}, brandBleed: 18, View: 'View', Text: 'Text', BrandCarousel: 'Carousel', BrandCarouselSkeleton: 'Skeleton', openBrand() {},
       require: () => ({ jsx, jsxs: jsx }) });
     if (!expected) assert.equal(exports.slot, false);
     else assert.ok(walk(exports.slot).some(node => node.type === expected));

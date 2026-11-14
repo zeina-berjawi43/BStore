@@ -43,7 +43,7 @@ type Props = { brands: HomeItem[]; onOpen: (brand: HomeItem) => void };
 export function BrandCarouselSkeleton() {
   const { width } = useWindowDimensions();
   const { circle, gap, step } = brandMetrics(width);
-  const count = Math.max(3, Math.ceil(Math.min(width || 390, 1200) / step));
+  const count = Math.max(3, Math.ceil((width || 390) / step));
   return <View testID="brand-carousel-skeleton" accessibilityRole="progressbar" accessibilityLabel="Loading brands"
     pointerEvents="none" style={[styles.skeletonRow, { gap }]}>
     {Array.from({ length: count }, (_, index) => <View key={index}

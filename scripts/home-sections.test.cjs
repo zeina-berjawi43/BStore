@@ -148,6 +148,22 @@ test('image replacement keeps displayed content, ignores obsolete display callba
   assert.equal(images(tree).length, 1); assert.equal(images(tree)[0].props.source.uri, 'new');
 });
 
+test('desktop slideshow can contain the image without remounting its cached source or changing default fit', () => {
+  const env = hooks(); const jsx = (type, props, key) => ({ type, props, key });
+  const { HomeImage } = load('components/home-image.tsx', name => name === 'react' ? env.react :
+    name === 'react/jsx-runtime' ? { jsx, jsxs: jsx } : name === 'expo-image' ? { Image: 'Image' } :
+    name === 'react-native' ? { View: 'View', StyleSheet: { create: value => value, absoluteFill: {} } } : { Ionicons: 'Icon' });
+  const render = contentFit => env.render(() => HomeImage({ uri: 'slide', cacheKey: 'cached-slide', style: {}, contentFit }));
+  let tree = render(); const original = tree.props.children[1][0];
+  assert.equal(original.props.contentFit, 'cover'); original.props.onDisplay();
+  tree = render('contain');
+  assert.equal(tree.props.children[1].length, 1);
+  assert.equal(tree.props.children[1][0].key, original.key);
+  assert.equal(tree.props.children[1][0].props.source.cacheKey, 'cached-slide');
+  assert.equal(tree.props.children[1][0].props.contentFit, 'contain');
+  assert.equal(render().props.children[1][0].props.contentFit, 'cover');
+});
+
 test('hook successful refresh wins over late hydration and older refresh; unmount ignores completion', async () => {
   const env = hooks(); const disk = deferred(); const calls = [];
   const { useHomeSection } = load('hooks/use-home-section.ts', name => name === 'react' ? env.react : { readHomeSection: () => disk.promise, refreshHomeSection: () => { const pending = deferred(); calls.push(pending); return pending.promise; } });

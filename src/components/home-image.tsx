@@ -7,10 +7,10 @@ import { validFrame, type ImageFrame } from '../services/image-frame';
 
 type Source = { uri: string; cacheKey: string; displayKey: string; imageFrame?: ImageFrame };
 type Props = { uri: string; cacheKey?: string; style: StyleProp<ViewStyle>;
-  brand?: { logoSize: number; imageFrame?: ImageFrame } };
+  brand?: { logoSize: number; imageFrame?: ImageFrame }; contentFit?: 'cover' | 'contain' };
 
 // Keep the previous image mounted until its replacement has actually displayed.
-export function HomeImage({ uri, cacheKey = uri, style, brand }: Props) {
+export function HomeImage({ uri, cacheKey = uri, style, brand, contentFit = 'cover' }: Props) {
   // Crop edits reuse the image cache, but must not reuse obsolete display callbacks.
   const frame = brand?.imageFrame;
   const displayKey = brand && validFrame(frame) ? `${cacheKey}:${frame.zoom}:${frame.x}:${frame.y}` : cacheKey;
@@ -38,7 +38,7 @@ export function HomeImage({ uri, cacheKey = uri, style, brand }: Props) {
           style={[StyleSheet.absoluteFill, pending]} accessible={false} />
         : <Image key={source.displayKey} {...props}
           style={brand ? [styles.brandLogo, { width: brand.logoSize, height: brand.logoSize }, pending] : StyleSheet.absoluteFill}
-          contentFit={brand ? 'contain' : 'cover'} accessible={brand ? false : undefined} />;
+          contentFit={brand ? 'contain' : contentFit} accessible={brand ? false : undefined} />;
     })}
   </View>;
 }

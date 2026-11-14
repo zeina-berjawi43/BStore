@@ -18,7 +18,7 @@ import { ProductImage } from '../components/product-image';
 import { ImageFrame } from '../services/image-frame';
 
 
-import { View, Text, StyleSheet, Pressable, ScrollView, Animated, RefreshControl, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, Animated, RefreshControl, ActivityIndicator, Platform, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { HomeImage } from '../components/home-image';
 import { BrandCarousel, BrandCarouselSkeleton } from '../components/brand-carousel';
@@ -117,6 +117,11 @@ const buildImageUrl = (image: any): string => {
 };
 
 export default function Index() {
+  const { width: windowWidth } = useWindowDimensions();
+  // Keep every existing Home section at its established width. Only the Brand
+  // strip reaches the window edges, beyond the centered content and its gutters.
+  const brandBleed = 18 + (Platform.OS === 'web' ? Math.max(0, windowWidth - 1120) / 2 : 0);
+  const slideshowFit = Platform.OS === 'web' && windowWidth >= 1024 ? 'contain' : 'cover';
   const insets = useSafeAreaInsets();
   const shopping = useShopping();
   const { showAlert, feedback } = shopping;
@@ -514,7 +519,7 @@ export default function Index() {
             ) : (
               <PagedCarousel items={slides} itemKey={slide => slide.id} height={218} resetKey={slideResetKey}
                 onIndexChange={setCurrentSlide}
-                renderItem={slide => <HomeImage uri={slide.image} cacheKey={slide.imageKey} style={styles.slideImage} />} />
+                renderItem={slide => <HomeImage uri={slide.image} cacheKey={slide.imageKey} style={styles.slideImage} contentFit={slideshowFit} />} />
             )}
 
             {slides.length > 1 &&
@@ -555,7 +560,9 @@ export default function Index() {
               <Text style={styles.sectionTitle}>Shop by Brands</Text>
             </View>
           </View>
-          {homeBrands.length > 0 ? <BrandCarousel brands={homeBrands} onOpen={openBrand} /> : <BrandCarouselSkeleton />}
+          <View style={{ marginHorizontal: -brandBleed }}>
+            {homeBrands.length > 0 ? <BrandCarousel brands={homeBrands} onOpen={openBrand} /> : <BrandCarouselSkeleton />}
+          </View>
         </View>}
 
         <View testID="home-categories" style={styles.homeSection}>
@@ -1618,6 +1625,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingTop: 19,
     paddingBottom: 20,
+    ...(Platform.OS === 'web' ? { width: '100%', maxWidth: 1120, alignSelf: 'center' as const } : {}),
   },
 
   header: {
@@ -2285,6 +2293,7 @@ const styles = StyleSheet.create({
   },
 
   bottomNav: { borderColor: 'transparent',
+    ...(Platform.OS === 'web' ? { width: '100%', maxWidth: 1120, alignSelf: 'center' as const } : {}),
     height: 76,
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
