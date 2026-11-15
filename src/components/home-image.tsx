@@ -3,17 +3,20 @@ import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { ProductImage } from './product-image';
-import { validFrame, type ImageFrame } from '../services/image-frame';
+import { BrandImage } from './brand-image';
+import { validFrame } from '../services/image-frame';
+import { containedBrandFrame, type BrandFrame } from '../services/brand-image-frame';
 
-type Source = { uri: string; cacheKey: string; displayKey: string; imageFrame?: ImageFrame };
+type Source = { uri: string; cacheKey: string; displayKey: string; imageFrame?: BrandFrame };
 type Props = { uri: string; cacheKey?: string; style: StyleProp<ViewStyle>;
-  brand?: { logoSize: number; imageFrame?: ImageFrame }; contentFit?: 'cover' | 'contain' };
+  brand?: { logoSize: number; imageFrame?: BrandFrame }; contentFit?: 'cover' | 'contain' };
 
 // Keep the previous image mounted until its replacement has actually displayed.
 export function HomeImage({ uri, cacheKey = uri, style, brand, contentFit = 'cover' }: Props) {
   // Crop edits reuse the image cache, but must not reuse obsolete display callbacks.
   const frame = brand?.imageFrame;
-  const displayKey = brand && validFrame(frame) ? `${cacheKey}:${frame.zoom}:${frame.x}:${frame.y}` : cacheKey;
+  const displayKey = brand && containedBrandFrame(frame) ? `${cacheKey}:v2:${frame.scale}:${frame.x}:${frame.y}`
+    : brand && validFrame(frame) ? `${cacheKey}:${frame.zoom}:${frame.x}:${frame.y}` : cacheKey;
   const desired = useRef(displayKey);
   useLayoutEffect(() => { desired.current = displayKey; }, [displayKey]);
   const [displayed, setDisplayed] = useState<Source | null>(null);
@@ -33,7 +36,10 @@ export function HomeImage({ uri, cacheKey = uri, style, brand, contentFit = 'cov
         onError: () => { if (source.displayKey === desired.current) { failedSource.current = source.displayKey; setFailed(source.displayKey); } },
       };
       const pending = brand && source.displayKey !== displayed?.displayKey ? { opacity: 0 } : undefined;
-      return brand && validFrame(source.imageFrame)
+      return brand && containedBrandFrame(source.imageFrame)
+        ? <BrandImage key={source.displayKey} {...props} imageFrame={source.imageFrame}
+          style={[StyleSheet.absoluteFill, pending]} accessible={false} />
+        : brand && validFrame(source.imageFrame)
         ? <ProductImage key={source.displayKey} {...props} imageFrame={source.imageFrame}
           style={[StyleSheet.absoluteFill, pending]} accessible={false} />
         : <Image key={source.displayKey} {...props}

@@ -8,7 +8,8 @@ const source = file => fs.readFileSync(path.join(__dirname, '../src', file), 'ut
 function load(file, requireMock) {
   const exports = {};
   const output = ts.transpileModule(source(file), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
-  vm.runInNewContext(output, { exports, require: requireMock, URL, Date, performance, console });
+  vm.runInNewContext(output, { exports,
+    require: name => name.endsWith('/brand-image-frame') ? load('services/brand-image-frame.ts', () => load('services/image-frame.ts', () => ({}))) : requireMock(name), URL, Date, performance, console });
   return exports;
 }
 

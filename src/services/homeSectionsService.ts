@@ -1,10 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { request } from './request';
-import { validFrame, type ImageFrame } from './image-frame';
+import { validBrandFrame, copyBrandFrame, type BrandFrame } from './brand-image-frame';
 
 const API_URL = 'https://mystore-backend-u6ey.onrender.com';
 export type HomeSection = 'slides' | 'departments' | 'brands';
-export type HomeItem = { id: string; name: string; image: string; imageKey?: string; order: number; active: boolean; imageFrame?: ImageFrame };
+export type HomeItem = { id: string; name: string; image: string; imageKey?: string; order: number; active: boolean; imageFrame?: BrandFrame };
 const snapshots = new Map<HomeSection, HomeItem[]>();
 const refreshedAt = new Map<HomeSection, number>();
 const revisions = new Map<HomeSection, number>();
@@ -54,9 +54,9 @@ function normalize(section: HomeSection, data: unknown, fetchedAt: number): Home
     }
     const order = Number(item.order) || (section === 'slides' ? 1 : 0);
     if (!Number.isFinite(order)) throw new Error('Invalid Home order');
-    // Brands only: optional saved framing (same contract as products); invalid = original logo.
+    // Brands only: preserve legacy cover crops and v2 contained-logo framing.
     const frame = item.imageFrame;
-    const imageFrame = section === 'brands' && validFrame(frame) ? { zoom: frame.zoom, x: frame.x, y: frame.y } : undefined;
+    const imageFrame = section === 'brands' && validBrandFrame(frame) ? copyBrandFrame(frame) : undefined;
     return { id, name: typeof item.name === 'string' ? item.name : '', image, imageKey,
       order, active: true, ...(imageFrame ? { imageFrame } : {}) };
   }).filter(item => item.active && (section === 'departments' || !!item.image))
@@ -84,8 +84,7 @@ export async function readHomeSection(section: HomeSection): Promise<HomeItem[] 
       .filter((item: HomeItem & { showOnHome?: boolean }) => item.id.trim() && item.name.trim() && item.image.trim() && item.showOnHome !== false)
       .map((item: HomeItem): HomeItem => ({ id: item.id, name: item.name, image: item.image,
         imageKey: item.imageKey, order: item.order, active: true,
-        ...(validFrame(item.imageFrame) ? { imageFrame: {
-          zoom: item.imageFrame.zoom, x: item.imageFrame.x, y: item.imageFrame.y } } : {}) })) : parsed.items;
+        ...(validBrandFrame(item.imageFrame) ? { imageFrame: copyBrandFrame(item.imageFrame) } : {}) })) : parsed.items;
     // A pending refresh must not prevent cold-start hydration. A completed refresh wins.
     if (!snapshots.has(section)) snapshots.set(section, items);
     return snapshots.get(section) ?? null;

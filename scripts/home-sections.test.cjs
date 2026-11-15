@@ -8,7 +8,8 @@ const deferred = () => { let resolve, reject; const promise = new Promise((a, b)
 const flush = async () => { for (let i = 0; i < 20; i++) await Promise.resolve(); };
 function load(file, requireMock) {
   const exports = {};
-  vm.runInNewContext(ts.transpileModule(source(file), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText, { exports, require: requireMock, URL, Date });
+  vm.runInNewContext(ts.transpileModule(source(file), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText, { exports,
+    require: name => name.endsWith('/brand-image-frame') ? load('services/brand-image-frame.ts', () => load('services/image-frame.ts', () => ({}))) : requireMock(name), URL, Date });
   return exports;
 }
 function service(disk = new Map(), options = {}) {
@@ -309,4 +310,37 @@ test('Brand images retain the displayed image and crop until replacement display
   const coldRender = () => cold.render(() => coldImage.HomeImage({ uri: 'broken', style: {}, brand: { logoSize: 75 } }));
   tree = coldRender(); images(tree)[0].props.onError(); tree = coldRender();
   assert.equal(images(tree).length, 0); assert.equal(tree.props.children[0].props.children.props.name, 'image-outline');
+});
+
+test('Brand v2 survives public API/disk caching without exposing extra fields or changing image keys', async () => {
+  const frame = { version: 2, scale: 1.11, x: .25, y: -.5 };
+  const api = service(), pending = api.refreshHomeSection('brands');
+  api.calls[0].resolve(response('brands', [item('A', { imageFrame: frame, updatedAt: 'unchanged', price: 99, products: [{ price: 5 }] })]));
+  const items = await pending; await flush();
+  assert.deepEqual(JSON.parse(JSON.stringify(items[0].imageFrame)), frame);
+  const disk = service(api.disk); const restored = await disk.readHomeSection('brands');
+  assert.deepEqual(JSON.parse(JSON.stringify(restored[0].imageFrame)), frame);
+  assert.equal(restored[0].imageKey, items[0].imageKey);
+  assert.equal('price' in restored[0], false); assert.equal('products' in restored[0], false);
+  const failed = disk.refreshHomeSection('brands'); disk.calls[0].reject(Error('offline'));
+  await assert.rejects(failed); assert.deepEqual(JSON.parse(JSON.stringify((await disk.readHomeSection('brands'))[0].imageFrame)), frame);
+});
+
+test('HomeImage switches legacy/v2 renderers only after display, retaining cache keys and ignoring obsolete crop callbacks', () => {
+  const env = hooks(), jsx = (type, props, key) => ({ type, props, key });
+  const { HomeImage } = load('components/home-image.tsx', name => name === 'react' ? env.react :
+    name === 'react/jsx-runtime' ? { jsx, jsxs: jsx } : name === 'expo-image' ? { Image: 'Image' } :
+    name === 'react-native' ? { View: 'View', StyleSheet: { create: value => value, absoluteFill: {} } } :
+    name === './product-image' ? { ProductImage: 'ProductImage' } : name === './brand-image' ? { BrandImage: 'BrandImage' } :
+    name === '../services/image-frame' ? load('services/image-frame.ts', () => ({})) : { Ionicons: 'Icon' });
+  const legacy = { zoom: 2, x: .2, y: -.3 }, frame = { version: 2, scale: 1.1, x: 0, y: 0 };
+  const render = imageFrame => env.render(() => HomeImage({ uri: 'same.jpg', cacheKey: 'same-cache', style: {}, brand: { logoSize: 75, imageFrame } }));
+  let image = render(legacy).props.children[1][0]; assert.equal(image.type, 'ProductImage'); image.props.onDisplay();
+  let images = render(frame).props.children[1]; assert.equal(images.length, 2); assert.equal(images[0].type, 'ProductImage');
+  const pending = images[1]; assert.equal(pending.type, 'BrandImage'); assert.equal(pending.props.source.cacheKey, 'same-cache');
+  pending.props.onDisplay(); image.props.onDisplay();
+  images = render(frame).props.children[1]; assert.equal(images.length, 1); assert.equal(images[0].type, 'BrandImage');
+  images = render({ ...frame, scale: 1.2 }).props.children[1]; assert.equal(images.length, 2);
+  images[1].props.onError(); images = render({ ...frame, scale: 1.2 }).props.children[1];
+  assert.equal(images.length, 1); assert.deepEqual(images[0].props.imageFrame, frame);
 });
