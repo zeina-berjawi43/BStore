@@ -5,6 +5,7 @@ import { request } from './request';
 import { reconcileItems } from './resource-cache';
 import { onSessionChanged, onPricingChanged } from './tokenStorage';
 import { syncDemoMode } from './demo-mode';
+import { OFFERS_QUERY } from './offers';
 
 export type CatalogProduct = {
   _id: string;
@@ -137,12 +138,16 @@ export async function fetchProductSection(section: ProductSection, token: string
   if (existing) return existing;
   const revision = generation;
   const operation = (async () => {
-    const response = await request(`${API_URL}/products/${section}`, { headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) } }, 8000);
+    // 'offers' is the unified Offers set (Buy & Get Free products + active discounts), one request.
+    const response = await request(`${API_URL}/products/${section}${section === 'offers' ? OFFERS_QUERY : ''}`, { headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) } }, 8000);
     const data = await response.json();
     if (!response.ok) throw new Error('Could not load products. Please try again.');
     if (token) syncDemoMode(data);
     const next = normalize(section === 'top-selling' && Array.isArray(data.products) ? data.products.map((item: any) => item?.product) : data.products);
-    const products = reconcileItems(saved?.token === token ? saved.products : undefined, token ? next : publicOnly(next).map((item, i) => ({ ...item, availability: next[i].availability })));
+    // Guests: in-memory only, the offers list keeps the public discount percentage (sent to every
+    // visitor by the backend) so Special Discounts can be classified. Nothing price-related is kept
+    // and disk persistence below still stores display metadata only.
+    const products = reconcileItems(saved?.token === token ? saved.products : undefined, token ? next : publicOnly(next).map((item, i) => ({ ...item, availability: next[i].availability, ...(section === 'offers' ? { discount: next[i].discount } : {}) })));
     if (revision === generation) {
       sectionSnapshots.set(section, { token, products, time: Date.now() });
       sectionProducts.set(section, publicOnly(products));

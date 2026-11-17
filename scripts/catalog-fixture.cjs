@@ -18,8 +18,10 @@ function fixture() {
   };
   const request = async url => { calls.push(url); if (fail) throw Error('offline'); return { ok: true, json: async () => url.includes('/products') ? { products } : { categories: url.includes('/other/') ? [{ _id: 'other', name: 'Other department' }] : [{ _id: 'shampoo', name: 'Shampoo' }, { _id: 'hair', name: 'Hair Care' }] } }; };
   const resources = load('services/resource-cache.ts');
+  // Unified Offers rules (pure): Buy & Get Free department id + existing discount rule.
+  const offers = load('services/offers.ts', { './social-metadata': load('services/social-metadata.ts') });
   const auth = { API_URL: 'https://test', getValidAccessToken: async () => token };
-  const catalog = load('services/catalogService.ts', { './resource-cache': resources, './authService': auth, './tokenStorage': tokens, './request': { request }, './demo-mode': { syncDemoMode: () => {} },
+  const catalog = load('services/catalogService.ts', { './resource-cache': resources, './authService': auth, './tokenStorage': tokens, './request': { request }, './demo-mode': { syncDemoMode: () => {} }, './offers': offers,
     '@react-native-async-storage/async-storage': { getItem: async () => null, setItem: async () => {} } });
   const react = {
     useState(initial) { const i = cursor++; if (!(i in slots)) slots[i] = typeof initial === 'function' ? initial() : initial; return [slots[i], value => { slots[i] = typeof value === 'function' ? value(slots[i]) : value; }]; },
@@ -30,7 +32,7 @@ function fixture() {
   const hook = load('hooks/use-catalog-screen.ts', { react, 'react-native': { Platform: { OS: 'android' }, AppState: { currentState: 'active', addEventListener: () => ({ remove() {} }) } },
     'expo-router': { useFocusEffect: fn => { focus = fn; } }, '../services/authService': auth, '../services/tokenStorage': tokens,
     '../services/catalogService': catalog, '../services/request': { request }, '../services/resource-cache': resources,
-    '../services/product-price': load('services/product-price.ts') });
+    '../services/product-price': load('services/product-price.ts'), '../services/offers': offers });
   return { catalog, resources, calls, render: (id = 'care', offers = false) => { cursor = 0; return hook.useCatalogScreen(id, undefined, offers); },
     focus: () => { cleanup = focus(); }, blur: () => { cleanup?.(); },
     advance: ms => { time += ms; }, fail: value => { fail = value; }, products: value => { products = value; },

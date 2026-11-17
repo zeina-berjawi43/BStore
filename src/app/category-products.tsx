@@ -1,5 +1,5 @@
 import { productFavoriteDesign, ProductFavoriteHeart } from '../components/product-favorite-design';
-import { productCardLayout } from '../components/product-card-layout';
+import { fitPriceText, productCardLayout } from '../components/product-card-layout';
 import { ProductCount } from '../components/product-count';
 import { getSessionSnapshot } from '../services/tokenStorage';
 
@@ -32,7 +32,7 @@ import {
   router,
   useLocalSearchParams,
 } from 'expo-router';
-import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 /* =========================================================
    API
@@ -408,6 +408,9 @@ const CatalogCard = memo(function CatalogCard({ columns, product, favorite, pend
                   discount > 0 &&
                   originalPrice >
                     finalPrice;
+                // Measured locally per card (one layout pass); no network or store read is involved.
+                const [priceWidth, setPriceWidth] = useState(0);
+                const plainPriceFit = fitPriceText(formatPrice(originalPrice), priceWidth, 17, 20, true);
                 return (
                   <Pressable
                     key={
@@ -489,7 +492,8 @@ const CatalogCard = memo(function CatalogCard({ columns, product, favorite, pend
                     >
                       {product.name}
                     </Text>
-                    {/* BRAND */}
+                    {/* BRAND + OUT OF STOCK share one reserved line, so stock status never changes card height */}
+                    <View style={styles.brandRow}>
                     <Text
                       style={
                         styles.productCategory
@@ -504,16 +508,17 @@ const CatalogCard = memo(function CatalogCard({ columns, product, favorite, pend
                           : 'No brand'
                       }
                     </Text>
-                    {/* OUT OF STOCK */}
                     {isOutOfStock && (
                       <Text
                         style={
                           styles.outOfStockText
                         }
+                        numberOfLines={1}
                       >
                         Out of Stock
                       </Text>
                     )}
+                    </View>
                     {/* BOTTOM */}
                     <View
                       style={
@@ -524,6 +529,7 @@ const CatalogCard = memo(function CatalogCard({ columns, product, favorite, pend
                         style={
                           styles.priceContainer
                         }
+                        onLayout={event => { const next = Math.round(event.nativeEvent.layout.width); if (next !== priceWidth) setPriceWidth(next); }}
                       >
                         {isLoggedIn ? (
                           (product.price !==
@@ -535,9 +541,11 @@ const CatalogCard = memo(function CatalogCard({ columns, product, favorite, pend
                                 }
                               >
                                 <Text
-                                  style={
-                                    styles.oldPrice
-                                  } >
+                                  style={[
+                                    styles.oldPrice,
+                                    fitPriceText(formatPrice(originalPrice), priceWidth, 11, 12).style,
+                                  ]}
+                                  numberOfLines={1} >
                                   {
                                     formatPrice(
                                       originalPrice
@@ -545,9 +553,11 @@ const CatalogCard = memo(function CatalogCard({ columns, product, favorite, pend
                                   }
                                 </Text>
                                 <Text
-                                  style={
-                                    styles.productPrice
-                                  } >
+                                  style={[
+                                    styles.productPrice,
+                                    fitPriceText(formatPrice(finalPrice), priceWidth, 17, 20).style,
+                                  ]}
+                                  numberOfLines={1} >
                                   {
                                     formatPrice(
                                       finalPrice
@@ -557,9 +567,11 @@ const CatalogCard = memo(function CatalogCard({ columns, product, favorite, pend
                               </View>
                             ) : (
                               <Text
-                                style={
-                                  styles.productPrice
-                                } >
+                                style={[
+                                  styles.productPrice,
+                                  plainPriceFit.style,
+                                ]}
+                                numberOfLines={plainPriceFit.lines} >
                                 {
                                   formatPrice(
                                     originalPrice
@@ -960,14 +972,16 @@ const styles =
     color: '#24221E',
     letterSpacing: -0.1,
   },
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 18 },
   productCategory: {
     height: 18, lineHeight: 18,
+    flex: 1, minWidth: 0,
     fontSize: 12,
     color: '#817B71',
     fontWeight: '600',
   },
   outOfStockText: {
-    height: 14, lineHeight: 14,
+    height: 18, lineHeight: 18, flexShrink: 0,
     fontSize: 11.5,
     fontWeight: '800',
     color: '#C94C4C',
@@ -975,8 +989,10 @@ const styles =
   productBottom: {
     ...productCardLayout.bottom, alignItems: 'flex-start',
   },
+  // Reserved price row (shared layout): plain and discounted prices occupy the same height.
   priceContainer: {
-    ...productCardLayout.flowPrice,
+    ...productCardLayout.price,
+    minWidth: 0,
     paddingRight: 0,
   },
   discountPriceContainer: {

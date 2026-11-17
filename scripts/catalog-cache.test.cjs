@@ -105,13 +105,36 @@ test('Details can immediately reuse authorized listing and offer prices, then is
   f.dispose();
 });
 
-test('Offers categories contain eligible products only and a removed selection resets to All', async () => {
-  const f = fixture(); f.render(undefined, true); f.focus(); await f.flush();
+// Unified Offers replaced the former per-category Offers tabs with exactly three filters.
+test('Unified Offers: All | Buy & Get | Special Discounts, deduplicated, local filter switching, refresh reflects admin changes', async () => {
+  const BUY_GET = '6afa01170b8dc1a73f68a832';
+  const bundle = { _id: 'bundle', name: 'Bundle', price: 15, discountedPrice: 15, discount: 0, image: 'b.jpg', availability: true, category: { _id: 'gifts', name: 'Renamed by admin', department: BUY_GET } };
+  const both = { _id: 'both', name: 'Bundle on sale', price: 20, discountedPrice: 18, discount: 10, image: 'c.jpg', availability: true, category: { _id: 'gifts', name: 'Renamed by admin', department: BUY_GET } };
+  const sale = { _id: 'sale', name: 'Shampoo', price: 10, discountedPrice: 8, discount: 20, image: 'p.jpg', availability: true, category: { _id: 'shampoo', name: 'Shampoo', department: 'care' } };
+  const f = fixture(); f.products([bundle, both, sale, { ...sale }]);
+  f.render(undefined, true); f.focus(); await f.flush();
   let view = f.render(undefined, true);
-  assert.deepEqual(Array.from(view.subCategories, item => item._id), ['shampoo']);
-  view.setSelectedSubCategory('shampoo');
+  assert.deepEqual(Array.from(view.subCategories, item => [item._id, item.name]), [['buy-get', 'Buy & Get'], ['special-discounts', 'Special Discounts']]);
+  assert.ok(f.calls.some(url => url.endsWith('/products/offers?department=' + BUY_GET)), 'unified offers request');
+  assert.ok(!f.calls.some(url => url.includes('/categories')), 'no category list needed for fixed filters');
+  assert.equal(view.selectedSubCategory, 'ALL');
+  assert.deepEqual(Array.from(view.filteredProducts, p => p._id), ['both', 'bundle', 'sale'], 'All: unique by ID, existing price ordering');
+  const requests = f.calls.length;
+  view.setSelectedSubCategory('buy-get'); view = f.render(undefined, true);
+  assert.deepEqual(Array.from(view.filteredProducts, p => p._id), ['both', 'bundle'], 'Buy & Get needs no discount');
+  view.setSelectedSubCategory('special-discounts'); view = f.render(undefined, true);
+  assert.deepEqual(Array.from(view.filteredProducts, p => p._id), ['both', 'sale']);
+  assert.equal(f.calls.length, requests, 'switching filters makes no request');
+  // Admin removes a discount: the next refresh drops it from Special Discounts (still a Buy & Get offer).
+  f.products([bundle, { ...both, discount: 0, discountedPrice: 20 }]); view.retry(); await f.flush();
+  view = f.render(undefined, true); view = f.render(undefined, true);
+  assert.deepEqual(Array.from(view.filteredProducts, p => p._id), [], 'no special discounts left');
+  assert.equal(view.selectedSubCategory, 'special-discounts', 'fixed filters keep the selection');
+  view.setSelectedSubCategory('ALL'); view = f.render(undefined, true);
+  assert.deepEqual(Array.from(view.filteredProducts, p => p._id), ['both', 'bundle']);
+  // Empty collections settle with the three filters still available.
   f.products([]); view.retry(); await f.flush();
   view = f.render(undefined, true); view = f.render(undefined, true);
-  assert.equal(view.subCategories.length, 0); assert.equal(view.filteredProducts.length, 0);
-  assert.equal(view.selectedSubCategory, 'ALL'); f.dispose();
+  assert.equal(view.subCategories.length, 2); assert.equal(view.filteredProducts.length, 0); assert.equal(view.loadingProducts, false);
+  f.dispose();
 });

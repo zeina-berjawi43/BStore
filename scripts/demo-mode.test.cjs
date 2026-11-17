@@ -18,6 +18,8 @@ function constant(file, name, context) {
   vm.runInNewContext(transpile('exports.fn = ' + code), { exports, __DEV__: false, ...context });
   return exports.fn;
 }
+// Real (pure) maximum-quantity-per-order helpers for extracted screen code.
+const quantityLimit = (() => { const exports = {}; vm.runInNewContext(ts.transpileModule(source('services/quantity-limit.ts'), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText, { exports }); return exports; })();
 function component(file, name, context) {
   const ast = ts.createSourceFile(file, source(file), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const fn = ast.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === name);
@@ -25,7 +27,7 @@ function component(file, name, context) {
   const useState = initial => { const i = cursor++; if (!(i in slots)) slots[i] = typeof initial === 'function' ? initial() : initial; return [slots[i], () => {}]; };
   const exports = {};
   vm.runInNewContext(transpile(fn.getText(ast) + '\nexports.fn = ' + name), { exports, React: { createElement: element }, useState, useEffect: () => {}, useCallback: fn => fn,
-    useRef: value => { const i = cursor++; return slots[i] ||= { current: value }; }, ...context });
+    useRef: value => { const i = cursor++; return slots[i] ||= { current: value }; }, ...quantityLimit, ...context });
   return props => { cursor = 0; return exports.fn(props); };
 }
 const nodes = (tree, predicate) => !tree || typeof tree !== 'object' ? [] : Array.isArray(tree) ? tree.flatMap(child => nodes(child, predicate))

@@ -7,6 +7,7 @@ import { DEMO_ORDER_MESSAGE, DEMO_PRICE, isDemoMode } from '../services/demo-mod
 import { deliverySummary, DeliveryRules } from '../services/delivery-pricing';
 import { getCheckoutAttempt } from '../services/checkoutAttempt';
 import { shoppingState } from '../services/shopping-state';
+import { cartQuantityLimitIssues, cartQuantityLimitSummary, QUANTITY_LIMIT_EXCEEDED, QUANTITY_LIMIT_TITLE } from '../services/quantity-limit';
 import {
   View,
   Text,
@@ -613,6 +614,15 @@ export default function Checkout() {
       actionAlert('Minimum Order', delivery.message);
       return;
     }
+
+    // Maximum quantity per order. The backend re-checks with current product data.
+    const limitIssues = cartQuantityLimitIssues(cart);
+    if (limitIssues.length) {
+      actionAlert(QUANTITY_LIMIT_TITLE, cartQuantityLimitSummary(limitIssues), [
+        { text: 'Review Cart', onPress: () => router.replace('/cart') },
+      ]);
+      return;
+    }
     try {
 
       orderInFlight.current = true;
@@ -752,6 +762,17 @@ export default function Checkout() {
 
       }
 
+
+      if (!response.ok && data?.code === QUANTITY_LIMIT_EXCEEDED) {
+        // Limits changed since the cart loaded. Nothing was ordered or removed;
+        // refresh the shared cart so it highlights the quantities to reduce.
+        void shoppingState.refresh(true, 'cart').catch(() => {});
+        void loadData();
+        actionAlert(QUANTITY_LIMIT_TITLE, data.message || 'Reduce the quantities in your cart to continue.', [
+          { text: 'Review Cart', onPress: () => router.replace('/cart') },
+        ]);
+        return;
+      }
 
       if (!response.ok) {
         if (data?.pricing) {

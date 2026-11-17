@@ -508,23 +508,6 @@ export default function Favorites() {
 
 
                     {/* =================================================
-                        OUT OF STOCK
-                    ================================================= */}
-
-                    {outOfStock && (
-
-                      <Text
-                        style={
-                          styles.outOfStock
-                        }
-                      >
-                        Out of Stock
-                      </Text>
-
-                    )}
-
-
-                    {/* =================================================
                         PRICE
                     ================================================= */}
 
@@ -593,6 +576,19 @@ export default function Favorites() {
 
                     )}
 
+                    {/* OUT OF STOCK shares the price row, so stock status never changes card height */}
+                    {outOfStock && (
+
+                      <Text
+                        style={
+                          styles.outOfStock
+                        }
+                        numberOfLines={1}
+                      >
+                        Out of Stock
+                      </Text>
+
+                    )}
 
                     </View>
                     {/* =================================================
@@ -1277,9 +1273,7 @@ const styles =
 
     outOfStock: {
       height: 14, lineHeight: 14,
-
-      marginTop:
-        5,
+      flexShrink: 0,
 
       fontSize:
         11,
@@ -1298,9 +1292,9 @@ const styles =
     // =======================================================
 
     priceActionsRow: { flexDirection: 'column', alignItems: 'flex-start', gap: 4, marginTop: 4 },
-    priceArea: { width: '100%', minWidth: 0, justifyContent: 'center' },
+    priceArea: { width: '100%', minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 8 },
     discountPriceContainer: {
-      height: 38, justifyContent: 'center',
+      height: 38, justifyContent: 'center', flexShrink: 1, minWidth: 0,
 
     },
 
@@ -1324,7 +1318,7 @@ const styles =
     },
 
     price: {
-      minHeight: 22,
+      minHeight: 22, flexShrink: 1, minWidth: 0,
 
       fontSize:
         17,

@@ -126,7 +126,15 @@ const mock = () => {
         const after = await evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});const r=e.getBoundingClientRect();const slot=e.querySelector('[data-testid="quantity-slot"]').getBoundingClientRect();const control=e.querySelector('[aria-label="Increase Product 0 quantity"]').getBoundingClientRect();return {height:r.height,right:slot.right,controlRight:control.right,cardRight:r.right}})()`);
         assert.ok(Math.abs(before.height-after.height)<0.5); assert.ok(Math.abs(before.right-after.right)<0.5);
         assert.ok(after.controlRight <= after.cardRight + 1, `${route} ${width} quantity inside card`);
-        assert.ok(after.cardRight - after.right < 30, `${route} ${width} right aligned`);
+        if (route === '/favorites') {
+          // Favorites intentionally places the 44px heart beside Add to Cart (mystore bbb81dc, 2026-10-22;
+          // asserted as "nextToCart" in ui-ux-browser-smoke.cjs), so the control cannot sit within 30px of
+          // the card edge. Contract: the control is directly beside the heart, centred with it, inside the card.
+          const heart = await evaluate(`(()=>{const r=document.querySelector(${JSON.stringify(selector)}).querySelector('[aria-label="Remove Product 0 from favorites"]').getBoundingClientRect();return {left:r.left,right:r.right,mid:(r.top+r.bottom)/2};})()`);
+          const slotMid = await evaluate(`(()=>{const r=document.querySelector(${JSON.stringify(selector)}).querySelector('[data-testid="quantity-slot"]').getBoundingClientRect();return (r.top+r.bottom)/2;})()`);
+          assert.ok(after.right <= heart.left + 1 && heart.left - after.right <= 9, `${route} ${width} control beside heart`);
+          assert.ok(Math.abs(heart.mid - slotMid) < 2 && heart.right <= after.cardRight + 1, `${route} ${width} heart centred with control and inside card`);
+        } else assert.ok(after.cardRight - after.right < 30, `${route} ${width} right aligned`);
         await evaluate(`document.querySelector(${JSON.stringify(selector)}).querySelector('[aria-label="Decrease Product 0 quantity"]').click();document.querySelector(${JSON.stringify(selector)}).querySelector('[aria-label="Add Product 0 to cart"]').click()`);
         await until(`!!document.querySelector(${JSON.stringify(selector)}).querySelector('[aria-label="Increase Product 0 quantity"]')`);
         assert.ok(await evaluate(`document.documentElement.scrollWidth<=innerWidth+1`), `${route} ${width} no horizontal overflow`);

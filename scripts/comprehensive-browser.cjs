@@ -73,7 +73,7 @@ const mock = () => {
     else if (route === '/orders') data={orders:[]};
     else if (route.startsWith('/orders/')) data={order:{_id:route.split('/').pop(),orderNumber:123,user:{name:'Test Customer',phone:'71000000'},items:[],totalPrice:0,status:'Delivered',shippingAddress:'Fixture address',createdAt:'2026-10-01T00:00:00Z'}};
     else if (route === '/users/me') data = { user: JSON.parse(localStorage.getItem('user')) };
-    else if (route === '/departments') data = { departments: [{ _id: 'dept', name: 'Personal Care', active: true }] };
+    else if (route === '/departments') data = { departments: [{ _id: 'dept', name: 'Personal Care', active: true }, { _id: '6afa01170b8dc1a73f68a832', name: 'Buy & Get Free', active: true }] };
     else if (route === '/departments/dept/categories') {window.categoryReads++;data = { categories: [{ _id: 'shampoo', name: 'Shampoo', department: 'dept' },{ _id: 'hair', name: 'Hair Care', department: 'dept' }] };}
     else if (route === '/categories') data = { categories: [{ _id: 'category', name: 'Grocery', department: 'dept' }] };
     else if (route === '/slideshows') data = { slides: [1, 2, 3].map(id => ({ _id: String(id), image: 'http://127.0.0.1:4175/fixture.svg?slide=' + id, active: true, order: id })) };
@@ -106,10 +106,11 @@ const mock = () => {
     const click=text=>evaluate(`[...document.querySelectorAll('div')].find(e=>e.childElementCount===0&&e.textContent===${JSON.stringify(text)}&&!e.closest('[aria-hidden="true"]'))?.closest('[tabindex]')?.click()`);
     const visible=selector=>`[...document.querySelectorAll(${JSON.stringify(selector)})].find(e=>!e.closest('[aria-hidden="true"]')&&e.getBoundingClientRect().height)`;
     await send('Page.navigate',{url:'http://127.0.0.1:4175/?guest=true'});
-    await until(`document.body&&document.body.innerText.includes('Product 0')&&document.body.innerText.includes('See All')`);
+    await until(`document.body&&document.body.innerText.includes('Product 0')&&!![...document.querySelectorAll('[data-testid="home-categories"] div')].find(e=>e.childElementCount===0&&e.textContent==='Buy & Get Free'&&!e.closest('[aria-hidden="true"]'))`);
+    assert.ok(await evaluate(`!document.body.innerText.includes('SEE ALL')`), 'SEE ALL removed from Home Offers');
     assert.ok(await evaluate(`!document.body.innerText.includes('No offers available')&&!document.body.innerText.includes('$')`));
     assert.ok(await evaluate(`!document.querySelector('[aria-label="Refresh Home"]')&&!/\bEXPLORE\b|SPECIAL DEALS/.test(document.body.innerText)`));
-    await click('See All');await until(`location.pathname==='/offers'&&document.body.innerText.includes('600 products')`);
+    await evaluate(`[...document.querySelectorAll('[data-testid="home-categories"] div')].find(e=>e.childElementCount===0&&e.textContent==='Buy & Get Free'&&!e.closest('[aria-hidden="true"]'))?.closest('[tabindex]')?.click()`);await until(`location.pathname==='/offers'&&document.body.innerText.includes('600 products')`);
     assert.ok(await evaluate(`!document.body.innerText.includes('$')`));
     for(const width of [320,1024]){await send('Emulation.setDeviceMetricsOverride',{width,height:700,deviceScaleFactor:1,mobile:width<500});await wait(250);assert.ok(await evaluate(`document.documentElement.scrollWidth<=innerWidth+1`));}
     checks.push('Anonymous Home offers and all-offers direct browsing show real products without prices, at 320/1024px');
@@ -123,7 +124,9 @@ const mock = () => {
     await evaluate(`${visible('[aria-label^="Open cart,"]')}.click()`);await until(`location.pathname==='/login'`);
     await evaluate(`(()=>{const setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;for(const [placeholder,value]of [['Phone Number','71000000'],['Enter your password','fixture-password']]){const node=document.querySelector('input[placeholder="'+placeholder+'"]');if(!node)throw Error('Missing '+placeholder);setter.call(node,value);node.dispatchEvent(new Event('input',{bubbles:true}));}})()`);
     await click('Login');await until(`location.pathname==='/'&&document.body.innerText.includes('Product 0')`);
-    assert.equal(await evaluate(`document.querySelectorAll('[role="progressbar"]').length`),0);
+    // Visible loaders only: a hidden Home instance in the stack keeps its initial "Loading brands"
+    // skeleton (aria-hidden, zero height) because unfocused Home sections intentionally never fetch.
+    assert.equal(await evaluate(`[...document.querySelectorAll('[role="progressbar"]')].filter(e=>!e.closest('[aria-hidden="true"]')&&e.getBoundingClientRect().height).length`),0);
     await evaluate('history.back()');await until(`['/','/offers'].includes(location.pathname)`);assert.ok(await evaluate(`!document.body.innerText.includes('Enter your password')`));
     checks.push('Protected cart login opens Home and Back excludes Login');
     await send('Page.navigate',{url:'http://127.0.0.1:4175/'});await until(`document.body&&document.body.innerText.includes('Product 0')`);
@@ -138,11 +141,13 @@ const mock = () => {
     await evaluate('history.back()');await until(`location.pathname==='/'`);
     assert.equal(await evaluate(`window.homeScroll.scrollTop`),homePosition);
     assert.equal(await evaluate('window.scrollY'),0);checks.push('Home scroll is retained without outer-document movement on department entry and exit');
-    await click('See All');await until(`location.pathname==='/offers'&&document.body.innerText.includes('Product 0')`);
-    const addTop = await evaluate(`${visible('[aria-label="Add Product 0 to cart"]')}.getBoundingClientRect().top`);
+    await evaluate(`[...document.querySelectorAll('[data-testid="home-categories"] div')].find(e=>e.childElementCount===0&&e.textContent==='Buy & Get Free'&&!e.closest('[aria-hidden="true"]'))?.closest('[tabindex]')?.click()`);await until(`location.pathname==='/offers'&&document.body.innerText.includes('Product 0')`);
+    // Since mystore cb312e5 the compact Add button is 30px and the grid selector 34px tall by design,
+    // so "same position" means the same vertical centre (exact), not the same top edge.
+    const addTop = await evaluate(`(r=>r.top+r.height/2)(${visible('[aria-label="Add Product 0 to cart"]')}.getBoundingClientRect())`);
     await evaluate(`${visible('[aria-label="Add Product 0 to cart"]')}.click()`);
     await until(`!!${visible('[aria-label="Increase Product 0 quantity"]')}`);
-    assert.equal(await evaluate(`${visible('[aria-label="Increase Product 0 quantity"]')}.getBoundingClientRect().top`), addTop);
+    assert.equal(await evaluate(`(r=>r.top+r.height/2)(${visible('[aria-label="Increase Product 0 quantity"]')}.getBoundingClientRect())`), addTop);
     checks.push('Quantity selector remains at the exact same vertical position after first add');
     await evaluate(`${visible('[aria-label="Increase Product 0 quantity"]')}.click();${visible('[aria-label="Increase Product 0 quantity"]')}.click();${visible('[aria-label="Decrease Product 0 quantity"]')}.click()`);
     await until(`!!${visible('[aria-label="Open cart, 2 items"]')}`);await wait(3000);
@@ -154,7 +159,7 @@ const mock = () => {
     assert.ok(await evaluate(`!!${visible('[aria-label="Open cart, 0 items"]')}`));checks.push('Rapid inline +/- stays synchronized with Cart and returns to Add at zero');
     await send('Page.navigate',{url:'http://127.0.0.1:4175/department-categories?id=dept&name=Personal%20Care&slow=true'});
     await until(`document.body&&document.body.innerText.includes('Loading products...')`);
-    assert.equal(await evaluate(`document.querySelectorAll('[role="progressbar"]').length`),1);
+    assert.equal(await evaluate(`[...document.querySelectorAll('[role="progressbar"]')].filter(e=>!e.closest('[aria-hidden="true"]')&&e.getBoundingClientRect().height).length`),1);
     const headerHeight=await evaluate(`document.querySelector('[data-testid="catalog-header"]').getBoundingClientRect().height`);
     await until(`document.body.innerText.includes('600 products')`);
     assert.equal(await evaluate(`document.querySelector('[data-testid="catalog-header"]').getBoundingClientRect().height`),headerHeight);
@@ -165,7 +170,7 @@ const mock = () => {
     await until(`document.body.innerText.includes('600 products')`);
     await send('Page.navigate',{url:'http://127.0.0.1:4175/offers?guest=true&emptyOffers=true'});
     await until(`document.body&&document.body.innerText.includes('No products found')`);
-    assert.ok(await evaluate(`!document.body.innerText.includes('Tap to retry.')&&document.querySelectorAll('[role="progressbar"]').length===0`));
+    assert.ok(await evaluate(`!document.body.innerText.includes('Tap to retry.')&&[...document.querySelectorAll('[role="progressbar"]')].filter(e=>!e.closest('[aria-hidden="true"]')&&e.getBoundingClientRect().height).length===0`));
     checks.push('All-offers network failure retries successfully; valid empty response is a settled empty state');
     const login = async()=>{
       await evaluate(`(()=>{const setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;for(const [placeholder,value]of [['Phone Number','71000000'],['Enter your password','fixture-password']]){const node=document.querySelector('input[placeholder="'+placeholder+'"]');setter.call(node,value);node.dispatchEvent(new Event('input',{bubbles:true}));}})()`);
@@ -174,7 +179,7 @@ const mock = () => {
     await send('Page.navigate',{url:'http://127.0.0.1:4175/cart?guest=true'});await until(`location.pathname==='/login'`);await login();await until(`location.pathname==='/'&&document.body.innerText.includes('Product 0')`);
     await send('Page.navigate',{url:'http://127.0.0.1:4175/login?guest=true'});await until(`document.body&&document.body.innerText.includes('Enter your phone number')||!!document.querySelector('input[placeholder="Phone Number"]')`);await login();await until(`location.pathname==='/'&&document.body.innerText.includes('Product 0')`);
     checks.push('Cold protected Cart login and direct login both open Home');
-    await click('See All'); await until(`location.pathname==='/offers'&&document.body.innerText.includes('Product 1')`);
+    await evaluate(`[...document.querySelectorAll('[data-testid="home-categories"] div')].find(e=>e.childElementCount===0&&e.textContent==='Buy & Get Free'&&!e.closest('[aria-hidden="true"]'))?.closest('[tabindex]')?.click()`); await until(`location.pathname==='/offers'&&document.body.innerText.includes('Product 1')`);
     assert.equal(await evaluate(`document.body.innerText.split(String.fromCharCode(10)).includes('Products')`), false);
     await evaluate('window.detailsDelay=2500'); await click('Product 1');
     await until(`location.pathname==='/product-details'&&document.body.innerText.includes('Product 1')`);

@@ -2,6 +2,8 @@ const test = require('node:test'), assert = require('node:assert/strict');
 const fs = require('node:fs'), vm = require('node:vm'), ts = require('typescript');
 const source = file => fs.readFileSync('src/' + file, 'utf8');
 const element = (type, props, ...children) => ({ type, props: { ...props, children } });
+// Real (pure) maximum-quantity-per-order helpers, available to extracted screen code like the demo defaults.
+const quantityLimit = (() => { const exports = {}; vm.runInNewContext(ts.transpileModule(source('services/quantity-limit.ts'), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText, { exports }); return exports; })();
 function fixture(file, name, context = {}) {
   const text = source(file), ast = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const fn = ast.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === name);
@@ -10,7 +12,7 @@ function fixture(file, name, context = {}) {
   const useState = initial => { const i = cursor++; if (!(i in slots)) slots[i] = typeof initial === 'function' ? initial() : initial; return [slots[i], value => { slots[i] = typeof value === 'function' ? value(slots[i]) : value; }]; };
   const exports = {};
   vm.runInNewContext(ts.transpileModule(fn.getText(ast) + '\nexports.fn = ' + name, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.React } }).outputText,
-    { exports, QuantitySelector: "QuantitySelector", React: { createElement: element }, useState, useEffect: fn => fn(), useCallback: fn => fn, useRef: value => { const i = cursor++; return slots[i] ||= { current: value }; }, isDemoMode: () => false, DEMO_PRICE: 'X$', DEMO_ORDER_MESSAGE: 'Demo Mode', ...context });
+    { exports, QuantitySelector: "QuantitySelector", React: { createElement: element }, useState, useEffect: fn => fn(), useCallback: fn => fn, useRef: value => { const i = cursor++; return slots[i] ||= { current: value }; }, isDemoMode: () => false, DEMO_PRICE: 'X$', DEMO_ORDER_MESSAGE: 'Demo Mode', ...quantityLimit, ...context });
   return props => { cursor = 0; return exports.fn(props); };
 }
 function nodes(tree, predicate) {
@@ -24,7 +26,7 @@ function handler(file, name, context) {
   function walk(node) { if (ts.isVariableDeclaration(node) && node.name.getText(ast) === name) code = node.initializer.getText(ast); ts.forEachChild(node, walk); }
   walk(ast); assert.ok(code, name);
   const exports = {};
-  vm.runInNewContext(ts.transpileModule('exports.fn = ' + code, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, { exports, __DEV__: false, isDemoMode: () => false, DEMO_PRICE: 'X$', DEMO_ORDER_MESSAGE: 'Demo Mode', ...context });
+  vm.runInNewContext(ts.transpileModule('exports.fn = ' + code, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, { exports, __DEV__: false, isDemoMode: () => false, DEMO_PRICE: 'X$', DEMO_ORDER_MESSAGE: 'Demo Mode', ...quantityLimit, ...context });
   return exports.fn;
 }
 
@@ -127,26 +129,39 @@ test('Recently Added retains navigation without prices or a cart action; detail 
   assert.doesNotMatch(details, /addingToCart/);
 });
 
-test('Offers See All opens the dedicated route without imperative Home scrolling', () => {
+// SEE ALL was removed from the Home Offers heading (unified Offers): the Shop by Categories tile of
+// the Buy & Get Free department (matched by its stable ID) is now the entry point to /offers. Its name and
+// image remain Admin-managed: the tile shows the department's own name and image, like every other tile.
+test('Home Offers entry: no SEE ALL; the Buy & Get Free tile (by ID) opens /offers with its Admin-managed name and image; other tiles unchanged', () => {
   const text = source('app/index.tsx');
   const ast = ts.createSourceFile('index.tsx', text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-  let button;
+  let tile, seeAll = false;
   function walk(node) {
-    if (ts.isJsxText(node) && /^see all$/i.test(node.text.trim())) {
-      let parent = node.parent;
-      while (parent && !(ts.isJsxElement(parent) && parent.openingElement.tagName.getText(ast) === 'Pressable')) parent = parent.parent;
-      button = parent;
-    }
+    if (ts.isJsxText(node) && /^see all$/i.test(node.text.trim())) seeAll = true;
+    if (ts.isJsxElement(node) && node.openingElement.tagName.getText(ast) === 'Pressable'
+      && node.openingElement.attributes.properties.some(prop => prop.name?.getText(ast) === 'key' && prop.initializer?.getText(ast) === '{department.id}')) tile = node;
     ts.forEachChild(node, walk);
   }
-  walk(ast); assert.ok(button, 'The visible See All label must belong to a button');
-  const onPress = button.openingElement.attributes.properties.find(prop => prop.name?.getText(ast) === 'onPress');
-  assert.ok(onPress?.initializer && ts.isJsxExpression(onPress.initializer));
-  const exports = {}, routes = [];
-  vm.runInNewContext(ts.transpileModule('exports.press = ' + onPress.initializer.expression.getText(ast), {
-    compilerOptions: { target: ts.ScriptTarget.ES2022 },
-  }).outputText, { exports, router: { push: route => routes.push(route) } });
-  exports.press(); assert.deepEqual(routes, ['/offers']);
+  walk(ast);
+  assert.equal(seeAll, false, 'SEE ALL is removed');
+  assert.ok(tile, 'department tile');
+  const onPress = tile.openingElement.attributes.properties.find(prop => prop.name?.getText(ast) === 'onPress');
+  const press = (department, unifiedOffers) => {
+    const exports = {}, routes = [];
+    vm.runInNewContext(ts.transpileModule('exports.press = ' + onPress.initializer.expression.getText(ast), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText,
+      { exports, department, unifiedOffers, router: { push: route => routes.push(route) } });
+    exports.press(); return JSON.parse(JSON.stringify(routes));
+  };
+  const buyGet = { id: '6afa01170b8dc1a73f68a832', name: 'Buy & Get Free' }, grocery = { id: 'grocery', name: 'Grocery' };
+  assert.deepEqual(press(buyGet, true), ['/offers']);
+  // Renamed by the Admin: still the same department (same ID), still opens /offers.
+  assert.deepEqual(press({ ...buyGet, name: 'Weekly Gifts & Deals' }, true), ['/offers']);
+  assert.deepEqual(press(grocery, false), [{ pathname: '/department-categories', params: { id: 'grocery', name: 'Grocery' } }]);
+  assert.match(text, /const unifiedOffers = department\.id === BUY_GET_FREE_DEPARTMENT\.id;/);
+  assert.match(tile.getText(ast), /\{department\.name\}/, 'label is the Admin-managed department name');
+  assert.doesNotMatch(tile.getText(ast), /'Offers'/, 'no hardcoded label');
+  assert.doesNotMatch(text, /department\.name\s*===|=== 'Buy & Get Free'/, 'never identified by its editable name');
+  assert.match(tile.getText(ast), /department\.image/, 'tile keeps its Admin-managed image');
   assert.doesNotMatch(text, /offersSectionY|scrollToOffers/);
 });
 

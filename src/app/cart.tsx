@@ -9,6 +9,7 @@ import { ProductImage } from '../components/product-image';
 import { ImageFrame } from '../services/image-frame';
 
 import { cartTotal } from '../services/cartPricing';
+import { cartQuantityLimitIssues, cartQuantityLimitSummary, quantityLimitBlock, QUANTITY_LIMIT_TITLE } from '../services/quantity-limit';
 import { DEMO_PRICE, isDemoMode } from '../services/demo-mode';
 import { getSessionSnapshot } from '../services/tokenStorage';
 import { deliverySummary } from '../services/delivery-pricing';
@@ -182,6 +183,11 @@ export default function Cart() {
 
   const cart = shopping.cart as CartItem[];
 
+  // Maximum quantity per order: a saved cart above a newly lowered limit is kept
+  // as-is, flagged, and must be reduced by the customer before checkout.
+  const limitIssues = cartQuantityLimitIssues(cart);
+  const overLimit = new Map(limitIssues.map(issue => [issue.productId, issue]));
+
 
   const hasLoadedOnce = shopping.ready;
 
@@ -303,6 +309,11 @@ export default function Cart() {
         const eligibility = deliverySummary(cartTotal(latest.cart), isDemoMode() ? undefined : latest.deliveryRules, isDemoMode() ? 0 : latest.minimum);
         if (!latest.cart.length || !eligibility.allowed) {
           actionAlert('Checkout unavailable', eligibility.message);
+          return;
+        }
+        const latestLimitIssues = cartQuantityLimitIssues(latest.cart);
+        if (latestLimitIssues.length) {
+          actionAlert(QUANTITY_LIMIT_TITLE, cartQuantityLimitSummary(latestLimitIssues));
           return;
         }
         router.push('/checkout');
@@ -521,6 +532,9 @@ export default function Cart() {
 
 
                 const itemUpdating = false;
+
+                // Maximum quantity per order: "+" stops only once the maximum is reached.
+                const atQuantityLimit = quantityLimitBlock(product, item.quantity, item.quantity + 1) !== null;
 
 
                 const uniqueKey =
@@ -810,10 +824,11 @@ export default function Cart() {
 
                         <Pressable
                           accessibilityLabel={`Increase ${product.name} quantity`}
+                          accessibilityState={{ disabled: itemUpdating || atQuantityLimit }}
                           style={[
                             styles.quantityButton,
 
-                            itemUpdating &&
+                            (itemUpdating || atQuantityLimit) &&
                               styles.quantityButtonDisabled,
                           ]}
 
@@ -825,7 +840,7 @@ export default function Cart() {
                           }
 
                           disabled={
-                            itemUpdating
+                            itemUpdating || atQuantityLimit
                           }
                         >
 
@@ -838,6 +853,12 @@ export default function Cart() {
                         </Pressable>
 
                       </View>
+
+                      {overLimit.has(productId) && (
+                        <Text testID="cart-quantity-limit-warning" accessibilityLiveRegion="polite" style={styles.quantityLimitWarning}>
+                          Maximum {overLimit.get(productId)!.maxQuantityPerOrder} per order. Reduce the quantity to continue.
+                        </Text>
+                      )}
 
 
 
@@ -924,6 +945,19 @@ export default function Cart() {
                 {/* MINIMUM ORDER */}
                 {progress}
 
+                {/* MAXIMUM QUANTITY PER ORDER */}
+                {limitIssues.length > 0 && (
+                  <View testID="cart-quantity-limit-notice" accessibilityLiveRegion="polite" style={styles.minimumBox}>
+                    <View style={styles.minimumIcon}>
+                      <Ionicons name="alert-circle-outline" size={20} color="#E35B3F" />
+                    </View>
+                    <View style={styles.minimumContent}>
+                      <Text style={styles.minimumText}>{QUANTITY_LIMIT_TITLE}</Text>
+                      <Text style={styles.remainingText}>{cartQuantityLimitSummary(limitIssues)}</Text>
+                    </View>
+                  </View>
+                )}
+
                 {!showClassC && !canCheckout && (
 
                   <View
@@ -990,7 +1024,7 @@ export default function Cart() {
 
                 {/* READY */}
 
-                {!showClassC && canCheckout && (
+                {!showClassC && canCheckout && limitIssues.length === 0 && (
 
                   <View
                     style={
@@ -1023,7 +1057,7 @@ export default function Cart() {
                   style={[
                     styles.checkoutButton,
 
-                    !canCheckout &&
+                    (!canCheckout || limitIssues.length > 0) &&
                       styles.checkoutButtonDisabled,
                   ]}
 
@@ -1032,7 +1066,7 @@ export default function Cart() {
                   }
 
                   disabled={
-                    !canCheckout
+                    !canCheckout || limitIssues.length > 0
                   }
                 >
 
@@ -1517,6 +1551,14 @@ const styles =
     fontSize: 12,
     fontWeight: '500',
     color: '#817B71',
+  },
+
+
+  quantityLimitWarning: {
+    marginTop: 6,
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#D74343',
   },
 
 

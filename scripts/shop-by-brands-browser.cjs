@@ -86,7 +86,7 @@ const mock = () => {
     socket.addEventListener('message', event => { const m = JSON.parse(event.data); if (m.id) { const p = callbacks.get(m.id); callbacks.delete(m.id); if (m.error) p.reject(Error(JSON.stringify(m.error))); else p.resolve(m.result); } else if (m.method === 'Runtime.exceptionThrown') errors.push(m.params.exceptionDetails); });
     const send = (method, params = {}) => new Promise((resolve, reject) => { const key = ++id; callbacks.set(key, { resolve, reject }); socket.send(JSON.stringify({ id: key, method, params })); });
     const evaluate = async expression => { const r = await send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true }); if (r.exceptionDetails) throw Error(JSON.stringify(r.exceptionDetails)); return r.result.value; };
-    const until = async (expression, tries = 100) => { for (let n = 0; n < tries; n++) { if (await evaluate(expression)) return; await wait(100); } throw Error('Timed out: ' + expression + '\n' + (await evaluate('document.body.innerText')).slice(0, 800)); };
+    const until = async (expression, tries = 100) => { for (let n = 0; n < tries; n++) { if (await evaluate(expression).catch(() => false)) return; await wait(100); } /* a page still loading (no body yet) is simply not ready */ throw Error('Timed out: ' + expression + '\n' + (await evaluate('document.body.innerText')).slice(0, 800)); };
     const shot = async name => { const { data } = await send('Page.captureScreenshot', { format: 'png' }); const file = path.join(evidence, name + '.png'); fs.writeFileSync(file, Buffer.from(data, 'base64')); return file; };
     const scroller = `document.querySelector('[data-testid="brand-carousel"] > div')`;
     const left = () => evaluate(`${scroller}.scrollLeft`);

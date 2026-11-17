@@ -255,7 +255,7 @@ function checkoutHandler(state, extra = {}) {
     shoppingState: state, checkoutInFlight: { current: false }, setCheckingOut: () => {},
     getSessionSnapshot: () => ({ revision: 1 }), editingQuantity: { current: null }, quantityDraft: { current: {} },
     cartTotal: cartPrice, deliverySummary: deliveryProjection, isDemoMode: () => false,
-    actionAlert: (...args) => alerts.push(args), router: { push: value => pushes.push(value) }, ...extra,
+    actionAlert: (...args) => alerts.push(args), router: { push: value => pushes.push(value) }, ...cartFixture.load('services/quantity-limit.ts'), ...extra,
   };
   return { handler: screenFunction('cart.tsx', 'handleCheckout', context), pushes, alerts };
 }
@@ -363,6 +363,7 @@ test('root layout gates restoration, remounts on account changes, protects priva
     'react-native': { Platform: { OS: 'web' }, View: 'View', Text: 'Text', Pressable: 'Pressable', ActivityIndicator: 'ActivityIndicator' },
     'react-native-safe-area-context': { SafeAreaView: 'SafeAreaView' },
     '../components/startup-screen': { StartupScreen: 'StartupScreen' },
+    '../components/social-head': { SocialHead: 'SocialHead' },
     'expo-linking': { getInitialURL: async () => null },
     'expo-notifications': {}, 'expo-constants': {},
     'expo-status-bar': { StatusBar: 'StatusBar' },
@@ -832,4 +833,20 @@ test('a stalled response body times out without retrying the request', async () 
   const response = await request('https://example.invalid/cart', {}, 10);
   await assert.rejects(response.json(), /timed out/);
   assert.equal(calls, 1);
+});
+
+test('cart checkout stops on a restored quantity above a lowered maximum, without changing the cart', async () => {
+  const row = { ...cartRow(10), quantity: 7 };
+  row.product = { ...row.product, name: 'Chocolate Bar', quantityLimitEnabled: true, maxQuantityPerOrder: 6 };
+  const calls = [];
+  const state = cartFixture.createShoppingState({ authenticated: () => true, send: async (url, method) => {
+    calls.push([url, method]); return url === '/favorites' ? { favorites: [] } : { cart: { items: [row] }, minimumOrderValue: 0 };
+  } });
+  await state.refresh();
+  const { handler, pushes, alerts } = checkoutHandler(state); await handler();
+  assert.deepEqual(pushes, []);
+  assert.equal(alerts[0][0], 'Maximum Quantity Reached');
+  assert.match(alerts[0][1], /maximum of 6 of Chocolate Bar per order\. Your cart has 7/);
+  assert.equal(state.getSnapshot().cart[0].quantity, 7);
+  assert.ok(calls.every(([, method]) => !method), 'no cart write');
 });

@@ -27,6 +27,8 @@ import { useHomeSection } from '../hooks/use-home-section';
 import { fetchCatalog, readPublicCatalog, readProductSection, fetchProductSection, peekPricedSection } from '../services/catalogService';
 
 import { router, useFocusEffect } from 'expo-router';
+import { BUY_GET_FREE_DEPARTMENT } from '../services/social-metadata';
+import { uniqueOffers } from '../services/offers';
 import { useCallback, useState, useRef, useEffect } from 'react';
 import { getValidAccessToken } from '../services/authService';
 
@@ -242,7 +244,8 @@ export default function Index() {
       const data = await fetchProductSection('offers', token, force);
       if (token !== accessTokenRef.current) return;
       offersLoadedRef.current = true;
-      setOfferProducts(data.map(product => ({ ...convertProduct(product), discount: Number(product.discount) || 0 })));
+      // Guests keep the existing carousel look ("Offer" badge): the percentage is only used to classify offers.
+      setOfferProducts(uniqueOffers(data).map(product => ({ ...convertProduct(product), discount: token ? Number(product.discount) || 0 : 0 })));
       return true;
     } catch {
       if (token === accessTokenRef.current) setOffersError('Offers are unavailable. Please refresh.');
@@ -293,7 +296,7 @@ export default function Index() {
           if (generation === homeGenerationRef.current && !topLoadedRef.current && cached.length) setTopSellingProducts(current => current.length ? current : cached.map(convertProduct));
         });
         void readProductSection('offers').then(cached => {
-          if (generation === homeGenerationRef.current && !offersLoadedRef.current && cached.length) setOfferProducts(current => current.length ? current : cached.map(product => ({ ...convertProduct(product), discount: 0 })));
+          if (generation === homeGenerationRef.current && !offersLoadedRef.current && cached.length) setOfferProducts(current => current.length ? current : uniqueOffers(cached).map(product => ({ ...convertProduct(product), discount: 0 })));
         });
       }
       // Public sections can load without waiting for a token refresh.
@@ -307,7 +310,7 @@ export default function Index() {
       const cachedOffers = peekPricedSection('offers', token);
       const cachedTop = peekPricedSection('top-selling', token);
       if (cachedCatalog.length) setProducts(cachedCatalog.map(convertProduct));
-      if (cachedOffers.length) setOfferProducts(cachedOffers.map(product => ({ ...convertProduct(product), discount: Number(product.discount) || 0 })));
+      if (cachedOffers.length) setOfferProducts(uniqueOffers(cachedOffers).map(product => ({ ...convertProduct(product), discount: token ? Number(product.discount) || 0 : 0 })));
       if (cachedTop.length) setTopSellingProducts(cachedTop.map(convertProduct));
       setIsLoggedIn(loggedIn);
       if (!loggedIn) {
@@ -589,11 +592,15 @@ export default function Index() {
           </View>
         ) : departments.length > 0 ? (
           <View style={styles.departmentGrid}>
-            {departments.map(department => (
+            {departments.map(department => {
+              // The Buy & Get Free department (stable ID, never its editable name) opens the unified Offers
+              // page. Its name and image stay fully Admin-managed, exactly like every other tile.
+              const unifiedOffers = department.id === BUY_GET_FREE_DEPARTMENT.id;
+              return (
               <Pressable
                 key={department.id}
                 style={styles.departmentCard}
-                onPress={() => router.push({
+                onPress={() => unifiedOffers ? router.push('/offers') : router.push({
                   pathname: '/department-categories',
                   params: { id: department.id, name: department.name },
                 })}
@@ -614,7 +621,8 @@ export default function Index() {
                   {department.name}
                 </Text>
               </Pressable>
-            ))}
+              );
+            })}
           </View>
         ) : (
           <View style={styles.departmentEmpty}>
@@ -838,20 +846,6 @@ export default function Index() {
               Offers
             </Text>
           </View>
-
-          <Pressable
-            onPress={
-              () => router.push('/offers')
-            }
-          >
-            <Text
-              style={
-                styles.offerLabel
-              }
-            >
-              SEE ALL
-            </Text>
-          </Pressable>
         </View>
 
         {offerProducts.length > 0 ? (
@@ -937,7 +931,8 @@ export default function Index() {
                       styles.offerPriceRow
                     }
                   >
-                    <Text
+                    {/* Crossed-out price only for an actual discount (Buy & Get offers may have none). */}
+                    {activeOffer.discount > 0 && <Text
                       style={
                         styles.offerOldPrice
                       }
@@ -945,7 +940,7 @@ export default function Index() {
                       {isDemoMode() ? DEMO_PRICE : `$${Number(
                         activeOffer.price
                       ).toFixed(2)}`}
-                    </Text>
+                    </Text>}
 
                     <Text
                       style={
@@ -1844,13 +1839,6 @@ const styles = StyleSheet.create({
   },
 
   sectionSeeMore: {
-    fontSize: 8,
-    fontWeight: '900',
-    color: '#E35B3F',
-    letterSpacing: 0.9,
-  },
-
-  offerLabel: {
     fontSize: 8,
     fontWeight: '900',
     color: '#E35B3F',

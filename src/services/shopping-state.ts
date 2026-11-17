@@ -5,6 +5,7 @@ import { currentCartPrices } from './cartPricing';
 import { getFinalPrice } from './product-price';
 import { syncDemoMode } from './demo-mode';
 import type { DeliveryRules } from './delivery-pricing';
+import { newestProductCopy, quantityLimitBlock, QuantityLimitError, QUANTITY_LIMIT_EXCEEDED, QUANTITY_LIMIT_TITLE } from './quantity-limit';
 
 export type ShoppingProduct = { _id?: string; id?: string; name: string; discountedPrice?: number; price?: number; availability?: boolean; [key: string]: any };
 export type ShoppingItem = { product: ShoppingProduct & { _id: string }; quantity: number; price: number };
@@ -185,6 +186,14 @@ export function createShoppingState(deps: { send: (path: string, method?: string
             }
           } catch { if (version !== generation) break; }
         }
+        const limitRejected = (failure as { code?: string }).code === QUANTITY_LIMIT_EXCEEDED;
+        if (cartOperation && limitRejected) {
+          // The server refused an increase above the product's current maximum. The saved
+          // cart is unchanged, so roll back only this change and refresh the product limits.
+          operations.shift(); mutations.cart++; publish(); op.reject(failure);
+          void load('cart', true).catch(() => {});
+          continue;
+        }
         if (cartOperation) {
           cartError = failure;
           if (intendedQuantity !== undefined) failedCart.set(op.id, { quantity: intendedQuantity, error: failure });
@@ -241,18 +250,40 @@ export function createShoppingState(deps: { send: (path: string, method?: string
     const promise = new Promise<void>((yes, no) => { resolve = yes; reject = no; });
     operations.push({ ...input, promise, resolve, reject }); mutations[isCartOperation(input) ? 'cart' : 'favorites']++; publish(); void drain(); return promise;
   };
-  return { intentVersion: (id: string) => intents.get(id) || 0, getSnapshot: () => snapshot, subscribe: (fn: () => void) => { listeners.add(fn); return () => { listeners.delete(fn); }; }, reset, refresh, synchronizeCart,
+  // The freshest locally known limit: the newer of the cart row and the caller's
+  // (catalog/details) copy. No request is made; the backend remains authoritative.
+  const limitBlock = (id: string, next: number, product?: ShoppingProduct) => {
+    const item = snapshot.cart.find(value => value.product._id === id);
+    return quantityLimitBlock(newestProductCopy<ShoppingProduct>(item?.product, product), item?.quantity || 0, next);
+  };
+  const limitRejection = (message: string) => Promise.reject(new QuantityLimitError(message));
+  // True only once the current quantity has reached (or is above) the maximum, so
+  // quantity controls can disable "+" without revealing the limit any earlier.
+  const atQuantityLimit = (id: string, product?: ShoppingProduct) => {
+    const current = snapshot.cart.find(item => item.product._id === id)?.quantity || 0;
+    return current > 0 && limitBlock(id, current + 1, product) !== null;
+  };
+  return { limitBlock, atQuantityLimit, intentVersion: (id: string) => intents.get(id) || 0, getSnapshot: () => snapshot, subscribe: (fn: () => void) => { listeners.add(fn); return () => { listeners.delete(fn); }; }, reset, refresh, synchronizeCart,
     adjust: (product: ShoppingProduct, delta: number) => {
       const id = productId(product), current = snapshot.cart.find(item => item.product._id === id)?.quantity || 0;
       if (!id || ![-1, 1].includes(delta) || (delta > 0 && product.availability === false)) return Promise.resolve();
       const quantity = Math.max(0, current + delta);
       if (!Number.isSafeInteger(quantity) || quantity === current) return Promise.resolve();
+      const blocked = limitBlock(id, quantity, product);
+      if (blocked) return limitRejection(blocked);
       // Before hydration, preserve a relative tap so saved quantities are not replaced.
       return enqueue({ kind: loaded ? 'quantity' : 'adjust', id, product, quantity: loaded ? quantity : delta });
     },
-    add: (product: ShoppingProduct) => enqueue({ kind: 'add', id: productId(product), product }),
+    add: (product: ShoppingProduct) => {
+      const id = productId(product), blocked = limitBlock(id, (snapshot.cart.find(item => item.product._id === id)?.quantity || 0) + 1, product);
+      return blocked ? limitRejection(blocked) : enqueue({ kind: 'add', id, product });
+    },
     favorite: (product: ShoppingProduct, selected: boolean) => enqueue({ kind: 'favorite', id: productId(product), product, selected }),
-    quantity: (id: string, quantity: number) => Number.isSafeInteger(quantity) && quantity >= 1 ? enqueue({ kind: 'quantity', id, quantity }) : Promise.reject(Error('Enter a whole number of at least 1.')),
+    quantity: (id: string, quantity: number) => {
+      if (!Number.isSafeInteger(quantity) || quantity < 1) return Promise.reject(Error('Enter a whole number of at least 1.'));
+      const blocked = limitBlock(id, quantity);
+      return blocked ? limitRejection(blocked) : enqueue({ kind: 'quantity', id, quantity });
+    },
     remove: (id: string) => enqueue({ kind: 'remove', id }),
     clearCart: () => enqueue({ kind: 'clearCart', id: '' }), clearFavorites: () => enqueue({ kind: 'clearFavorites', id: '' }) };
 }
@@ -264,7 +295,8 @@ export const shoppingState = createShoppingState({ authenticated: () => getSessi
     if (!token || revision !== getSessionSnapshot().revision) throw Error('Please log in to save your change.');
     const response = await request(`${API_URL}${path}`, { method, headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, ...(body ? { body: JSON.stringify(body) } : {}) });
     const data = await response.json();
-    if (!response.ok) throw Object.assign(Error(data.message || 'Could not save your change. Please try again.'), { status: response.status });
+    if (!response.ok) throw Object.assign(Error(data.message || 'Could not save your change. Please try again.'), { status: response.status,
+      ...(data?.code === QUANTITY_LIMIT_EXCEEDED ? { code: QUANTITY_LIMIT_EXCEEDED, title: QUANTITY_LIMIT_TITLE } : {}) });
     syncDemoMode(data);
     return data;
   } });

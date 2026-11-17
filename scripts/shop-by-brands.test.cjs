@@ -128,7 +128,9 @@ test('brand circles: image only, accessible name kept, saved framing uses the sh
 });
 
 test('brand product list reuses the catalog: exact brand match, populated or raw ids, empty id shows nothing', () => {
-  const hook = load('hooks/use-catalog-screen.ts', () => new Proxy({}, { get: () => () => () => {} }));
+  // Unified Offers rules are pure and imported at module load; everything else stays stubbed.
+  const offers = load('services/offers.ts', name => name === './social-metadata' ? load('services/social-metadata.ts', () => ({})) : ({}));
+  const hook = load('hooks/use-catalog-screen.ts', name => name === '../services/offers' ? offers : new Proxy({}, { get: () => () => () => {} }));
   const products = [
     { _id: '1', name: 'A', brand: { _id: 'b1', name: 'One' }, category: { _id: 'c1' } },
     { _id: '2', name: 'B', brand: 'b1', category: 'c2' },

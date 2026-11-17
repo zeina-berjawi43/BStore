@@ -146,7 +146,10 @@ const mock = () => {
     checks.push('Stale revalidation updates changed content without resetting Shampoo, prices or scroll');
     await send('Page.navigate',{url:'http://127.0.0.1:4175/department-categories?id=dept&name=Personal%20Care&offline=true'});
     await until(`document.body&&document.body.innerText.includes('Tap to retry.')`);
-    assert.equal(await evaluate(`document.querySelectorAll('[role="progressbar"]').length`),0);
+    // Count loaders on the visible screen only. The hidden Home screen kept in the stack shows its
+    // initial "Loading brands" skeleton (aria-hidden, zero height) because unfocused Home sections
+    // intentionally never fetch; it is not part of this department screen.
+    assert.equal(await evaluate(`[...document.querySelectorAll('[role="progressbar"]')].filter(e=>!e.closest('[aria-hidden="true"]')&&e.getBoundingClientRect().height).length`),0);
     await evaluate(`window.networkOffline=false;[...document.querySelectorAll('div')].find(e=>e.childElementCount===0&&e.textContent.includes('Tap to retry.'))?.closest('[tabindex]')?.click()`);
     await until(`document.body.innerText.includes('600 products')&&document.body.innerText.includes('Product 0')`);
     checks.push('Cold offline entry stops loading, exposes retry, and retry recovers the full catalog');

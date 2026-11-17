@@ -7,6 +7,7 @@ import { fetchCatalog, fetchProductSection, peekCurrentCatalog, type CatalogProd
 import { request } from '../services/request';
 import { createResourceCache, reconcileItems } from '../services/resource-cache';
 import { getFinalPrice } from '../services/product-price';
+import { filterOffers, OFFER_FILTERS } from '../services/offers';
 
 type Category = { _id: string; name: string; department?: { _id?: string; name?: string } | string | null };
 const categories = createResourceCache();
@@ -18,8 +19,12 @@ export function selectCatalog(products: CatalogProduct[], subCategories: Categor
   return products.filter(product => {
     const id = typeof product.category === 'object' ? product.category?._id : product.category;
     return selected !== 'ALL' ? id === selected : all || (!!id && ids.has(id));
-  }).sort((a, b) => getFinalPrice(b) - getFinalPrice(a));
+  }).sort(byFinalPriceDesc);
 }
+const byFinalPriceDesc = (a: CatalogProduct, b: CatalogProduct) => getFinalPrice(b) - getFinalPrice(a);
+// Unified Offers filters (All | Buy & Get | Special Discounts) use the same ordering as other catalog pages.
+export const selectOffers = (products: CatalogProduct[], selected: string) => filterOffers(products, selected).sort(byFinalPriceDesc);
+const offerTabs: Category[] = OFFER_FILTERS.map(filter => ({ _id: filter._id, name: filter.name }));
 
 const productBrandId = (product: CatalogProduct) => typeof product.brand === 'object' ? product.brand?._id : product.brand;
 const productCategoryId = (product: CatalogProduct) => typeof product.category === 'object' ? product.category?._id : product.category;
@@ -37,7 +42,7 @@ export function useCatalogScreen(departmentId?: string, legacyName?: string, off
   const subCategories = useMemo(() => categoryState.path === path ? categoryState.items : categories.peek<Category[]>(path) || [], [categoryState, path]);
   const [selectedSubCategory, setSelectedSubCategory] = useState('ALL');
   const [loadingProducts, setLoadingProducts] = useState(!products.length);
-  const [loadingSubCategories, setLoadingSubCategories] = useState(!subCategories.length);
+  const [loadingSubCategories, setLoadingSubCategories] = useState(!offersOnly && !subCategories.length);
   const [productsError, setError] = useState('');
   const operation = useRef(0);
   const refreshRef = useRef<(force?: boolean) => Promise<void>>(async () => {});
@@ -60,12 +65,13 @@ export function useCatalogScreen(departmentId?: string, legacyName?: string, off
           const next = offersOnly ? await fetchProductSection('offers', token, force) : await fetchCatalog(token, force);
           if (valid()) {
             setProducts(next);
-            if (offersOnly) setSelectedSubCategory(selected => selected === 'ALL' || next.some(product => (typeof product.category === 'object' ? product.category?._id : product.category) === selected) ? selected : 'ALL');
           }
         } catch { failures.push('Products could not be refreshed.'); }
         finally { if (valid()) setLoadingProducts(false); }
       })();
       const categoryJob = (async () => {
+        // Offers uses three fixed filters, so no category list is requested.
+        if (offersOnly) { if (valid()) setLoadingSubCategories(false); return; }
         try {
           const cached = categories.peek<Category[]>(path);
           if (cached && valid()) { setCategoryState({ path, items: cached }); setLoadingSubCategories(false); }
@@ -91,10 +97,10 @@ export function useCatalogScreen(departmentId?: string, legacyName?: string, off
   }, [path, offersOnly]));
   const scoped = useMemo(() => selectBrandProducts(products, brandId), [products, brandId]);
   const scopedTabs = offersOnly || brandId !== undefined;
-  const visibleCategories = useMemo(() => scopedTabs ? subCategories.filter(category => scoped.some(product => productCategoryId(product) === category._id)) : legacyName && legacyName.toUpperCase() !== 'ALL'
+  const visibleCategories = useMemo(() => offersOnly ? offerTabs : scopedTabs ? subCategories.filter(category => scoped.some(product => productCategoryId(product) === category._id)) : legacyName && legacyName.toUpperCase() !== 'ALL'
     ? subCategories.filter(item => typeof item.department === 'object' && item.department?.name?.toLowerCase().trim() === legacyName.toLowerCase().trim())
-    : subCategories, [subCategories, legacyName, scopedTabs, scoped]);
-  const filteredProducts = useMemo(() => selectCatalog(scoped, visibleCategories, selectedSubCategory, scopedTabs || (!departmentId && legacyName?.toUpperCase() === 'ALL')), [scoped, visibleCategories, selectedSubCategory, departmentId, legacyName, scopedTabs]);
+    : subCategories, [subCategories, legacyName, scopedTabs, scoped, offersOnly]);
+  const filteredProducts = useMemo(() => offersOnly ? selectOffers(scoped, selectedSubCategory) : selectCatalog(scoped, visibleCategories, selectedSubCategory, scopedTabs || (!departmentId && legacyName?.toUpperCase() === 'ALL')), [scoped, visibleCategories, selectedSubCategory, departmentId, legacyName, scopedTabs, offersOnly]);
   return { products, subCategories: visibleCategories, selectedSubCategory, setSelectedSubCategory, loadingProducts, loadingSubCategories,
     productsError, filteredProducts, isLoggedIn: session.authenticated, retry: () => { void refreshRef.current(true); } };
 }

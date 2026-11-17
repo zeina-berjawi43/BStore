@@ -171,7 +171,10 @@ const mock = () => {
     assert.notEqual(await evaluate(`window.ui('[aria-label="Add Test Biscuits to cart"]').getAttribute('aria-disabled')`), 'true');
     await evaluate(`window.ui('[aria-label="Add Test Biscuits to cart"]').click()`);
     assert.equal(await evaluate('document.body.innerText.includes("Adding...")'), false);
-    assert.equal(await evaluate(`!!window.ui('[aria-label="Open cart, 2 items"]')`), true);
+    // Since mystore aa94352 ("Stabilize customer cart…") Add is an optimistic +1 that retains rapid taps
+    // (see shopping-state.test.cjs "without losing taps"); the two Almonds taps merge into one request
+    // (single request asserted below) giving quantity 2, plus one Biscuits => 3 items.
+    assert.equal(await evaluate(`!!window.ui('[aria-label="Open cart, 3 items"]')`), true);
     await wait(5000);
     assert.equal(await evaluate(`window.actionRequests.filter(([p,id]) => p === '/cart/add' && id === 'A').length`), 1);
     assert.equal(await evaluate(`window.actionRequests.filter(([p,id]) => p === '/cart/add' && id === 'B').length`), 1);
@@ -183,8 +186,11 @@ const mock = () => {
       await send('Emulation.setDeviceMetricsOverride', { width, height: 915, deviceScaleFactor: 1, mobile: true }); await wait(300);
       const layout = await evaluate(`(() => {
         const b = window.ui('[aria-label="Increase Test Almonds quantity"]').parentElement;
-        const price = [...b.parentElement.querySelectorAll('div')].find(e => e.childElementCount === 0 && e.textContent === '$8.00');
-        if (!price) throw Error('Price not found: '+b.parentElement.outerHTML.slice(0,2500));
+        // Search cards were restructured after this check was written (mystore 79db84c/1258c79/a7e3ff9):
+        // the price is no longer inside the quantity selector's parent, so locate it within the card.
+        const card = b.closest('[data-testid="search-product-card"]');
+        const price = card && [...card.querySelectorAll('div')].find(e => e.childElementCount === 0 && e.textContent === '$8.00');
+        if (!price) throw Error('Price not found: '+(card || b.parentElement).outerHTML.slice(0,2500));
         const a=b.getBoundingClientRect(), p=price.parentElement.parentElement.getBoundingClientRect();
         return { unclipped: [...price.parentElement.children].every(e => e.scrollWidth <= e.clientWidth + 1), row: b.parentElement === price.parentElement.parentElement.parentElement, noOverlap: p.right <= a.left || p.bottom <= a.top, centered: p.bottom <= a.top || Math.abs((p.top+p.bottom)/2 - (a.top+a.bottom)/2) < 2, width: innerWidth };
       })()`);
@@ -197,17 +203,18 @@ const mock = () => {
     await until(`!!window.ui('[aria-label="Remove Test Biscuits from favorites"]')`);
     assert.equal(await evaluate(`!!window.ui('[aria-label="Remove Test Biscuits from favorites"]')`), true);
     checks.push('Search removal is immediate and server failure restores the selected heart');
-    await evaluate(`window.failFavorite = false; window.ui('[aria-label="Open cart, 2 items"]').click()`);
+    await evaluate(`window.failFavorite = false; window.ui('[aria-label="Open cart, 3 items"]').click()`);
     await until(`location.pathname === '/cart' && !!window.ui('[aria-label="Test Almonds quantity"]')`);
     const cartCard=await evaluate(`(()=>{const x=window.ui('[aria-label="Remove Test Almonds from cart"]'),r=x.getBoundingClientRect(),c=x.parentElement.getBoundingClientRect();return {height:c.height,width:c.width,hit:r.width,corner:Math.abs(r.right-c.right)<2&&Math.abs(r.top-c.top)<2};})()`);
     assert.ok(cartCard.hit>=44&&cartCard.corner);await screenshot('phase3-cart');
     await evaluate(`window.ui('[aria-label="Increase Test Almonds quantity"]').click(); window.ui('[aria-label="Increase Test Almonds quantity"]').click()`);
-    await until(`window.ui('[aria-label="Test Almonds quantity"]').value === '3'`);
+    // Almonds starts at 2 here (the retained double tap above), so two increments give 4.
+    await until(`window.ui('[aria-label="Test Almonds quantity"]').value === '4'`);
     assert.equal(await evaluate(`window.actionRequests.filter(([p])=>p==='/cart/update').length`), 1);
     assert.equal(await evaluate(`window.ui('[aria-label="Test Biscuits quantity"]').disabled`), false);
     await wait(2500);
     await evaluate(`window.ui('[aria-label="Decrease Test Almonds quantity"]').click()`);
-    await until(`window.ui('[aria-label="Test Almonds quantity"]').value === '2'`);
+    await until(`window.ui('[aria-label="Test Almonds quantity"]').value === '3'`);
     await wait(1200);
     await evaluate(`(() => { const input=window.ui('[aria-label="Test Almonds quantity"]'); input.focus(); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'7'); input.dispatchEvent(new Event('input',{bubbles:true})); input.blur(); })()`);
     await until(`window.ui('[aria-label="Test Almonds quantity"]').value === '7'`);
@@ -239,7 +246,8 @@ const mock = () => {
     await evaluate(`window.ui('[aria-label="Go back"]').click()`);
     await until(`location.pathname==='/'`); await clickText('Favorites');
     await until(`location.pathname==='/favorites' && document.body.innerText.includes('2 favorites')`);
-    const favoriteCard=await evaluate(`(()=>{const x=window.ui('[aria-label="Remove Test Almonds from favorites"]'),r=x.getBoundingClientRect(),c=x.closest('[data-testid="favorite-product-card"]').getBoundingClientRect(),a=window.ui('[aria-label="Add Test Almonds to cart"]').getBoundingClientRect();return {height:c.height,width:c.width,hit:r.width,nextToCart:r.left>=a.right&&Math.abs((r.top+r.bottom)/2-(a.top+a.bottom)/2)<2,roundedSquare:r.width===r.height&&parseFloat(getComputedStyle(x).borderRadius)>0};})()`);
+    const favoriteCard=await evaluate(`(()=>{const x=window.ui('[aria-label="Remove Test Almonds from favorites"]'),r=x.getBoundingClientRect(),c=x.closest('[data-testid="favorite-product-card"]').getBoundingClientRect(),a=window.ui('[aria-label="Add Test Almonds to cart"]').getBoundingClientRect();return {height:c.height,width:c.width,hit:r.width,nextToCart:r.left>=a.right&&Math.abs((r.top+r.bottom)/2-(a.top+a.bottom)/2)<2,roundedSquare:(()=>{const f=x.firstElementChild,q=f&&f.getBoundingClientRect();return !!f&&r.width===r.height&&q.width===q.height&&parseFloat(getComputedStyle(f).borderRadius)>0;})()};})()`);
+    // Since mystore 79db84c the 44px square touch target wraps a 34px rounded-square face (removeButtonFace).
     assert.ok(favoriteCard.hit>=44&&favoriteCard.nextToCart&&favoriteCard.roundedSquare);assert.equal(favoriteCard.width,cartCard.width);
     assert.equal(favoriteCard.height,cartCard.height);
     await screenshot('phase3-favorites');
@@ -247,12 +255,13 @@ const mock = () => {
     assert.equal(await evaluate(`!!window.ui('[aria-label="Open cart, 0 items"]')`), true);
     assert.equal(await evaluate(`/507f191e810c19729de860ea|507f1f77bcf86cd799439012/.test(document.body.innerText)`),false);
     await evaluate(`window.ui('[aria-label="Add Test Almonds to cart"]').click();window.ui('[aria-label="Add Test Almonds to cart"]').click()`);
-    await until(`!!window.ui('[aria-label="Open cart, 1 items"]')`);
+    // Two synchronous Add taps are retained (+1 each, merged into one request) since mystore aa94352.
+    await until(`!!window.ui('[aria-label="Open cart, 2 items"]')`);
     assert.equal(await evaluate(`getComputedStyle(window.ui('[aria-label="Increase Test Almonds quantity"]').parentElement).backgroundColor`),'rgb(23, 23, 23)');
     assert.equal(await evaluate(`location.pathname`),'/favorites');
     checks.push('Favorites reference IDs absent; Add to Cart stays black during delayed request, remains on Favorites and updates badge immediately');
     await wait(1800);
-    await evaluate(`window.ui('[aria-label="Open cart, 1 items"]').click()`);await until(`location.pathname==='/cart'`);
+    await evaluate(`window.ui('[aria-label="Open cart, 2 items"]').click()`);await until(`location.pathname==='/cart'`);
     await clickText('Checkout');await until(`location.pathname==='/checkout'&&document.body.innerText.includes('Place Order')`);
     await evaluate(`(()=>{const label=[...document.querySelectorAll('*')].find(e=>e.childElementCount===0&&e.textContent==='Place Order'&&e.getBoundingClientRect().height&&!e.closest('[aria-hidden="true"]'));if(!label)throw Error('Missing Place Order');label.click();label.click();})()`);
     await until(`!!document.querySelector('[role="dialog"]')&&document.body.innerText.includes('Order Placed')`);
@@ -266,7 +275,8 @@ const mock = () => {
     await clickText('Clear Favorites'); await until(`document.body.innerText.includes('Clear Favorites?')`); await clickText('Cancel');
     assert.equal(await evaluate(`document.body.innerText.includes('2 favorites')`), true);
     await clickText('Clear Favorites'); await until(`document.body.innerText.includes('Clear Favorites?')`); await clickDialog('Clear Favorites');
-    await until(`document.body.innerText.includes('0 favorites')`);
+    // Since mystore 79db84c the count is shown only for 1+ favorites; at zero the empty state replaces it.
+    await until(`document.body.innerText.includes('No favorites yet')&&!/\d+ favorites?\b/.test(document.body.innerText)`);
     await wait(1800);
     checks.push('Favorites live count and zero cart badge track clears; Clear Favorites requires confirmation and empties immediately');
     for(const [quantity,threshold,message,total,fee] of [
@@ -279,7 +289,7 @@ const mock = () => {
       await until(`location.pathname==='/cart'&&document.body.innerText.includes('$${total.toFixed(2)}')`);
       if(quantity===2)assert.ok(await evaluate(`document.body.innerText.includes('more to reach the minimum order.')&&!document.body.innerText.includes('enjoy FREE delivery')`));
       else {
-        assert.ok(await evaluate(`document.body.innerText.includes(${JSON.stringify(message)})&&!document.body.innerText.includes('Products subtotal')&&document.querySelectorAll('[role="progressbar"]').length===2`));
+        assert.ok(await evaluate(`document.body.innerText.includes(${JSON.stringify(message)})&&!document.body.innerText.includes('Products subtotal')&&[...document.querySelectorAll('[role="progressbar"]')].filter(e=>!e.closest('[aria-hidden="true"]')&&e.getBoundingClientRect().height).length===2`));
         const compact=await evaluate(`document.querySelector('[data-testid="cart-compact-breakdown"]')?.textContent||''`);
         assert.equal(compact,fee?`$${(total-fee).toFixed(2)} subtotal + $${fee.toFixed(2)} delivery = $${total.toFixed(2)}`:'');
         await clickText('Checkout');await until(`location.pathname==='/checkout'&&document.body.innerText.includes(${JSON.stringify(message)})`);
@@ -293,7 +303,7 @@ const mock = () => {
       await evaluate(`window.deliveryFixture(${quantity},{priceClass:${JSON.stringify(priceClass)},minimumCheckoutAmount:30})`);
       await evaluate(`window.ui('[aria-label^="Open cart,"]').click()`);
       await until(`location.pathname==='/cart'&&document.body.innerText.includes('$${(quantity*8).toFixed(2)}')`);
-      assert.equal(await evaluate(`document.querySelectorAll('[role="progressbar"]').length`),0);
+      assert.equal(await evaluate(`[...document.querySelectorAll('[role="progressbar"]')].filter(e=>!e.closest('[aria-hidden="true"]')&&e.getBoundingClientRect().height).length`),0);
       assert.equal(await evaluate(`!!document.querySelector('[data-testid="cart-compact-breakdown"]')`),false);
       assert.equal(await evaluate(`[...document.querySelectorAll('[tabindex]')].find(e=>e.textContent.includes('Checkout')).getAttribute('aria-disabled')==='true'`),quantity===2);
       await evaluate('history.back()');await until(`location.pathname==='/favorites'`);

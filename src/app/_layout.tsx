@@ -7,6 +7,7 @@ import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import * as SplashScreen from 'expo-splash-screen';
 import { StartupScreen } from '../components/startup-screen';
+import { SocialHead } from '../components/social-head';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { dismissNotificationShade, installForegroundHandler, notificationDestination, syncPush } from '../services/pushService';
 import { getSessionSnapshot, onSessionChanged, readTokens, subscribeSession } from '../services/tokenStorage';
@@ -210,6 +211,8 @@ export default function RootLayout() {
           {guestRoutes.map(name => <Stack.Screen key={name} name={name} />)}
         </Stack.Protected>
       </Stack>}
+      {/* Link-preview metadata: outside the startup branch so static export writes it into each page. */}
+      <SocialHead pathname={pathname} />
     </SafeAreaView>
   );
 }

@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { getSessionSnapshot } from '../services/tokenStorage';
 import { shoppingState, ShoppingProduct } from '../services/shopping-state';
 import { useProductFeedback } from '../components/product-feedback';
+import { QUANTITY_LIMIT_TITLE } from '../services/quantity-limit';
 
 export function useShopping() {
   const state = useSyncExternalStore(shoppingState.subscribe, shoppingState.getSnapshot, shoppingState.getSnapshot);
@@ -20,7 +21,7 @@ export function useShopping() {
       if (mounted.current && revision === getSessionSnapshot().revision &&
           (cartId === undefined || shoppingState.intentVersion(cartId) === intent) && !reportedErrors.current.has(promise)) {
         reportedErrors.current.add(promise);
-        showAlert(error instanceof Error ? error.message : 'Please try again.', 'Could not save');
+        showAlert(error instanceof Error ? error.message : 'Please try again.', (error as { title?: string })?.title || 'Could not save');
       }
     };
     const notice = message && confirm ? showAlert('Your cart change is being saved.', 'Updating cart') : undefined;
@@ -39,11 +40,19 @@ export function useShopping() {
       reportError(error);
     }
   };
+  // Maximum quantity per order: tell the customer immediately, before any "saving" notice.
+  const limited = (id: string, next: number, product?: ShoppingProduct) => {
+    const message = getSessionSnapshot().authenticated ? shoppingState.limitBlock(id, next, product) : null;
+    if (message) showAlert(message, QUANTITY_LIMIT_TITLE);
+    return !!message;
+  };
+  const currentQuantity = (id: string) => shoppingState.getSnapshot().cart.find(item => item.product._id === id)?.quantity || 0;
   return { ...state, feedback, showAlert, refresh: shoppingState.refresh,
-    adjust: (product: ShoppingProduct, delta: number) => act(() => shoppingState.adjust(product, delta), undefined, undefined, undefined, String(product._id || product.id)),
+    adjust: (product: ShoppingProduct, delta: number) => delta > 0 && limited(String(product._id || product.id), currentQuantity(String(product._id || product.id)) + delta, product) ? Promise.resolve() : act(() => shoppingState.adjust(product, delta), undefined, undefined, undefined, String(product._id || product.id)),
     add: (product: ShoppingProduct) => {
       const id = String(product._id || product.id);
       if (product.availability === false) return Promise.resolve();
+      if (limited(id, currentQuantity(id) + 1, product)) return Promise.resolve();
       let intent = 0;
       return act(() => { const work = shoppingState.adjust(product, 1); intent = shoppingState.intentVersion(id); return work; }, `${product.name} has been added to your cart.`, 'Added to Cart', () => shoppingState.intentVersion(id) === intent && (shoppingState.getSnapshot().cart.find(item => item.product._id === id)?.quantity || 0) > 0, id);
     },
@@ -62,6 +71,6 @@ export function useShopping() {
       return act(() => shoppingState.favorite(product, selected), selected ? 'Product has been added to your favorites.' : undefined, selected ? 'Added to Favorites' : undefined);
     },
     remove: (id: string) => act(() => shoppingState.remove(id), undefined, undefined, undefined, id),
-    quantity: (id: string, quantity: number) => act(() => shoppingState.quantity(id, quantity), undefined, undefined, undefined, id),
+    quantity: (id: string, quantity: number) => quantity > currentQuantity(id) && limited(id, quantity) ? Promise.resolve() : act(() => shoppingState.quantity(id, quantity), undefined, undefined, undefined, id),
     clearCart: () => act(shoppingState.clearCart, undefined, undefined, undefined, ''), clearFavorites: () => act(shoppingState.clearFavorites) };
 }
