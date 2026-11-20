@@ -111,7 +111,7 @@ for (const cached of [false, true]) for (const count of [0, 1]) test(`Favorites 
     if (name === 'expo-router') return { router: {}, useFocusEffect() {} };
     if (name === '../hooks/use-shopping') return { useShopping: () => shopping };
     if (name === '../components/action-dialog') return { useActionDialog: () => ({}) };
-    if (name === '../services/product-price') return { getFinalPrice: () => 10 };
+    if (name === '../services/product-price') return { getFinalPrice: () => 10, discountPercent: execute(source('services/product-price.ts'), {}).discountPercent };
     if (name === '../services/demo-mode') return { isDemoMode: () => false, DEMO_PRICE: 'X$' };
     return new Proxy({}, { get: (_target, key) => key });
   } }, ts.JsxEmit.ReactJSX).default();

@@ -12,7 +12,7 @@ import { OfferShine } from '../components/offer-shine';
 import { PagedCarousel } from '../components/paged-carousel';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StartupScreen } from '../components/startup-screen';
-import { getFinalPrice } from '../services/product-price';
+import { discountPercent, getFinalPrice } from '../services/product-price';
 import { DEMO_PRICE, isDemoMode } from '../services/demo-mode';
 import { ProductImage } from '../components/product-image';
 import { ImageFrame } from '../services/image-frame';
@@ -244,8 +244,8 @@ export default function Index() {
       const data = await fetchProductSection('offers', token, force);
       if (token !== accessTokenRef.current) return;
       offersLoadedRef.current = true;
-      // Guests keep the existing carousel look ("Offer" badge): the percentage is only used to classify offers.
-      setOfferProducts(uniqueOffers(data).map(product => ({ ...convertProduct(product), discount: token ? Number(product.discount) || 0 : 0 })));
+      // Real public percentage for every visitor; 0 (no badge text, "Offer") when there is no discount.
+      setOfferProducts(uniqueOffers(data).map(product => ({ ...convertProduct(product), discount: discountPercent(product) })));
       return true;
     } catch {
       if (token === accessTokenRef.current) setOffersError('Offers are unavailable. Please refresh.');
@@ -296,7 +296,7 @@ export default function Index() {
           if (generation === homeGenerationRef.current && !topLoadedRef.current && cached.length) setTopSellingProducts(current => current.length ? current : cached.map(convertProduct));
         });
         void readProductSection('offers').then(cached => {
-          if (generation === homeGenerationRef.current && !offersLoadedRef.current && cached.length) setOfferProducts(current => current.length ? current : uniqueOffers(cached).map(product => ({ ...convertProduct(product), discount: 0 })));
+          if (generation === homeGenerationRef.current && !offersLoadedRef.current && cached.length) setOfferProducts(current => current.length ? current : uniqueOffers(cached).map(product => ({ ...convertProduct(product), discount: discountPercent(product) })));
         });
       }
       // Public sections can load without waiting for a token refresh.
@@ -310,7 +310,7 @@ export default function Index() {
       const cachedOffers = peekPricedSection('offers', token);
       const cachedTop = peekPricedSection('top-selling', token);
       if (cachedCatalog.length) setProducts(cachedCatalog.map(convertProduct));
-      if (cachedOffers.length) setOfferProducts(uniqueOffers(cachedOffers).map(product => ({ ...convertProduct(product), discount: token ? Number(product.discount) || 0 : 0 })));
+      if (cachedOffers.length) setOfferProducts(uniqueOffers(cachedOffers).map(product => ({ ...convertProduct(product), discount: discountPercent(product) })));
       if (cachedTop.length) setTopSellingProducts(cachedTop.map(convertProduct));
       setIsLoggedIn(loggedIn);
       if (!loggedIn) {
@@ -1394,8 +1394,8 @@ function TopSellingProductRow({
             contentFit="contain" cachePolicy="memory-disk"
           />
 
-          {onSale && <View style={[styles.recentDiscount, styles.topSellingDiscountPosition]}>
-            <Text style={styles.recentDiscountText}>{product.discount}% OFF</Text>
+          {discountPercent(product) > 0 && <View style={[styles.recentDiscount, styles.topSellingDiscountPosition]}>
+            <Text style={styles.recentDiscountText}>{discountPercent(product)}% OFF</Text>
           </View>}
           {!isAvailable ? (
             <View
@@ -1556,8 +1556,7 @@ function RecentProduct({
             contentFit="contain" cachePolicy="memory-disk"
           />
 
-          {product.discount &&
-          product.discount > 0 ? (
+          {discountPercent(product) > 0 ? (
             <View
               style={
                 styles.recentDiscount
@@ -1568,7 +1567,7 @@ function RecentProduct({
                   styles.recentDiscountText
                 }
               >
-                -{product.discount}%
+                -{discountPercent(product)}%
               </Text>
             </View>
           ) : null}

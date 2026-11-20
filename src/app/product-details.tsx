@@ -4,7 +4,7 @@ import { getSessionSnapshot, onPricingChanged } from '../services/tokenStorage';
 import { useShopping } from '../hooks/use-shopping';
 
 import { CartButton } from '../components/cart-button';
-import { getFinalPrice } from "../services/product-price";
+import { discountPercent, getFinalPrice } from "../services/product-price";
 import { DEMO_PRICE, isDemoMode } from '../services/demo-mode';
 
 import { ProductImage } from '../components/product-image';
@@ -1065,6 +1065,13 @@ export default function ProductDetails() {
 
           ) : (
 
+            <View style={{ alignItems: 'flex-start', gap: 8 }}>
+            {/* Public discount percentage for guests (same badge as the logged-in price row; no price). */}
+            {discountPercent(product) > 0 && (
+              <View style={styles.discountBadge}>
+                <Text style={styles.discountText}>-{discountPercent(product)}%</Text>
+              </View>
+            )}
             <Pressable
               style={
                 styles.signInContainer
@@ -1093,6 +1100,7 @@ export default function ProductDetails() {
               </Text>
 
             </Pressable>
+            </View>
 
           )}
             </View>

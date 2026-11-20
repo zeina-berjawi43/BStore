@@ -21,7 +21,7 @@ function fixture() {
   // Unified Offers rules (pure): Buy & Get Free department id + existing discount rule.
   const offers = load('services/offers.ts', { './social-metadata': load('services/social-metadata.ts') });
   const auth = { API_URL: 'https://test', getValidAccessToken: async () => token };
-  const catalog = load('services/catalogService.ts', { './resource-cache': resources, './authService': auth, './tokenStorage': tokens, './request': { request }, './demo-mode': { syncDemoMode: () => {} }, './offers': offers,
+  const catalog = load('services/catalogService.ts', { './resource-cache': resources, './authService': auth, './tokenStorage': tokens, './request': { request }, './demo-mode': { syncDemoMode: () => {} }, './offers': offers, './product-price': load('services/product-price.ts'),
     '@react-native-async-storage/async-storage': { getItem: async () => null, setItem: async () => {} } });
   const react = {
     useState(initial) { const i = cursor++; if (!(i in slots)) slots[i] = typeof initial === 'function' ? initial() : initial; return [slots[i], value => { slots[i] = typeof value === 'function' ? value(slots[i]) : value; }]; },

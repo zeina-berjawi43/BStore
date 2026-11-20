@@ -100,7 +100,7 @@ test('Top Selling renders old/current/percentage only for offers; Recently Added
     components[name] = execute(fn.getText(ast) + '\nexports.component = ' + name, {
       require: () => ({ jsx, jsxs: jsx }), useRef: initial => ({ current: initial }), useState: initial => [typeof initial === 'function' ? initial() : initial], useEffect: () => {},
       Animated: { Value: class { interpolate() { return 0; } } }, styles: {}, View: 'View', Text: 'Text', Pressable: 'Pressable', ProductImage: 'ProductImage', AddToCartButton: 'AddToCartButton', ProductFavoriteHeart: 'ProductFavoriteHeart', Ionicons: 'Icon',
-      getFinalPrice: pricing.getFinalPrice,
+      getFinalPrice: pricing.getFinalPrice, discountPercent: pricing.discountPercent,
     }).component;
   }
   const props = { isLoggedIn: true, product: { id: 'A', name: 'A', price: 10, discountedPrice: 8, discount: 20 }, index: 0 };
@@ -140,13 +140,16 @@ test('deep-link back uses Home fallback; Account removes only its Settings entry
 });
 
 test('shared pricing preserves rounding, backend overrides and Recently Added offer values', () => {
-  const { getFinalPrice } = execute(source('services/product-price.ts'));
+  const { getFinalPrice, discountPercent } = execute(source('services/product-price.ts'));
   assert.equal(getFinalPrice({ price: 10 }), 10);
   assert.equal(getFinalPrice({ price: 10, discount: 0 }), 10);
   assert.equal(getFinalPrice({ price: 10, discount: 20, discountedPrice: 8 }), 8);
   assert.equal(getFinalPrice({ price: 9.99, discount: 15, discountedPrice: 8.49 }), 8.49);
   assert.equal(getFinalPrice({ price: 10, discount: 20, discountedPrice: 7.25 }), 7.25);
-  for (const file of ['index.tsx', 'search.tsx', 'favorites.tsx', 'category-products.tsx', 'department-categories.tsx']) assert.match(source('app/' + file), /import \{ getFinalPrice \} from '..\/services\/product-price'/);
+  // Badges use the shared public percentage (identical before and after login); invalid values show none.
+  for (const [discount, expected] of [[20, 20], [12.5, 12.5], [100, 100], [0, 0], [-5, 0], [101, 0], ['20', 0], [NaN, 0], [undefined, 0]]) assert.equal(discountPercent({ discount }), expected, String(discount));
+  assert.equal(discountPercent({ discount: 15 }), discountPercent({ discount: 15, price: 10, discountedPrice: 8.5 }), 'same with or without prices');
+  for (const file of ['index.tsx', 'search.tsx', 'favorites.tsx', 'category-products.tsx', 'department-categories.tsx', 'product-details.tsx']) assert.match(source('app/' + file), /import \{ discountPercent, getFinalPrice \} from ["']..\/services\/product-price["']/);
 });
 
 

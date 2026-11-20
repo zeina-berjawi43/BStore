@@ -6,7 +6,7 @@ import { confirmShoppingClear } from '../services/confirm-shopping-clear';
 import { shoppingState } from '../services/shopping-state';
 import { CartButton } from '../components/cart-button';
 
-import { getFinalPrice } from '../services/product-price';
+import { discountPercent, getFinalPrice } from '../services/product-price';
 import { DEMO_PRICE, isDemoMode } from '../services/demo-mode';
 
 import { goBackOrHome, startShopping } from '../services/navigation';
@@ -394,6 +394,8 @@ export default function Favorites() {
                   product
                 );
 
+              // Badge: public percentage (also before login). Prices keep using hasDiscount.
+              const badgePercent = discountPercent(product);
               const hasDiscount =
                 discount > 0 &&
                 originalPrice >
@@ -464,7 +466,7 @@ export default function Favorites() {
                       DISCOUNT BADGE
                   ================================================= */}
 
-                  {hasDiscount && (
+                  {badgePercent > 0 && (
 
                     <View
                       style={
@@ -477,7 +479,7 @@ export default function Favorites() {
                           styles.discountBadgeText
                         }
                       >
-                        -{discount}%
+                        -{badgePercent}%
                       </Text>
 
                     </View>

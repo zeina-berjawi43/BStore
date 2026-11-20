@@ -7,7 +7,7 @@ import { useShopping } from '../hooks/use-shopping';
 import { CartButton } from '../components/cart-button';
 
 import { AddToCartButton } from '../components/add-to-cart-button';
-import { getFinalPrice } from '../services/product-price';
+import { discountPercent, getFinalPrice } from '../services/product-price';
 import { DEMO_PRICE, isDemoMode } from '../services/demo-mode';
 import { ProductImage } from '../components/product-image';
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
@@ -147,7 +147,7 @@ export default function Search() {
                 <View style={styles.imageBox}>
                   {uri ? <ProductImage imageFrame={item.imageFrame} source={{ uri }} style={styles.image} contentFit="contain" cachePolicy="memory-disk" recyclingKey={item._id} />
                     : <Ionicons name="cube-outline" size={38} color="#E35B3F" />}
-                  {onSale && <View style={styles.discount}><Text style={styles.discountText}>-{Number(item.discount || 0)}%</Text></View>}
+                  {discountPercent(item) > 0 && <View style={styles.discount}><Text style={styles.discountText}>-{discountPercent(item)}%</Text></View>}
                 </View>
                 <View style={styles.info}>
                   <Text style={styles.name} numberOfLines={2}>{item.name}</Text>

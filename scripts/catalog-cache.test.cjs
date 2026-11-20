@@ -28,7 +28,8 @@ test('A/B/C sessions and observed price-class changes invalidate prices; guests 
   f.switchAccount(null);
   const guest = await f.catalog.fetchCatalog(null);
   assert.equal(guest[0].price, undefined); assert.equal(guest[0].discountedPrice, undefined);
-  assert.equal(guest[0].discount, undefined); assert.equal(guest[0].name, 'Shampoo');
+  // The discount percentage is public catalog metadata (badges before login); prices never are.
+  assert.equal(guest[0].discount, 20); assert.equal(guest[0].name, 'Shampoo');
   f.products([{ ...guest[0], availability: false, price: 10, discountedPrice: 8 }]);
   const section = await f.catalog.fetchProductSection('offers', null);
   assert.equal(section[0].availability, false); assert.equal(section[0].price, undefined);

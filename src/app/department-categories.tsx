@@ -5,7 +5,7 @@ import { useShopping } from '../hooks/use-shopping';
 import { CartButton } from '../components/cart-button';
 
 import { goBackOrHome } from '../services/navigation';
-import { getFinalPrice } from '../services/product-price';
+import { discountPercent, getFinalPrice } from '../services/product-price';
 import { DEMO_PRICE, isDemoMode } from '../services/demo-mode';
 import { AddToCartButton } from '../components/add-to-cart-button';
 import { ProductImage } from '../components/product-image';
@@ -427,6 +427,8 @@ const CatalogCard = memo(function CatalogCard({ columns, product, favorite, pend
                   getFinalPrice(
                     product
                   );
+                // Badge: public percentage (also before login). Prices keep using hasDiscount.
+                const badgePercent = discountPercent(product);
                 const hasDiscount =
                   discount > 0 &&
                   originalPrice >
@@ -484,7 +486,7 @@ const CatalogCard = memo(function CatalogCard({ columns, product, favorite, pend
                       )}
                     </View>
                     {/* DISCOUNT */}
-                    {hasDiscount && (
+                    {badgePercent > 0 && (
                       <View
                         style={
                           styles.discountBadge
@@ -495,7 +497,7 @@ const CatalogCard = memo(function CatalogCard({ columns, product, favorite, pend
                             styles.discountBadgeText
                           }
                         >
-                          -{discount}%
+                          -{badgePercent}%
                         </Text>
                       </View>
                     )}

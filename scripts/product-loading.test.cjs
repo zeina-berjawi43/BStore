@@ -7,12 +7,14 @@ const ts = require('typescript');
 const source = file => fs.readFileSync(path.join(__dirname, '../src', file), 'utf8');
 const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; };
 const product = { _id: 'p', name: 'Product', image: 'p.jpg', imageFrame: { zoom: 2 }, price: 100, discountedPrice: 80, discount: 20, availability: true };
+// Real shared pricing helpers (pure) for the catalog service's public discount percentage.
+const pricing = {}; vm.runInNewContext(ts.transpileModule(source('services/product-price.ts'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, { exports: pricing });
 const resource = {}; vm.runInNewContext(ts.transpileModule(source('services/resource-cache.ts'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, { exports: resource });
 function catalog(disk = new Map()) {
   const calls = [], exports = {}; let changed;
   vm.runInNewContext(ts.transpileModule(source('services/catalogService.ts'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, {
     exports, require: name => name.includes('async-storage') ? { getItem: async key => disk.get(key) || null, setItem: async (key, value) => disk.set(key, value) }
-      : name === './resource-cache' ? resource : name === './authService' ? { API_URL: 'https://test' } : name === './tokenStorage' ? { onSessionChanged: fn => { changed = fn; } } : name === './demo-mode' ? { syncDemoMode: () => {} }
+      : name === './resource-cache' ? resource : name === './authService' ? { API_URL: 'https://test' } : name === './tokenStorage' ? { onSessionChanged: fn => { changed = fn; } } : name === './demo-mode' ? { syncDemoMode: () => {} } : name === './product-price' ? pricing
       : { request: (url, options) => { const gate = deferred(); calls.push({ url, options, ...gate }); return gate.promise; } },
   });
   return { api: exports, calls, disk, changed: () => changed() };
@@ -27,7 +29,9 @@ for (const section of ['offers', 'top-selling']) test(`${section}: cold cache re
   const pending = cold.api.fetchProductSection(section, 'B');
   const cached = await cold.api.readProductSection(section);
   assert.equal(cached[0]._id, 'p'); assert.equal(cached[0].imageFrame.zoom, 2);
-  for (const key of ['price', 'discountedPrice', 'discount', 'availability']) assert.equal(cached[0][key], undefined);
+  // Disk cache: display metadata plus the public discount percentage for badges; never prices.
+  for (const key of ['price', 'discountedPrice', 'availability']) assert.equal(cached[0][key], undefined);
+  assert.equal(cached[0].discount, 20);
   cold.calls[0].reject(Error('timeout')); await assert.rejects(pending, /timeout/);
   assert.equal((await cold.api.readProductSection(section))[0]._id, 'p');
 });

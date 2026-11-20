@@ -6,6 +6,7 @@ import { reconcileItems } from './resource-cache';
 import { onSessionChanged, onPricingChanged } from './tokenStorage';
 import { syncDemoMode } from './demo-mode';
 import { OFFERS_QUERY } from './offers';
+import { discountPercent } from './product-price';
 
 export type CatalogProduct = {
   _id: string;
@@ -66,9 +67,12 @@ function normalize(data: unknown): CatalogProduct[] {
 
 function publicOnly(products: CatalogProduct[]): CatalogProduct[] {
   // Persist display metadata only. Logged-out customers must never see cached prices.
-  return products.map(({ _id, name, description, image, imageFrame, category, brand }) => ({
-    _id, name, description, image, imageFrame, category, brand,
-  }));
+  // The discount percentage is public catalog metadata (the backend sends it to every visitor and it
+  // is identical for all price classes), so it is kept for badges; no price field is ever kept.
+  return products.map(product => {
+    const { _id, name, description, image, imageFrame, category, brand } = product;
+    return { _id, name, description, image, imageFrame, category, brand, discount: discountPercent(product) };
+  });
 }
 
 export function peekPublicCatalog(): CatalogProduct[] {
@@ -144,10 +148,7 @@ export async function fetchProductSection(section: ProductSection, token: string
     if (!response.ok) throw new Error('Could not load products. Please try again.');
     if (token) syncDemoMode(data);
     const next = normalize(section === 'top-selling' && Array.isArray(data.products) ? data.products.map((item: any) => item?.product) : data.products);
-    // Guests: in-memory only, the offers list keeps the public discount percentage (sent to every
-    // visitor by the backend) so Special Discounts can be classified. Nothing price-related is kept
-    // and disk persistence below still stores display metadata only.
-    const products = reconcileItems(saved?.token === token ? saved.products : undefined, token ? next : publicOnly(next).map((item, i) => ({ ...item, availability: next[i].availability, ...(section === 'offers' ? { discount: next[i].discount } : {}) })));
+    const products = reconcileItems(saved?.token === token ? saved.products : undefined, token ? next : publicOnly(next).map((item, i) => ({ ...item, availability: next[i].availability })));
     if (revision === generation) {
       sectionSnapshots.set(section, { token, products, time: Date.now() });
       sectionProducts.set(section, publicOnly(products));

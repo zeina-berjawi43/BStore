@@ -3,6 +3,8 @@ const fs = require('node:fs'), vm = require('node:vm'), ts = require('typescript
 const source = file => fs.readFileSync('src/' + file, 'utf8');
 const element = (type, props, ...children) => ({ type, props: { ...props, children } });
 // Real (pure) maximum-quantity-per-order helpers, available to extracted screen code like the demo defaults.
+// Real shared pricing helpers (pure): screens read the public discount percentage through discountPercent.
+const pricingHelpers = (() => { const exports = {}; vm.runInNewContext(ts.transpileModule(source('services/product-price.ts'), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText, { exports }); return { discountPercent: exports.discountPercent }; })();
 const quantityLimit = (() => { const exports = {}; vm.runInNewContext(ts.transpileModule(source('services/quantity-limit.ts'), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText, { exports }); return exports; })();
 function fixture(file, name, context = {}) {
   const text = source(file), ast = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -12,7 +14,7 @@ function fixture(file, name, context = {}) {
   const useState = initial => { const i = cursor++; if (!(i in slots)) slots[i] = typeof initial === 'function' ? initial() : initial; return [slots[i], value => { slots[i] = typeof value === 'function' ? value(slots[i]) : value; }]; };
   const exports = {};
   vm.runInNewContext(ts.transpileModule(fn.getText(ast) + '\nexports.fn = ' + name, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.React } }).outputText,
-    { exports, QuantitySelector: "QuantitySelector", React: { createElement: element }, useState, useEffect: fn => fn(), useCallback: fn => fn, useRef: value => { const i = cursor++; return slots[i] ||= { current: value }; }, isDemoMode: () => false, DEMO_PRICE: 'X$', DEMO_ORDER_MESSAGE: 'Demo Mode', ...quantityLimit, ...context });
+    { exports, QuantitySelector: "QuantitySelector", React: { createElement: element }, useState, useEffect: fn => fn(), useCallback: fn => fn, useRef: value => { const i = cursor++; return slots[i] ||= { current: value }; }, isDemoMode: () => false, DEMO_PRICE: 'X$', DEMO_ORDER_MESSAGE: 'Demo Mode', ...quantityLimit, ...pricingHelpers, ...context });
   return props => { cursor = 0; return exports.fn(props); };
 }
 function nodes(tree, predicate) {
@@ -26,7 +28,7 @@ function handler(file, name, context) {
   function walk(node) { if (ts.isVariableDeclaration(node) && node.name.getText(ast) === name) code = node.initializer.getText(ast); ts.forEachChild(node, walk); }
   walk(ast); assert.ok(code, name);
   const exports = {};
-  vm.runInNewContext(ts.transpileModule('exports.fn = ' + code, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, { exports, __DEV__: false, isDemoMode: () => false, DEMO_PRICE: 'X$', DEMO_ORDER_MESSAGE: 'Demo Mode', ...quantityLimit, ...context });
+  vm.runInNewContext(ts.transpileModule('exports.fn = ' + code, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, { exports, __DEV__: false, isDemoMode: () => false, DEMO_PRICE: 'X$', DEMO_ORDER_MESSAGE: 'Demo Mode', ...quantityLimit, ...pricingHelpers, ...context });
   return exports.fn;
 }
 
