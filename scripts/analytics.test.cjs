@@ -120,3 +120,12 @@ for (const platform of ['web', 'android']) test(`${platform}: impressions dedupl
   f.advance(31 * 60000); await f.engine.refreshConfig(); f.engine.track('product_impression', properties); await f.engine.flush();
   assert.equal(f.calls.filter(call => call.url === '/events').flatMap(call => call.body.events).filter(event => event.name === 'product_impression').length, 3);
 });
+test('no customer-facing analytics settings, consent prompt or privacy section is shipped (owner did not request one)', () => {
+  const fs = require('node:fs'), path = require('node:path'), root = path.join(__dirname, '..', 'src');
+  const files = []; (function walk(dir) { for (const e of fs.readdirSync(dir, { withFileTypes: true })) e.isDirectory() ? walk(path.join(dir, e.name)) : /\.(tsx?|jsx?)$/.test(e.name) && files.push(path.join(dir, e.name)); })(root);
+  for (const file of files) {
+    const text = fs.readFileSync(file, 'utf8');
+    assert.doesNotMatch(text, /AnalyticsPreferences|Optional Shopping Analytics|Share optional shopping activity/i, path.relative(root, file));
+    if (/[\/]app[\/]/.test(file)) assert.doesNotMatch(text, /analytics\.setConsent\(/, `${path.relative(root, file)} must not offer a consent control`);
+  }
+});

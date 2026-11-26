@@ -150,16 +150,6 @@ export default function Privacy() {
         <View style={styles.card}>
           <View style={styles.headingRow}>
             <View style={styles.headingAccent} />
-            <Text style={styles.heading}>Optional Shopping Analytics</Text>
-          </View>
-          <Text style={styles.text}>
-            Optional shopping analytics is off unless BStore has enabled an approved notice and you choose to share activity in Settings. If enabled, the notice explains what is measured and the retention period. We do not collect search text, passwords, verification codes, payment details or form contents through analytics, and do not record your screen. You can turn it off and request removal in Settings. Ordering does not require analytics permission.
-          </Text>
-        </View>
-
-        <View style={styles.card}>
-          <View style={styles.headingRow}>
-            <View style={styles.headingAccent} />
             <Text style={styles.heading}>Data Protection</Text>
           </View>
           <Text style={styles.text}>

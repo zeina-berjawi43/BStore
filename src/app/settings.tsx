@@ -1,5 +1,4 @@
 import { goBackOrHome } from '../services/navigation';
-import { AnalyticsPreferences } from '../components/analytics-preferences';
 import {
   View,
   Text,
@@ -88,8 +87,6 @@ export default function Settings() {
 
         </View>
 
-
-        <AnalyticsPreferences />
 
         {/* =================================================
             APP
