@@ -1,5 +1,6 @@
 import { shoppingCardLayout } from '../components/shopping-card-layout';
 import { useActionDialog } from '../components/action-dialog';
+import { useAnalyticsView, useAnalyticsBlock } from '../hooks/use-analytics-view';
 import { useShopping } from '../hooks/use-shopping';
 import { confirmShoppingClear } from '../services/confirm-shopping-clear';
 import { shoppingState } from '../services/shopping-state';
@@ -182,6 +183,7 @@ export default function Cart() {
   // ==========================================================
 
   const cart = shopping.cart as CartItem[];
+  useAnalyticsView('cart_viewed', shopping.ready, { itemCount: cart.length });
 
   // Maximum quantity per order: a saved cart above a newly lowered limit is kept
   // as-is, flagged, and must be reduced by the customer before checkout.
@@ -277,6 +279,7 @@ export default function Cart() {
 
   const canCheckout =
     shopping.ready && cart.length > 0 && delivery.allowed && !checkingOut;
+  useAnalyticsBlock(shopping.cartError ? 'CART_SYNC_FAILED' : !shopping.ready ? null : !cart.length ? 'CART_EMPTY' : !isDemoMode() && !delivery.allowed ? 'MINIMUM_CHECKOUT_NOT_REACHED' : limitIssues.length ? 'QUANTITY_LIMIT_EXCEEDED' : null, 'cart');
 
 
   const remainingAmount =

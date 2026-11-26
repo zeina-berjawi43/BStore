@@ -360,7 +360,7 @@ test('root layout gates restoration, remounts on account changes, protects priva
   const mocks = {
     react: hooks,
     'expo-router': { Stack, router: {}, usePathname: () => '/', useRootNavigationState: () => ({ key: 'root' }), useNavigationContainerRef: () => navigation },
-    'react-native': { Platform: { OS: 'web' }, View: 'View', Text: 'Text', Pressable: 'Pressable', ActivityIndicator: 'ActivityIndicator' },
+    'react-native': { Platform: { OS: 'web' }, AppState: { addEventListener: () => ({ remove() {} }) }, View: 'View', Text: 'Text', Pressable: 'Pressable', ActivityIndicator: 'ActivityIndicator' },
     'react-native-safe-area-context': { SafeAreaView: 'SafeAreaView' },
     '../components/startup-screen': { StartupScreen: 'StartupScreen' },
     '../components/social-head': { SocialHead: 'SocialHead' },
@@ -372,13 +372,14 @@ test('root layout gates restoration, remounts on account changes, protects priva
     '../services/navigation': { orderNotificationState: () => { throw Error('Unexpected order navigation'); } },
     '../services/tokenStorage': tokens, '../services/sessionRoutes': routes,
     '../services/pushService': { installForegroundHandler: () => {}, syncPush: async () => {} },
+    '../services/analytics': { analytics: { initialize: async () => {}, scopeChanged() {}, screen() {} }, analyticsCampaignFromURL() {}, installAnalyticsRequests() {} },
   };
   const exports = {};
   const code = ts.transpileModule(fs.readFileSync(path.resolve(__dirname, '../src/app/_layout.tsx'), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true },
   }).outputText;
   let timerCallback, timerDelay;
-  vm.runInNewContext(code, { exports, setTimeout: (callback, delay) => { timerCallback = callback; timerDelay = delay; return 1; }, clearTimeout: () => {}, require: name => mocks[name] ?? require(name) });
+  vm.runInNewContext(code, { exports, window: { addEventListener() {}, removeEventListener() {} }, document: { addEventListener() {}, removeEventListener() {} }, setInterval: () => 1, clearInterval() {}, setTimeout: (callback, delay) => { timerCallback = callback; timerDelay = delay; return 1; }, clearTimeout: () => {}, require: name => mocks[name] ?? require(name) });
   function render() {
     cursor = 0; effects = [];
     const children = exports.default().props.children;

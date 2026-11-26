@@ -151,7 +151,7 @@ export function CategoryProductsScreen({ category, offersOnly = false, brand }: 
   const columns = Platform.OS === 'web' ? (width >= 1024 ? 4 : width >= 768 ? 3 : 2) : 2;
   const shopping = useShopping();
   const { subCategories, selectedSubCategory, setSelectedSubCategory, loadingProducts,
-    loadingSubCategories, productsError, filteredProducts, isLoggedIn, retry } = useCatalogScreen(undefined, offersOnly || brand ? 'ALL' : category, offersOnly, brand?.id);
+    loadingSubCategories, productsError, filteredProducts, impressions, isLoggedIn, retry } = useCatalogScreen(undefined, offersOnly || brand ? 'ALL' : category, offersOnly, brand?.id);
   const favorites = useMemo(() => new Set(shopping.favorites.map(p => String(p._id || p.id))), [shopping.favorites]);
   const { showAlert, feedback } = shopping;
   /* =======================================================
@@ -308,6 +308,7 @@ export function CategoryProductsScreen({ category, offersOnly = false, brand }: 
           {!!productsError && <Pressable onPress={retry} accessibilityRole="button"><Text style={styles.emptyText}>{productsError} Tap to retry.</Text></Pressable>}
         </View>
       <FlatList testID="catalog-list" style={{ flex: 1 }}
+        {...impressions}
         key={columns}
         data={filteredProducts as Product[]}
         keyExtractor={product => product._id}

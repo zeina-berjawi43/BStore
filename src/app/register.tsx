@@ -11,6 +11,7 @@ import {
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
+import { analytics } from '../services/analytics';
 import { PHONE_NUMBER_LENGTH, phoneNumberError, sanitizePhoneInput } from '../services/phone-number';
 
 import {
@@ -33,6 +34,7 @@ export default function Register() {
 
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const validationError = (message: string) => { analytics.registrationFailed(); setError(message); };
 
   // =========================================================
   // REGISTER
@@ -40,6 +42,7 @@ export default function Register() {
 
   const handleRegister = async () => {
     if (loading) return;
+    analytics.registrationStarted();
 
     setError('');
 
@@ -49,40 +52,40 @@ export default function Register() {
     const cleanAddress = address.trim();
 
     if (!cleanFirstName) {
-      setError('Please enter your first name.');
+      validationError('Please enter your first name.');
       return;
     }
 
     if (!cleanLastName) {
-      setError('Please enter your last name.');
+      validationError('Please enter your last name.');
       return;
     }
 
     const phoneError = phoneNumberError(cleanPhone);
     if (phoneError) {
-      setError(phoneError);
+      validationError(phoneError);
       return;
     }
 
     if (!cleanAddress) {
-      setError('Please enter your address.');
+      validationError('Please enter your address.');
       return;
     }
 
     if (password.length < 8 || password.length > 72) {
-      setError(
+      validationError(
         'Password must contain between 8 and 72 characters.'
       );
       return;
     }
 
     if (!confirmPassword) {
-      setError('Please confirm your password.');
+      validationError('Please confirm your password.');
       return;
     }
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match.');
+      validationError('Passwords do not match.');
       return;
     }
 
@@ -177,6 +180,7 @@ export default function Register() {
             placeholder="First Name"
             placeholderTextColor="#9A9186"
             value={firstName}
+            onFocus={() => analytics.registrationStarted()}
             onChangeText={(text) => {
               setFirstName(text);
               setError('');

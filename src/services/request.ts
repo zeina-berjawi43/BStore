@@ -3,6 +3,9 @@ import { readTokens } from './tokenStorage';
 export class RequestError extends Error {
   constructor(message: string, public status: number) { super(message); }
 }
+type RequestObserver = { prepare(url: string, options: RequestInit): RequestInit; failed(url: string, options: RequestInit, error: unknown): void; responded?(url: string, options: RequestInit, status: number): void };
+let observer: RequestObserver | null = null;
+export function installRequestObserver(value: RequestObserver) { observer = value; }
 
 // Bound network waits without retrying mutations such as checkout.
 export async function request(
@@ -10,6 +13,8 @@ export async function request(
   options: RequestInit = {},
   timeoutMs = 30000
 ): Promise<Response> {
+  // Instrumentation cannot change request success/failure or delay mutations.
+  try { options = observer?.prepare(url, options) || options; } catch { /* Fail open. */ }
   const headers = options.headers as Record<string, string> | undefined;
   const authenticated = !!(headers?.Authorization || headers?.authorization);
   const credentials = authenticated ? await readTokens() : null;
@@ -51,6 +56,7 @@ export async function request(
         });
         const data = await Promise.race([json(), deadline]);
         await verifySession();
+        try { observer?.responded?.(url, options, response.status); } catch { /* Fail open. */ }
         return data;
       } finally {
         clearTimeout(bodyTimer);
@@ -59,6 +65,7 @@ export async function request(
     };
     return response;
   } catch (error) {
+    try { observer?.failed(url, options, error); } catch { /* Fail open. */ }
     // Native fetch can expose Java DNS exceptions directly to every screen.
     // Keep the request failed and leave credentials intact; a user can retry
     // after connectivity recovers without automatically repeating a write.

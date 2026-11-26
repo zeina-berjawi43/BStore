@@ -11,7 +11,7 @@ const flush = async () => { for (let i = 0; i < 12; i++) await Promise.resolve()
 function execute(code, context = {}) {
   const exports = {};
   vm.runInNewContext(ts.transpileModule(code, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText,
-    { exports, console, __DEV__: false, isDemoMode: () => false, DEMO_PRICE: 'X$', DEMO_ORDER_MESSAGE: 'Demo Mode', ...context });
+    { exports, console, useProductExposure: () => ({ current: null }), __DEV__: false, isDemoMode: () => false, DEMO_PRICE: 'X$', DEMO_ORDER_MESSAGE: 'Demo Mode', ...context });
   return exports;
 }
 function handler(file, name, context) {

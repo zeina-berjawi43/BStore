@@ -14,7 +14,7 @@ function fixture(file, name, context = {}) {
   const useState = initial => { const i = cursor++; if (!(i in slots)) slots[i] = typeof initial === 'function' ? initial() : initial; return [slots[i], value => { slots[i] = typeof value === 'function' ? value(slots[i]) : value; }]; };
   const exports = {};
   vm.runInNewContext(ts.transpileModule(fn.getText(ast) + '\nexports.fn = ' + name, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.React } }).outputText,
-    { exports, QuantitySelector: "QuantitySelector", React: { createElement: element }, useState, useEffect: fn => fn(), useCallback: fn => fn, useRef: value => { const i = cursor++; return slots[i] ||= { current: value }; }, isDemoMode: () => false, DEMO_PRICE: 'X$', DEMO_ORDER_MESSAGE: 'Demo Mode', ...quantityLimit, ...pricingHelpers, ...context });
+    { exports, QuantitySelector: "QuantitySelector", React: { createElement: element }, useState, useEffect: fn => fn(), useCallback: fn => fn, useRef: value => { const i = cursor++; return slots[i] ||= { current: value }; }, useProductExposure: () => ({ current: null }), useAnalyticsView() {}, useAnalyticsBlock() {}, isDemoMode: () => false, DEMO_PRICE: 'X$', DEMO_ORDER_MESSAGE: 'Demo Mode', ...quantityLimit, ...pricingHelpers, ...context });
   return props => { cursor = 0; return exports.fn(props); };
 }
 function nodes(tree, predicate) {

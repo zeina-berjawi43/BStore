@@ -4,7 +4,7 @@ const source = name => fs.readFileSync(path.join(__dirname, '../src', name), 'ut
 function execute(code, context = {}) {
   const exports = {};
   vm.runInNewContext(ts.transpileModule(code, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText,
-    { exports, Error, __DEV__: false, ...context });
+    { exports, Error, analytics: { registrationStarted() {}, registrationFailed() {} }, __DEV__: false, ...context });
   return exports;
 }
 const phone = execute(source('services/phone-number.ts'));
@@ -13,7 +13,7 @@ function handler(file, name, context) {
   const tree = ast(file); let expression;
   const walk = node => { if (ts.isVariableDeclaration(node) && node.name.getText(tree) === name) expression = node.initializer.getText(tree); ts.forEachChild(node, walk); };
   walk(tree); assert.ok(expression, 'Expected production handler');
-  return execute('exports.run = ' + expression, { ...phone, ...context }).run;
+  return execute('exports.run = ' + expression, { ...phone, validationError: message => context.setError(message), ...context }).run;
 }
 const invalid = ['', '1', '1234567', '123456789', '12ab5678', '1234+678', '1234 678', ' 12345678 ', '١٢٣٤٥٦٧٨', '１２３４５６７８', '12345678\n'];
 

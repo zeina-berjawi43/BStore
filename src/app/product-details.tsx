@@ -1,5 +1,7 @@
 import { QuantitySelector } from '../components/quantity-selector';
 import { readPublicCatalog, peekCurrentProduct } from '../services/catalogService';
+import { useAnalyticsView } from '../hooks/use-analytics-view';
+import { analytics } from '../services/analytics';
 import { getSessionSnapshot, onPricingChanged } from '../services/tokenStorage';
 import { useShopping } from '../hooks/use-shopping';
 
@@ -335,6 +337,8 @@ export default function ProductDetails() {
     productLoaded,
     setProductLoaded,
   ] = useState(false);
+
+  useAnalyticsView('product_viewed', !!product && !!productId && product._id === productId, { productId: productId || '', ...analytics.priceProperties(product?.price == null ? undefined : getFinalPrice(product)) });
 
 
   const [

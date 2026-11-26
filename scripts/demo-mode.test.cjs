@@ -27,7 +27,7 @@ function component(file, name, context) {
   const useState = initial => { const i = cursor++; if (!(i in slots)) slots[i] = typeof initial === 'function' ? initial() : initial; return [slots[i], () => {}]; };
   const exports = {};
   vm.runInNewContext(transpile(fn.getText(ast) + '\nexports.fn = ' + name), { exports, React: { createElement: element }, useState, useEffect: () => {}, useCallback: fn => fn,
-    useRef: value => { const i = cursor++; return slots[i] ||= { current: value }; }, ...quantityLimit, ...context });
+    useRef: value => { const i = cursor++; return slots[i] ||= { current: value }; }, useAnalyticsView() {}, useAnalyticsBlock() {}, ...quantityLimit, ...context });
   return props => { cursor = 0; return exports.fn(props); };
 }
 const nodes = (tree, predicate) => !tree || typeof tree !== 'object' ? [] : Array.isArray(tree) ? tree.flatMap(child => nodes(child, predicate))

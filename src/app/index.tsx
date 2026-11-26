@@ -5,6 +5,9 @@ import { openProtected } from '../services/login-intent';
 import { useWebPullRefresh } from '../hooks/use-web-pull-refresh';
 import { getSessionSnapshot, onPricingChanged } from '../services/tokenStorage';
 import { useShopping } from '../hooks/use-shopping';
+import { useAnalyticsView } from '../hooks/use-analytics-view';
+import { useProductExposure } from '../hooks/use-product-exposure';
+import type { ReactNode, RefObject } from 'react';
 
 
 import { AddToCartButton } from '../components/add-to-cart-button';
@@ -150,6 +153,7 @@ export default function Index() {
     useState<TopSellingProduct[]>([]);
   const [offerProducts, setOfferProducts] =
     useState<OfferProduct[]>([]);
+  useAnalyticsView('product_list_viewed', !initialLoading && products.length + topSellingProducts.length + offerProducts.length > 0, { screen: 'index', itemCount: products.length + topSellingProducts.length + offerProducts.length });
 
   const [activeOfferIndex, setActiveOfferIndex] =
     useState<number>(0);
@@ -852,7 +856,7 @@ export default function Index() {
           <View style={styles.offerShowcase}>
             <PagedCarousel items={offerProducts} itemKey={offer => offer.id} height={184}
               onIndexChange={setActiveOfferIndex} renderItem={activeOffer => (
-            <Pressable
+            <OfferExposure product={activeOffer} active={activeOffer.id === offerProducts[activeOfferIndex]?.id}>{ref => <Pressable ref={ref}
               style={
                 styles.offerShowcasePressable
               }
@@ -1000,7 +1004,7 @@ export default function Index() {
                   />
                 </Pressable></QuantitySelector>
               </View>
-            </Pressable>
+            </Pressable>}</OfferExposure>
               )} />
           <OfferShine />
           </View>
@@ -1294,6 +1298,11 @@ function StartupLoading() {
   );
 }
 
+function OfferExposure({ product, active, children }: { product: OfferProduct; active: boolean; children: (ref: RefObject<View | null>) => ReactNode }) {
+  const ref = useProductExposure(product, 'index', active);
+  return children(ref);
+}
+
 function TopSellingProductRow({
   pending = false,
   product,
@@ -1311,6 +1320,7 @@ function TopSellingProductRow({
   onAddToCart: () => void; onAdjust: (delta: number) => void;
   pending?: boolean;
 }) {
+  const exposure = useProductExposure(product, 'index');
   const finalPrice = getFinalPrice(product);
   const onSale = product.price !== undefined && finalPrice < Number(product.price);
   const [appear] = useState(() => new Animated.Value(0));
@@ -1371,6 +1381,7 @@ function TopSellingProductRow({
       ]}
     >
       <Pressable testID="home-product-card"
+        ref={exposure}
         style={
           styles.topSellingCard
         }
@@ -1487,6 +1498,7 @@ function RecentProduct({
   onPress: () => void;
   onFavorite: () => void;
 }) {
+  const exposure = useProductExposure(product, 'index');
   const [appear] = useState(() => new Animated.Value(0));
 
   const [scale] = useState(() => new Animated.Value(1));
@@ -1536,7 +1548,7 @@ function RecentProduct({
         },
       ]}
     >
-      <Pressable
+      <Pressable ref={exposure}
         onPress={onPress}
         onPressIn={pressIn}
         onPressOut={pressOut}

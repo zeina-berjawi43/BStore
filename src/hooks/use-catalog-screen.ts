@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useAnalyticsView } from './use-analytics-view';
+import { useProductImpressions } from './use-product-impressions';
 import { AppState, Platform } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { API_URL, getValidAccessToken } from '../services/authService';
@@ -101,6 +103,10 @@ export function useCatalogScreen(departmentId?: string, legacyName?: string, off
     ? subCategories.filter(item => typeof item.department === 'object' && item.department?.name?.toLowerCase().trim() === legacyName.toLowerCase().trim())
     : subCategories, [subCategories, legacyName, scopedTabs, scoped, offersOnly]);
   const filteredProducts = useMemo(() => offersOnly ? selectOffers(scoped, selectedSubCategory) : selectCatalog(scoped, visibleCategories, selectedSubCategory, scopedTabs || (!departmentId && legacyName?.toUpperCase() === 'ALL')), [scoped, visibleCategories, selectedSubCategory, departmentId, legacyName, scopedTabs, offersOnly]);
+  const screen = offersOnly ? 'offers' : brandId ? 'brand-products' : departmentId ? 'department-categories' : 'category-products';
+  const impressions = useProductImpressions(screen);
+  useAnalyticsView('product_list_viewed', filteredProducts.length > 0, { screen, itemCount: filteredProducts.length,
+    ...(brandId ? { brandId } : {}), ...(departmentId ? { departmentId } : {}), ...(selectedSubCategory !== 'ALL' && !offersOnly ? { categoryId: selectedSubCategory } : {}) });
   return { products, subCategories: visibleCategories, selectedSubCategory, setSelectedSubCategory, loadingProducts, loadingSubCategories,
-    productsError, filteredProducts, isLoggedIn: session.authenticated, retry: () => { void refreshRef.current(true); } };
+    productsError, filteredProducts, impressions, isLoggedIn: session.authenticated, retry: () => { void refreshRef.current(true); } };
 }

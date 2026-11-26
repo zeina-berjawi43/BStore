@@ -54,6 +54,7 @@ google-services.json
 # Local navigation verification artifacts
 .navigation-check/
 .comprehensive-audit/
+.analytics-check/
 
 # Local Android signing credentials
 /credentials.json

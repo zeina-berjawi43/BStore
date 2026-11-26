@@ -1,4 +1,5 @@
 import { useActionDialog } from '../components/action-dialog';
+import { useAnalyticsView, useAnalyticsBlock } from '../hooks/use-analytics-view';
 import { ProductImage } from '../components/product-image';
 import { ImageFrame } from '../services/image-frame';
 import { request } from '../services/request';
@@ -475,6 +476,8 @@ export default function Checkout() {
   // DEMO: no amounts exist client-side; every amount renders as the X$ placeholder.
   const delivery = deliverySummary(totalPrice, demo ? undefined : deliveryRules, demo ? 0 : minimumOrder);
   const money = (amount: number) => demo ? DEMO_PRICE : `$${amount.toFixed(2)}`;
+  useAnalyticsView('checkout_started', !loading && !!user && cart.length > 0, { itemCount: cart.length });
+  useAnalyticsBlock(loading ? null : demo ? 'DEMO_ACCOUNT' : !user ? 'AUTH_REQUIRED' : !displayName || !user.phone?.trim() || !user.address?.trim() ? 'PROFILE_INCOMPLETE' : !cart.length ? 'CART_EMPTY' : !delivery.allowed ? 'MINIMUM_CHECKOUT_NOT_REACHED' : cartQuantityLimitIssues(cart).length ? 'QUANTITY_LIMIT_EXCEEDED' : null, 'checkout');
 
 
   const formattedTotal =

@@ -29,7 +29,7 @@ function fixture() {
     useMemo: fn => fn(), useCallback: fn => fn, useSyncExternalStore: (_subscribe, snapshot) => snapshot(),
     useEffect(fn, deps) { const i = cursor++; if (!slots[i] || deps.some((v, j) => v !== slots[i].deps[j])) { slots[i]?.cleanup?.(); slots[i] = { deps, cleanup: fn() }; effects.push(slots[i]); } },
   };
-  const hook = load('hooks/use-catalog-screen.ts', { react, 'react-native': { Platform: { OS: 'android' }, AppState: { currentState: 'active', addEventListener: () => ({ remove() {} }) } },
+  const hook = load('hooks/use-catalog-screen.ts', { react, './use-analytics-view': { useAnalyticsView() {} }, './use-product-impressions': { useProductImpressions: () => ({}) }, 'react-native': { Platform: { OS: 'android' }, AppState: { currentState: 'active', addEventListener: () => ({ remove() {} }) } },
     'expo-router': { useFocusEffect: fn => { focus = fn; } }, '../services/authService': auth, '../services/tokenStorage': tokens,
     '../services/catalogService': catalog, '../services/request': { request }, '../services/resource-cache': resources,
     '../services/product-price': load('services/product-price.ts'), '../services/offers': offers });

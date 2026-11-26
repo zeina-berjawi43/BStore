@@ -1,4 +1,5 @@
 import * as Linking from 'expo-linking';
+import { analytics, analyticsCampaignFromURL, installAnalyticsRequests } from '../services/analytics';
 import { StatusBar } from 'expo-status-bar';
 import { Stack, router, useNavigationContainerRef, useRootNavigationState, usePathname } from 'expo-router';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
@@ -18,6 +19,7 @@ import { cleanSessionNavigationState, guestRoutes, privateRoutes, publicRoutes }
 export const unstable_settings = { initialRouteName: 'index' };
 
 installForegroundHandler();
+installAnalyticsRequests();
 // Hold the centered logo briefly, then reveal the ready React loading screen.
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 const splashStartedAt = Date.now();
@@ -33,6 +35,7 @@ export default function RootLayout() {
     let active = true;
     void Linking.getInitialURL().then(url => {
       if (!active || !url) return;
+      analyticsCampaignFromURL(url);
       const link = Linking.parse(url);
       const orderId = link.queryParams?.orderId;
       // Custom-scheme links such as bstore://order-details use the hostname.
@@ -46,6 +49,24 @@ export default function RootLayout() {
   }, []);
   const fullWindow = pathname === '/' || pathname === '/loading';
   const session = useSyncExternalStore(subscribeSession, getSessionSnapshot, getSessionSnapshot);
+  useEffect(() => {
+    if (!session.ready) return;
+    void analytics.initialize().catch(() => {});
+    const unsubscribe = onSessionChanged(() => analytics.scopeChanged());
+    const tick = setInterval(() => { if (AppState.currentState === 'active' && (Platform.OS !== 'web' || document.visibilityState === 'visible')) void analytics.flush(); }, 15000);
+    const foreground = AppState.addEventListener('change', state => {
+      if (state === 'active') void analytics.refreshConfig().then(() => analytics.flush()).catch(() => {});
+      else void analytics.flush();
+    });
+    const visibility = () => { if (document.visibilityState === 'visible') void analytics.refreshConfig().then(() => analytics.flush()).catch(() => {}); };
+    const preference = (event: StorageEvent) => { if (event.key === 'bstore.analytics.preference.v1' || event.key === null) void analytics.reloadPreference().catch(() => {}); };
+    if (Platform.OS === 'web') { document.addEventListener('visibilitychange', visibility); window.addEventListener('storage', preference); }
+    return () => { unsubscribe(); clearInterval(tick); foreground.remove(); if (Platform.OS === 'web') { document.removeEventListener('visibilitychange', visibility); window.removeEventListener('storage', preference); } };
+  }, [session.ready]);
+  useEffect(() => {
+    if (!session.ready) return;
+    analytics.screen(pathname === '/' ? 'index' : pathname.replace(/^\//, ''));
+  }, [pathname, session.ready, session.revision]);
   const [restoreError, setRestoreError] = useState(false);
   const [startupPainted, setStartupPainted] = useState(false);
   const [startupArtworkReady, setStartupArtworkReady] = useState(false);

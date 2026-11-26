@@ -16,6 +16,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { API_URL, getValidAccessToken } from '../services/authService';
 import { CatalogProduct, fetchCatalog, peekCurrentCatalog, readPublicCatalog } from '../services/catalogService';
+import { analytics } from '../services/analytics';
+import { useProductImpressions } from '../hooks/use-product-impressions';
 
 
 const label = (value?: CatalogProduct['category']) => typeof value === 'string' ? value : value?.name || '';
@@ -27,6 +29,7 @@ const imageUrl = (value?: string) => {
 };
 
 export default function Search() {
+  const impressions = useProductImpressions('search');
   const shopping = useShopping();
   const [searchText, setSearchText] = useState('');
   const query = useDeferredValue(searchText.trim().toLowerCase());
@@ -83,6 +86,17 @@ export default function Search() {
   const results = useMemo(() => !query ? [] : products.filter(product =>
     `${product.name} ${label(product.category)} ${label(product.brand)}`.toLowerCase().includes(query)
   ), [products, query]);
+  const searchFocused = useRef(false), lastTrackedSearch = useRef('');
+  useFocusEffect(useCallback(() => { searchFocused.current = true; lastTrackedSearch.current = ''; return () => { searchFocused.current = false; }; }, []));
+  useEffect(() => {
+    if (!query || loading || error || !searchFocused.current || query === lastTrackedSearch.current) return;
+    const timer = setTimeout(() => {
+      if (!searchFocused.current) return;
+      lastTrackedSearch.current = query;
+      analytics.track('search_performed', { actionId: analytics.newId(), queryLengthBucket: query.length <= 3 ? '1-3' : query.length <= 10 ? '4-10' : '11+', resultCountBucket: results.length === 0 ? '0' : results.length <= 5 ? '1-5' : results.length <= 20 ? '6-20' : '21+' });
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [query, results.length, loading, error]);
 
   const changeProduct = (product: CatalogProduct, action: 'cart' | 'favorite') => {
     if (action === 'cart' && getSessionSnapshot().authenticated && product.price === undefined && !isDemoMode()) {
@@ -119,6 +133,7 @@ export default function Search() {
 
       </View>}
       <FlatList
+        {...impressions}
         data={results} keyExtractor={item => item._id} numColumns={2}
         contentContainerStyle={styles.list} columnWrapperStyle={styles.row}
         keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" showsVerticalScrollIndicator={false}

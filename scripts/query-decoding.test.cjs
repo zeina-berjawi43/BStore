@@ -15,5 +15,14 @@ test('malformed deep-link escapes cannot crash query parsing', () => {
 test('query decoder resolves the patched release through the real installed parser', () => {
   const path = require('node:path'), fs = require('node:fs');
   const decoder = require.resolve('decode-uri-component', { paths: [path.dirname(require.resolve('query-string'))] });
-  assert.equal(JSON.parse(fs.readFileSync(path.join(path.dirname(decoder), 'package.json'), 'utf8')).version, '0.5.0');
+  assert.equal(JSON.parse(fs.readFileSync(path.join(path.dirname(decoder), 'package.json'), 'utf8')).version, '0.5.1');
+});
+
+test('many distinct malformed percent runs decode within a bounded time', () => {
+  const { performance } = require('node:perf_hooks');
+  let payload = '';
+  for (let i = 0; i < 32000; i++) payload += '%' + Math.floor(i / 256).toString(16).padStart(2, '0') + '%' + (i % 256).toString(16).padStart(2, '0') + 'x';
+  const start = performance.now();
+  assert.equal(typeof query.parse('value=' + payload + '%zz').value, 'string');
+  assert.ok(performance.now() - start < 5000, 'Malformed input must not cause quadratic decoder work');
 });
