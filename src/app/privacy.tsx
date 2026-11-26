@@ -150,6 +150,28 @@ export default function Privacy() {
         <View style={styles.card}>
           <View style={styles.headingRow}>
             <View style={styles.headingAccent} />
+            <Text style={styles.heading}>Shopping Analytics</Text>
+          </View>
+          <Text style={styles.text}>
+            BStore records how its own website is used, such as which products
+            are shown and viewed, items added to or removed from the cart,
+            checkout steps and errors, and registration steps, together with
+            your account and customer class when you are signed in. We use this
+            only within BStore, based on our legitimate interest in
+            understanding product demand and improving our products, prices
+            and shopping experience. Management sees aggregated statistics, not
+            individual browsing histories. We do not collect search text,
+            passwords, verification codes, addresses or payment details for
+            analytics, we do not use third-party advertising trackers, and we
+            do not share this data. Detailed analytics records are deleted
+            automatically after 90 days. You may object to this processing or
+            ask us to delete your analytics data by contacting us.
+          </Text>
+        </View>
+
+        <View style={styles.card}>
+          <View style={styles.headingRow}>
+            <View style={styles.headingAccent} />
             <Text style={styles.heading}>Data Protection</Text>
           </View>
           <Text style={styles.text}>

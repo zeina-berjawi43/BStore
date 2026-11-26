@@ -129,3 +129,24 @@ test('no customer-facing analytics settings, consent prompt or privacy section i
     if (/[\/]app[\/]/.test(file)) assert.doesNotMatch(text, /analytics\.setConsent\(/, `${path.relative(root, file)} must not offer a consent control`);
   }
 });
+for (const platform of ['web', 'android']) test(`${platform}: server-declared notice basis collects without any device choice, still bounded and sanitized`, async () => {
+  const f = fixture(platform); f.config.basis = 'notice'; await f.engine.initialize(); await settle();
+  assert.equal(f.calls.filter(call => call.url === '/consent').length, 1, 'receipt obtained automatically under notice basis');
+  assert.equal(f.storage.has('bstore.analytics.preference.v1'), false, 'no device preference is created');
+  f.engine.track('search_performed', { query: 'private text' }); f.engine.screen('index');
+  await f.engine.flush(); const sent = f.calls.find(call => call.url === '/events');
+  assert.ok(sent && sent.body.events.some(event => event.name === 'screen_viewed'));
+  assert.equal(JSON.stringify(f.calls).includes('private text'), false);
+  await f.engine.reloadPreference(); await settle();
+  assert.equal(f.calls.filter(call => call.url === '/withdraw').length, 0, 'cleared browser storage is not treated as a withdrawal');
+});
+test('notice basis never collects while the server reports collection disabled', async () => {
+  const f = fixture(); f.config.basis = 'notice'; f.setEnabled(false); await f.engine.initialize(); await settle();
+  f.engine.screen('index'); await f.engine.flush();
+  assert.equal(f.calls.filter(call => ['/consent', '/events'].includes(call.url)).length, 0);
+  assert.equal(f.engine.context(), undefined);
+});
+test('consent basis (default) still requires an explicit choice and sends nothing without it', async () => {
+  const f = fixture(); await f.engine.initialize(); await settle(); f.engine.screen('index'); await f.engine.flush();
+  assert.equal(f.calls.filter(call => ['/consent', '/events'].includes(call.url)).length, 0);
+});

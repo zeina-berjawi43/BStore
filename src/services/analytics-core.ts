@@ -1,5 +1,5 @@
 // Platform-independent, explicit collection. No credentials, form values or query text enter this module.
-export type AnalyticsConfig = { enabled: boolean; policyVersion: string | null; retentionDays: number | null; campaignIds: string[]; notice: string | null; priceEvidenceEnabled?: boolean };
+export type AnalyticsConfig = { enabled: boolean; policyVersion: string | null; retentionDays: number | null; campaignIds: string[]; notice: string | null; priceEvidenceEnabled?: boolean; basis?: 'consent' | 'notice' };
 export type Receipt = { consentToken: string; validUntil: string; policyVersion: string };
 export type AnalyticsEventName = 'session_started' | 'screen_viewed' | 'product_list_viewed' | 'product_impression' | 'product_viewed' | 'search_performed' | 'registration_started' | 'registration_failed' | 'cart_viewed' | 'checkout_started' | 'checkout_blocked' | 'checkout_submitted' | 'checkout_failed';
 type Properties = Record<string, string | number>;
@@ -28,13 +28,15 @@ export function createAnalytics(deps: Dependencies) {
   let storageWrites: Promise<unknown> = Promise.resolve();
   let initializing: Promise<void> | null = null;
   const listeners = new Set<() => void>(), requests = new Set<AbortController>();
+  // Notice basis (owner-approved legitimate interest + Privacy disclosure): the server declares it; no device choice is required.
+  const accepted = () => config.enabled && !!config.policyVersion && (config.basis === 'notice' || acceptedVersion === config.policyVersion);
   let snapshot = { config, accepted: false, ready: false, withdrawalPending: false };
   const publish = () => {
-    snapshot = { config, accepted: acceptedVersion !== null && acceptedVersion === config.policyVersion, ready: initialized, withdrawalPending: snapshot.withdrawalPending };
+    snapshot = { config, accepted: accepted(), ready: initialized, withdrawalPending: snapshot.withdrawalPending };
     listeners.forEach(listener => listener());
   };
   const permitted = () => initialized && config.enabled && configAt + 300000 > deps.now() && !!receipt && Date.parse(receipt.validUntil) > deps.now()
-    && acceptedVersion === config.policyVersion && owner === deps.scope().key && deps.scope().ready;
+    && accepted() && owner === deps.scope().key && deps.scope().ready;
   const persist = () => {
     const epoch = generation;
     const value = JSON.stringify({ owner, receipt, events, sessionId, lastActivity, registrationId, flowId });
@@ -84,7 +86,7 @@ export function createAnalytics(deps: Dependencies) {
       configAt = deps.now();
     } catch { if (epoch !== generation) return; config = OFF; }
     if (epoch !== generation) return;
-    if (!config.enabled || acceptedVersion !== config.policyVersion) clear(true);
+    if (!accepted()) clear(true);
     publish();
   }
   async function processWithdrawals() {
@@ -105,7 +107,7 @@ export function createAnalytics(deps: Dependencies) {
     } catch { snapshot.withdrawalPending = true; publish(); }
   }
   async function grant() {
-    if (!config.enabled || acceptedVersion !== config.policyVersion || !deps.scope().ready) return;
+    if (!accepted() || !deps.scope().ready) return;
     const response = await call('/consent', { accepted: true, policyVersion: config.policyVersion,
       ...(campaignId && config.campaignIds.includes(campaignId) ? { campaignId } : {}) });
     if (response.status !== 200) throw new Error('Analytics permission unavailable');
@@ -134,7 +136,7 @@ export function createAnalytics(deps: Dependencies) {
         if (epoch !== generation) return;
         await processWithdrawals();
         if (epoch !== generation) return;
-        if (!snapshot.withdrawalPending && config.enabled && acceptedVersion === config.policyVersion && (!receipt || Date.parse(receipt.validUntil) <= deps.now())) { events = []; await grant(); }
+        if (!snapshot.withdrawalPending && accepted() && (!receipt || Date.parse(receipt.validUntil) <= deps.now())) { events = []; await grant(); }
       } catch { if (epoch !== generation) return; config = OFF; clear(true); initialized = true; }
       if (epoch === generation) publish();
     })();
@@ -164,6 +166,7 @@ export function createAnalytics(deps: Dependencies) {
     }
   }
   async function reloadPreference() {
+    if (config.basis === 'notice') return; // Cleared browser storage is not a withdrawal request under the notice basis.
     try {
       const saved = JSON.parse(await deps.storage.getItem(PREF) || 'null');
       if (!saved?.acceptedVersion) await setConsent(false);
@@ -188,7 +191,7 @@ export function createAnalytics(deps: Dependencies) {
     try {
       if (!initialized) await initialize();
       if (configAt + 240000 < deps.now()) await refreshConfig();
-      if (config.enabled && acceptedVersion === config.policyVersion && (!receipt || Date.parse(receipt.validUntil) <= deps.now())) { events = []; await grant(); }
+      if (accepted() && (!receipt || Date.parse(receipt.validUntil) <= deps.now())) { events = []; await grant(); }
       if (!permitted()) return;
       const batch = events.filter(event => Date.parse(event.at) >= deps.now() - 86400000).slice(0, 20);
       if (!batch.length) return;
